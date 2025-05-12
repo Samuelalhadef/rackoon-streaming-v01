@@ -1,0 +1,44 @@
+{
+  "name": "rackoon_streaming",
+  "version": "1.0.0",
+  "description": "Application pour rechercher les films sur votre ordinateur",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "author": "Votre Nom",
+  "license": "MIT",
+  "build": {
+    "appId": "com.votredomaine.filmfinder",
+    "productName": "Film Finder",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "public/img/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "fluent-ffmpeg": "^2.1.2",
+    "fs-extra": "^11.2.0",
+    "glob": "^10.3.10",
+    "sqlite3": "^5.1.7",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "devDependencies": {
+    "electron": "^29.0.1",
+    "electron-builder": "^24.9.1"
+  }
+}
