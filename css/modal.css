@@ -1,0 +1,600 @@
+/* modal.css - Style pour la modal de présentation des films */
+
+/* Overlay - Fond semi-transparent derrière la modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Container de la modal */
+.movie-modal {
+  background: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
+  width: 95%;
+  max-width: 900px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  display: flex;
+  position: relative;
+  transform: translateY(30px);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.4s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-overlay.active .movie-modal {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Bouton de fermeture */
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+/* Layout de la modal en deux colonnes */
+.modal-poster {
+  flex: 0 0 280px;
+  background-color: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  position: relative;
+}
+
+.modal-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.modal-poster:hover img {
+  transform: scale(1.05);
+}
+
+.modal-content {
+  flex: 1;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* En-tête avec titre et année */
+.modal-header {
+  margin-bottom: 15px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.movie-year {
+  font-size: 20px;
+  color: #a0a0a0;
+  margin-left: 10px;
+  font-weight: normal;
+}
+
+.edit-button {
+  margin-left: 15px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #3474db;
+  font-size: 20px;
+  transition: all 0.2s;
+}
+
+.edit-button:hover {
+  transform: scale(1.1);
+  color: #5d90e6;
+}
+
+/* Métadonnées du film */
+.movie-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+  font-size: 15px;
+  color: #c0c0c0;
+}
+
+.release-date, .duration {
+  display: flex;
+  align-items: center;
+}
+
+.release-date::before {
+  content: '\f073';
+  font-family: 'Font Awesome 5 Free';
+  margin-right: 6px;
+  color: #3474db;
+}
+
+.duration::before {
+  content: '\f017';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 400;
+  margin-right: 6px;
+  color: #3474db;
+}
+
+/* Genres */
+.genres-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.genre-tag {
+  background-color: rgba(52, 116, 219, 0.2);
+  color: #ffffff;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: default;
+  transition: all 0.2s;
+  border: 1px solid rgba(52, 116, 219, 0.3);
+}
+
+.genre-tag:hover {
+  background-color: rgba(52, 116, 219, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Synopsis */
+.synopsis-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #e0e0e0;
+}
+
+.synopsis-content {
+  color: #c0c0c0;
+  line-height: 1.6;
+  margin-bottom: 25px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.synopsis-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.synopsis-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.synopsis-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* Système de notation par étoiles */
+.rating-section {
+  margin-bottom: 20px;
+}
+
+.modal-stars {
+  display: flex;
+  gap: 8px;
+}
+
+.modal-star {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.3s;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+}
+
+.modal-star.filled {
+  color: #f1c40f;
+  filter: drop-shadow(0 0 3px rgba(241, 196, 15, 0.5));
+}
+
+.modal-star:hover,
+.modal-star.hover {
+  color: #f1c40f;
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 5px rgba(241, 196, 15, 0.7));
+}
+
+/* Animation pour les étoiles */
+.movie-modal .modal-star {
+  animation: twinkleStar 1.5s infinite alternate;
+  animation-delay: calc(var(--star-index, 0) * 0.1s);
+}
+
+@keyframes twinkleStar {
+  0% { opacity: 0.8; filter: drop-shadow(0 0 2px rgba(241, 196, 15, 0.3)); }
+  100% { opacity: 1; filter: drop-shadow(0 0 5px rgba(241, 196, 15, 0.5)); }
+}
+
+/* Boutons d'action */
+.modal-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btn-watch-film {
+  background-color: #3474db;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.btn-watch-film:hover {
+  background-color: #2a5db3;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-watch-film::before {
+  content: '\f144';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 400;
+}
+
+.btn-watch-toggle-modal {
+  background-color: white;
+  color: #06183F;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-watch-toggle-modal:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.btn-watch-toggle-modal.watched {
+  background-color: #27ae60;
+  color: white;
+}
+
+/* Animation d'entrée */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .movie-modal {
+    flex-direction: column;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .modal-poster {
+    flex: 0 0 auto;
+    height: 300px;
+  }
+  
+  .modal-content {
+    padding: 20px;
+  }
+  
+  .modal-title {
+    font-size: 24px;
+  }
+  
+  .movie-year {
+    font-size: 16px;
+  }
+  
+  .movie-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Mode édition */
+.edit-mode {
+  background: rgba(8, 16, 41, 0.97);
+}
+
+.edit-mode .modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.edit-mode .edit-section {
+  margin-bottom: 20px;
+}
+
+.edit-mode .edit-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3474db;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edit-mode .edit-field {
+  margin-bottom: 15px;
+}
+
+.edit-mode input[type="text"],
+.edit-mode input[type="date"],
+.edit-mode textarea,
+.edit-mode select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 15px;
+  width: 100%;
+}
+
+.edit-mode input[type="text"]:focus,
+.edit-mode input[type="date"]:focus,
+.edit-mode textarea:focus,
+.edit-mode select:focus {
+  outline: none;
+  border-color: #3474db;
+}
+
+.edit-mode textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Genres en mode édition */
+.edit-mode .genres-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.edit-mode .genre-chip {
+  display: flex;
+  align-items: center;
+  background-color: rgba(52, 116, 219, 0.2);
+  color: #ffffff;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(52, 116, 219, 0.3);
+}
+
+.edit-mode .genre-chip .remove-genre {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-mode .genre-chip .remove-genre:hover {
+  color: white;
+}
+
+.edit-mode .add-genre-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.edit-mode .add-genre-input {
+  flex: 1;
+}
+
+.edit-mode .add-genre-btn {
+  background-color: #3474db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.edit-mode .add-genre-btn:hover {
+  background-color: #2a5db3;
+}
+
+/* Sélection d'image */
+.edit-mode .image-upload-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2/3;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 15px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+.edit-mode .image-upload-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.edit-mode .image-upload-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+}
+
+.edit-mode .image-upload-btn {
+  background-color: #3474db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.edit-mode .image-upload-btn:hover {
+  background-color: #2a5db3;
+}
+
+/* Bouton pour rechercher sur TMDB */
+.edit-mode .tmdb-search-btn {
+  background-color: #01d277; /* Couleur TMDB */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  transition: all 0.2s;
+}
+
+.edit-mode .tmdb-search-btn:hover {
+  background-color: #00b568;
+}
+
+.edit-mode .tmdb-search-btn i {
+  font-size: 16px;
+}
+
+/* Bouton pour sortir du mode édition */
+.edit-mode .exit-edit-mode {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 20px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.edit-mode .exit-edit-mode:hover {
+  background-color: #c0392b;
+}
+
+/* Style pour les select/dropdowns des genres prédéfinis */
+.edit-mode .genre-dropdown {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  width: auto;
+  min-width: 150px;
+}
+
+.edit-mode .genre-dropdown option {
+  background-color: #081029;
+  color: white;
+}
+
+/* Sauvegarder les changements */
+.edit-mode .save-changes-btn {
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 20px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.edit-mode .save-changes-btn:hover {
+  background-color: #219653;
+}

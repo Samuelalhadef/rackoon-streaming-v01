@@ -3,548 +3,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Film Finder - Tableau de bord</title>
-  <style>
-    /* Styles généraux */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      background-color: #f4f6f9;
-      overflow: hidden;
-    }
-
-    /* Styles du tableau de bord */
-    .dashboard-container {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .main-header {
-      background-color: #3498db;
-      color: white;
-      padding: 15px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .main-header h1 {
-      color: white;
-      margin-bottom: 0;
-    }
-
-    .user-actions {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-
-    .dashboard-content {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .sidebar {
-      width: 300px;
-      background-color: white;
-      border-right: 1px solid #ddd;
-      padding: 20px;
-      overflow-y: auto;
-    }
-
-    .main-content {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-    }
-
-    .scan-section {
-      margin-bottom: 30px;
-    }
-
-    .scan-status {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #7f8c8d;
-      min-height: 40px;
-    }
-
-    .progress-bar-container {
-      width: 100%;
-      background-color: #ecf0f1;
-      border-radius: 4px;
-      margin-top: 10px;
-      overflow: hidden;
-    }
-
-    .progress-bar {
-      height: 8px;
-      background-color: #3498db;
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-
-    .movies-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .movies-controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .movies-controls input,
-    .movies-controls select {
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      font-size: 14px;
-    }
-
-    .movies-count {
-      margin-bottom: 15px;
-      color: #7f8c8d;
-      font-size: 14px;
-    }
-
-    .movies-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 20px;
-    }
-
-    .movie-card {
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.2s;
-    }
-
-    .movie-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-    }
-
-    .movie-thumbnail {
-      height: 180px;
-      background-color: #ecf0f1;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .movie-thumbnail img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .movie-info {
-      padding: 15px;
-      flex: 1;
-    }
-
-    .movie-title {
-      font-size: 18px;
-      margin-bottom: 10px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .movie-details {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      font-size: 14px;
-      color: #7f8c8d;
-    }
-
-    .movie-actions {
-      padding: 10px 15px 15px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .empty-state {
-      grid-column: 1 / -1;
-      padding: 50px 20px;
-      text-align: center;
-      color: #7f8c8d;
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    }
-
-    /* Styles des boutons */
-    .btn {
-      display: inline-block;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background-color 0.3s, transform 0.1s;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn-primary {
-      background-color: #3498db;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background-color: #2980b9;
-    }
-
-    .btn-outline {
-      background-color: transparent;
-      border: 1px solid #3498db;
-      color: #3498db;
-    }
-
-    .btn-outline:hover {
-      background-color: #ecf0f1;
-    }
-
-    .btn-play {
-      background-color: #2ecc71;
-      color: white;
-      font-size: 14px;
-      padding: 6px 12px;
-    }
-
-    .btn-play:hover {
-      background-color: #27ae60;
-    }
-
-    /* Icônes */
-    [class^="icon-"] {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      margin-right: 5px;
-      vertical-align: text-top;
-    }
-
-    .icon-clock:before {
-      content: "⏱️";
-    }
-
-    .icon-file:before {
-      content: "📄";
-    }
-
-    .icon-database:before {
-      content: "💾";
-    }
-
-    .icon-play:before {
-      content: "▶️";
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .dashboard-content {
-        flex-direction: column;
-      }
-      
-      .sidebar {
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid #ddd;
-      }
-      
-      .movies-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      
-      .movies-controls {
-        width: 100%;
-      }
-      
-      .movies-controls input,
-      .movies-controls select {
-        flex: 1;
-      }
-    }
-  </style>
+  <title>Rackoon Streaming</title>
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="../css/modal.css">
+  <link rel="stylesheet" href="../css/video-player.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <div class="dashboard-container">
-    <header class="main-header">
-      <h1>Film Finder</h1>
-      <div class="user-actions">
-        <span id="user-greeting">Bienvenue, <span id="username"></span></span>
-        <button id="logout-btn" class="btn btn-outline">Déconnexion</button>
+  <!-- Barre de navigation -->
+  <nav class="navbar">
+    <div class="logo">RACKOON</div>
+    <div class="user-controls">
+      <div class="user-profile">
+        <span id="username"></span>
       </div>
-    </header>
-    
-    <div class="dashboard-content">
-      <div class="sidebar">
-        <div class="scan-section">
-          <h2>Rechercher des films</h2>
-          <p>Cliquez sur le bouton ci-dessous pour lancer une recherche de films sur votre ordinateur.</p>
-          <button id="scan-btn" class="btn btn-primary">Lancer la recherche</button>
-          <div id="scan-status" class="scan-status"></div>
-          <div class="progress-bar-container">
-            <div id="progress-bar" class="progress-bar"></div>
+      <button id="logout-btn" class="btn-logout">Déconnexion</button>
+    </div>
+  </nav>
+
+  <!-- Contenu principal -->
+  <main class="main-content">
+    <!-- Zone de chargement -->
+    <div class="loading-container" id="loading-container">
+      <div class="status-message" id="status-message">Prêt à rechercher des vidéos</div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <!-- Section des médias -->
+    <div class="section-header">
+      <h2 class="section-title">Médias Triés</h2>
+      <div class="filters-search-container">
+        <div class="search-filter">
+          <span class="search-icon">
+            <i class="fas fa-search"></i>
+          </span>
+          <input type="text" id="filter-search" placeholder="Rechercher un titre...">
+        </div>
+        <button class="filter-button" id="filter-btn">
+          <span class="filter-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+          </span>
+          Filtres
+        </button>
+      </div>
+    </div>
+
+    <div class="media-grid" id="media-grid">
+      <!-- Les médias seront ajoutés ici dynamiquement -->
+      <div class="empty-state">
+        <span class="icon">📼</span>
+        <p>Aucune vidéo trouvée. Utilisez le bouton + pour lancer une recherche.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bouton d'action flottant -->
+  <div class="floating-action" id="add-btn">
+    <span class="plus-icon">+</span>
+  </div>
+
+  <!-- Menu flottant pour le scan -->
+  <div class="floating-menu" id="scan-menu">
+    <h3>Ajouter des médias</h3>
+    <div class="scan-actions">
+      <button class="scan-btn" id="scan-folder-btn">
+        <span class="icon"><i class="fas fa-folder-open"></i></span>
+        Rechercher un dossier
+      </button>
+      <button class="scan-btn" id="scan-file-btn">
+        <span class="icon"><i class="fas fa-file-video"></i></span>
+        Rechercher un fichier
+      </button>
+    </div>
+  </div>
+
+  <!-- Template pour les cartes de films -->
+  <template id="media-card-template">
+    <div class="media-card" data-id="" data-title="">
+      <div class="media-thumbnail-container">
+        <img src="" alt="" class="media-thumbnail">
+      </div>
+      <div class="media-info">
+        <div class="media-title-container">
+          <h3 class="media-title"></h3>
+          <div class="watch-top">
+            <button class="btn-watch-toggle">à voir</button>
+          </div>
+        </div>
+        <div class="media-extended-info">
+          <div class="media-duration">
+            Durée: <span class="duration-value"></span>
+          </div>
+          <div class="rating-container">
+            <div class="stars-container">
+              <span class="star" data-value="1"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="2"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="3"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="4"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="5"><i class="fas fa-star"></i></span>
+            </div>
+            <div class="watch-hover">
+              <button class="btn-watch-toggle">à voir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal de présentation du film -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="movie-modal" id="movie-modal">
+      <button class="modal-close" id="modal-close">×</button>
+      
+      <!-- Mode visualisation -->
+      <div class="view-mode" id="view-mode">
+        <div class="modal-poster">
+          <img src="../public/img/default-thumbnail.svg" alt="Poster du film" id="modal-poster">
+        </div>
+        
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="modal-title" id="modal-title">Le Comte de Monte Cristo</h2>
+            <span class="movie-year" id="movie-year">(2024)</span>
+            <button class="edit-button" id="edit-button">
+              <i class="fas fa-pencil-alt"></i>
+            </button>
+          </div>
+          
+          <div class="movie-meta">
+            <div class="release-date" id="release-date"></div>
+            <div class="duration" id="duration">2h 35m</div>
+          </div>
+          
+          <div class="genres-container" id="genres-container">
+            <span class="genre-tag"></span>
+            <span class="genre-tag"></span>
+            <span class="genre-tag"></span>
+          </div>
+          
+          <div class="rating-section">
+            <div class="modal-stars">
+              <span class="modal-star" data-value="1"><i class="fas fa-star"></i></span>
+              <span class="modal-star" data-value="2"><i class="fas fa-star"></i></span>
+              <span class="modal-star" data-value="3"><i class="fas fa-star"></i></span>
+              <span class="modal-star" data-value="4"><i class="fas fa-star"></i></span>
+              <span class="modal-star" data-value="5"><i class="fas fa-star"></i></span>
+            </div>
+          </div>
+          
+          <div class="synopsis">
+            <h3 class="synopsis-title">Synopsis</h3>
+            <div class="synopsis-content" id="synopsis-content"></div>
+          </div>
+          
+          <div class="modal-actions">
+            <button class="btn-watch-toggle-modal" id="btn-watch-toggle-modal">À voir</button>
+            <button class="btn-watch-film" id="btn-watch-film">Regarder le film</button>
           </div>
         </div>
       </div>
       
-      <div class="main-content">
-        <div class="movies-header">
-          <h2>Mes Films</h2>
-          <div class="movies-controls">
-            <input type="text" id="search-movies" placeholder="Rechercher des films...">
-            <select id="sort-movies">
-              <option value="title-asc">Titre (A-Z)</option>
-              <option value="title-desc">Titre (Z-A)</option>
-              <option value="duration-asc">Durée (croissant)</option>
-              <option value="duration-desc">Durée (décroissant)</option>
-              <option value="size-asc">Taille (croissant)</option>
-              <option value="size-desc">Taille (décroissant)</option>
-            </select>
+      <!-- Mode édition (initialement caché) -->
+      <div class="edit-mode" id="edit-mode" style="display: none;">
+        <div class="modal-content">
+          <!-- Titre du mode édition -->
+          <div class="edit-header">
+            <h2>Sortir du mode édition</h2>
           </div>
-        </div>
-        
-        <div id="movies-count" class="movies-count">0 films trouvés</div>
-        
-        <div id="movies-container" class="movies-container">
-          <!-- Les films seront affichés ici -->
-          <div class="empty-state">
-            Aucun film trouvé. Lancez une recherche pour découvrir vos films.
+          
+          <!-- Bouton de recherche sur TMDB -->
+          <button class="tmdb-search-btn" id="tmdb-search-btn">
+            <i class="fas fa-search"></i> Rechercher sur The Movie Database
+          </button>
+          
+          <!-- Titre -->
+          <div class="edit-section">
+            <div class="edit-section-title">Nom</div>
+            <div class="edit-field">
+              <input type="text" id="edit-title-input" placeholder="Titre du film">
+            </div>
           </div>
+          
+          <!-- Année et date de sortie -->
+          <div class="edit-section">
+            <div class="edit-section-title">Date de sortie</div>
+            <div class="edit-field">
+              <input type="date" id="edit-release-date" placeholder="Date de sortie">
+            </div>
+          </div>
+          
+          <!-- Genres -->
+          <div class="edit-section">
+            <div class="edit-section-title">Genres</div>
+            <!-- Genres prédéfinis -->
+            <div class="edit-field genre-selection">
+              <select class="genre-dropdown" id="genre-dropdown">
+                <option value="">Choisir un genre</option>
+                <option value="Action">Action</option>
+                <option value="Aventure">Aventure</option>
+                <option value="Animation">Animation</option>
+                <option value="Comédie">Comédie</option>
+                <option value="Crime">Crime</option>
+                <option value="Documentaire">Documentaire</option>
+                <option value="Drame">Drame</option>
+                <option value="Famille">Famille</option>
+                <option value="Fantastique">Fantastique</option>
+                <option value="Histoire">Histoire</option>
+                <option value="Horreur">Horreur</option>
+                <option value="Musique">Musique</option>
+                <option value="Mystère">Mystère</option>
+                <option value="Romance">Romance</option>
+                <option value="Science-Fiction">Science-Fiction</option>
+                <option value="Thriller">Thriller</option>
+                <option value="Guerre">Guerre</option>
+                <option value="Western">Western</option>
+              </select>
+              <button class="add-genre-btn" id="add-predefined-genre">Ajouter</button>
+            </div>
+            
+            <!-- Affichage des genres sélectionnés -->
+            <div class="genres-edit" id="edit-genres-container">
+              <!-- Les genres seront ajoutés ici dynamiquement -->
+            </div>
+            
+            <!-- Ajout de genres personnalisés -->
+            <div class="add-genre-container">
+              <input type="text" class="add-genre-input" id="custom-genre-input" placeholder="Genre personnalisé">
+              <button class="add-genre-btn" id="add-custom-genre">Ajouter</button>
+            </div>
+          </div>
+          
+          <!-- Image -->
+          <div class="edit-section">
+            <div class="edit-section-title">Image</div>
+            <div class="image-upload-container">
+              <img src="../public/img/default-thumbnail.svg" class="image-upload-preview" id="image-preview">
+              <div class="image-upload-controls">
+                <button class="image-upload-btn" id="upload-image-btn">Changer l'image</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Synopsis -->
+          <div class="edit-section">
+            <div class="edit-section-title">Synopsis</div>
+            <div class="edit-field">
+              <textarea id="edit-synopsis-input" placeholder="Synopsis du film"></textarea>
+            </div>
+          </div>
+          
+          <!-- Boutons d'action -->
+          <button class="save-changes-btn" id="save-changes-btn">Enregistrer les modifications</button>
+          <button class="exit-edit-mode" id="exit-edit-mode">Sortir du mode édition</button>
         </div>
       </div>
     </div>
   </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Vérifier si l'utilisateur est connecté
-      const userString = localStorage.getItem('user');
-      
-      if (!userString) {
-        // Rediriger vers la page de connexion
-        window.location.href = 'login.html';
-        return;
-      }
-      
-      const user = JSON.parse(userString);
-      
-      // Afficher le nom d'utilisateur
-      document.getElementById('username').textContent = user.username;
-      
-      // Gestion de la déconnexion
-      document.getElementById('logout-btn').addEventListener('click', () => {
-        // Supprimer les informations de l'utilisateur
-        localStorage.removeItem('user');
-        
-        // Rediriger vers la page de connexion
-        window.location.href = 'login.html';
-      });
-      
-      // Écouteur pour les mises à jour de statut de la recherche
-      const unsubscribe = window.electronAPI.onScanStatus((status) => {
-        document.getElementById('scan-status').textContent = status.message;
-        document.getElementById('progress-bar').style.width = `${status.progress}%`;
-      });
-      
-      // Gestion de la recherche de films
-      document.getElementById('scan-btn').addEventListener('click', async () => {
-        try {
-          document.getElementById('scan-status').textContent = 'Sélection du dossier à scanner...';
-          document.getElementById('progress-bar').style.width = '0%';
-          
-          // Lancer la recherche (Electron affichera automatiquement une boîte de dialogue)
-          const result = await window.electronAPI.scanMovies();
-          
-          if (result.success) {
-            document.getElementById('scan-status').textContent = result.message;
-            document.getElementById('progress-bar').style.width = '100%';
-            
-            // Mettre à jour la liste des films
-            loadMovies();
-          } else {
-            document.getElementById('scan-status').textContent = result.message || 'Erreur lors de la recherche';
-            document.getElementById('progress-bar').style.width = '0%';
-          }
-        } catch (error) {
-          console.error('Erreur lors de la recherche de films:', error);
-          document.getElementById('scan-status').textContent = 'Erreur lors de la recherche';
-          document.getElementById('progress-bar').style.width = '0%';
-        }
-      });
-      
-      // Chargement des films
-      async function loadMovies() {
-        try {
-          const data = await window.electronAPI.getAllMovies();
-          
-          if (data.success) {
-            // Mettre à jour le compteur de films
-            document.getElementById('movies-count').textContent = `${data.count} films trouvés`;
-            
-            // Afficher les films
-            const moviesContainer = document.getElementById('movies-container');
-            
-            if (data.count === 0) {
-              moviesContainer.innerHTML = `
-                <div class="empty-state">
-                  Aucun film trouvé. Lancez une recherche pour découvrir vos films.
-                </div>
-              `;
-              return;
-            }
-            
-            // Vider le conteneur
-            moviesContainer.innerHTML = '';
-            
-            // Ajouter chaque film
-            data.movies.forEach(movie => {
-              const movieElement = document.createElement('div');
-              movieElement.className = 'movie-card';
-              
-              // Construire une miniature pour le film
-              const thumbnailSrc = movie.thumbnail 
-                ? `file://${movie.thumbnail}` 
-                : 'placeholder.jpg';
-              
-              movieElement.innerHTML = `
-                <div class="movie-thumbnail">
-                  <img src="${thumbnailSrc}" alt="${movie.title}" onerror="this.src='../public/img/default-thumbnail.jpg'">
-                </div>
-                <div class="movie-info">
-                  <h3 class="movie-title">${movie.title}</h3>
-                  <div class="movie-details">
-                    <span class="movie-duration"><i class="icon-clock"></i> ${movie.formattedDuration}</span>
-                    <span class="movie-format"><i class="icon-file"></i> ${movie.format.toUpperCase()}</span>
-                    <span class="movie-size"><i class="icon-database"></i> ${movie.formattedSize}</span>
-                  </div>
-                </div>
-                <div class="movie-actions">
-                  <button class="btn btn-play" data-id="${movie.id}">
-                    <i class="icon-play"></i> Lire
-                  </button>
-                </div>
-              `;
-              
-              moviesContainer.appendChild(movieElement);
-            });
-            
-            // Ajouter les écouteurs d'événements pour la lecture des films
-            document.querySelectorAll('.btn-play').forEach(button => {
-              button.addEventListener('click', async () => {
-                const movieId = button.getAttribute('data-id');
-                
-                try {
-                  // Obtenir le chemin du film
-                  const movieData = await window.electronAPI.getMoviePath(movieId);
-                  
-                  if (movieData.success) {
-                    // Ouvrir le fichier avec le lecteur par défaut du système
-                    const { shell } = require('electron');
-                    shell.openPath(movieData.path);
-                  } else {
-                    alert(movieData.message || 'Erreur lors de la lecture du film');
-                  }
-                } catch (error) {
-                  console.error('Erreur lors de la lecture du film:', error);
-                  alert('Erreur lors de la lecture du film');
-                }
-              });
-            });
-          }
-        } catch (error) {
-          console.error('Erreur lors du chargement des films:', error);
-        }
-      }
-      
-      // Gestion de la recherche de films localement
-      document.getElementById('search-movies').addEventListener('input', event => {
-        const searchTerm = event.target.value.toLowerCase();
-        
-        // Filtrer les films affichés
-        document.querySelectorAll('.movie-card').forEach(movieCard => {
-          const title = movieCard.querySelector('.movie-title').textContent.toLowerCase();
-          
-          if (title.includes(searchTerm)) {
-            movieCard.style.display = 'flex';
-          } else {
-            movieCard.style.display = 'none';
-          }
-        });
-      });
-      
-      // Gestion du tri des films
-      document.getElementById('sort-movies').addEventListener('change', event => {
-        const sortValue = event.target.value;
-        const moviesContainer = document.getElementById('movies-container');
-        const movies = Array.from(moviesContainer.querySelectorAll('.movie-card'));
-        
-        // Trier les films selon l'option sélectionnée
-        movies.sort((a, b) => {
-          if (sortValue === 'title-asc') {
-            return a.querySelector('.movie-title').textContent.localeCompare(b.querySelector('.movie-title').textContent);
-          } else if (sortValue === 'title-desc') {
-            return b.querySelector('.movie-title').textContent.localeCompare(a.querySelector('.movie-title').textContent);
-          } else if (sortValue.startsWith('duration')) {
-            const durationA = a.querySelector('.movie-duration').textContent;
-            const durationB = b.querySelector('.movie-duration').textContent;
-            
-            if (sortValue === 'duration-asc') {
-              return durationA.localeCompare(durationB);
-            } else {
-              return durationB.localeCompare(durationA);
-            }
-          } else if (sortValue.startsWith('size')) {
-            const sizeA = a.querySelector('.movie-size').textContent;
-            const sizeB = b.querySelector('.movie-size').textContent;
-            
-            if (sortValue === 'size-asc') {
-              return sizeA.localeCompare(sizeB);
-            } else {
-              return sizeB.localeCompare(sizeA);
-            }
-          }
-        });
-        
-        // Réorganiser les films dans le conteneur
-        movies.forEach(movie => {
-          moviesContainer.appendChild(movie);
-        });
-      });
-      
-      // Charger les films au chargement de la page
-      loadMovies();
-    });
-  </script>
+  <!-- Scripts -->
+  <script src="../js/dashboard.js"></script>
+  <script src="../js/movie-modal.js"></script>
+  <script src="../js/video-player.js"></script>
 </body>
 </html>
