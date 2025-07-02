@@ -231,7 +231,7 @@ temp_videos/
 *.crt
 *.p12
 
-# Sauvegarde de base de données
+# Sauvegarde de base de donnéesxxx
 *.db.backup
 backup/
 
