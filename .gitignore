@@ -38,6 +38,13 @@ build/Release
 node_modules/
 jspm_packages/
 
+# Electron binaries (gros fichiers)
+node_modules/electron/dist/
+node_modules/electron/dist/electron.exe
+**/electron.exe
+**/electron
+electron-prebuilt/
+
 # TypeScript v1 declaration files
 typings/
 
