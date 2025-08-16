@@ -96,44 +96,43 @@ function initDatabase() {
     
     console.log(`Initialisation de la base de données: ${dbPath}`);
     
-     db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-      console.error('Erreur lors de la connexion à la base de données:', err.message);
-    } else {
-      console.log('Connexion à la base de données SQLite établie');
-    
-      // Créer les tables
-      db.serialize(() => {
-      // Table users
-      db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT UNIQUE NOT NULL,
-          email TEXT UNIQUE NOT NULL,
-          password TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+    db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('Erreur lors de la connexion à la base de données:', err.message);
+      } else {
+        console.log('Connexion à la base de données SQLite établie');
       
-      // Table movies
-      db.run(`
-        CREATE TABLE IF NOT EXISTS movies (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT,
-          path TEXT UNIQUE NOT NULL,
-          format TEXT,
-          duration INTEGER DEFAULT 0,
-          size_bytes INTEGER,
-          thumbnail TEXT,
-          last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      
+        // Créer les tables
+        db.serialize(() => {
+          // Table users
+          db.run(`
+            CREATE TABLE IF NOT EXISTS users (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              username TEXT UNIQUE NOT NULL,
+              email TEXT UNIQUE NOT NULL,
+              password TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+          
+          // Table movies
+          db.run(`
+            CREATE TABLE IF NOT EXISTS movies (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT,
+              path TEXT UNIQUE NOT NULL,
+              format TEXT,
+              duration INTEGER DEFAULT 0,
+              size_bytes INTEGER,
+              thumbnail TEXT,
+              last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+          
+          console.log('Tables créées avec succès');
+        });
+      }
     });
-  }
-});
-    
-    console.log('Tables créées avec succès');
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);
   }
@@ -201,50 +200,50 @@ function extractRandomFrame(videoPath, outputPath) {
 
 // Génération automatique de miniatures pour les films récents
 async function generateThumbnailsForNewMovies() {
-  // Récupérer les films sans miniature - CORRECTION ICI: Utiliser des guillemets simples pour la chaîne vide
-  const stmt = db.prepare("SELECT * FROM movies WHERE thumbnail IS NULL OR thumbnail = ''");
-  const movies = stmt.all();
-  
-  if (movies.length === 0) {
-    console.log('Aucun film sans miniature trouvé');
-    return;
-  }
-  
-  console.log(`Génération automatique de miniatures pour ${movies.length} films...`);
-  
-  let successCount = 0;
-  let errorCount = 0;
-  
-  // Traiter chaque film
-  for (const movie of movies) {
-    try {
-      // Vérifier si le fichier existe toujours
-      if (!fs.existsSync(movie.path)) {
-        console.log(`Le fichier ${movie.path} n'existe plus`);
-        errorCount++;
-        continue;
-      }
-      
-      // Créer un nom unique pour la miniature
-      const thumbnailName = `${Date.now()}_${path.basename(movie.path)}.jpg`;
-      const thumbnailPath = path.join(app.getPath('userData'), 'thumbnails', thumbnailName);
-      
-      // Extraire une frame
-      await extractRandomFrame(movie.path, thumbnailPath);
-      
-      // Mettre à jour la base de données
-      const updateStmt = db.prepare('UPDATE movies SET thumbnail = ? WHERE id = ?');
-      updateStmt.run(thumbnailPath, movie.id);
-      
-      console.log(`Miniature générée pour ${movie.title}`);
-      successCount++;
-    } catch (error) {
-      console.error(`Erreur pour le film ID ${movie.id}:`, error);
-      errorCount++;
+  // Récupérer les films sans miniature - CORRIGÉ pour sqlite3
+  db.all("SELECT * FROM movies WHERE thumbnail IS NULL OR thumbnail = ''", async (err, movies) => {
+    if (err || !movies || movies.length === 0) {
+      console.log('Aucun film sans miniature trouvé');
+      return;
     }
-  }
-  
-  console.log(`Génération automatique terminée: ${successCount} réussies, ${errorCount} échecs`);
+    
+    console.log(`Génération automatique de miniatures pour ${movies.length} films...`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    // Traiter chaque film
+    for (const movie of movies) {
+      try {
+        // Vérifier si le fichier existe toujours
+        if (!fs.existsSync(movie.path)) {
+          console.log(`Le fichier ${movie.path} n'existe plus`);
+          errorCount++;
+          continue;
+        }
+        
+        // Créer un nom unique pour la miniature
+        const thumbnailName = `${Date.now()}_${path.basename(movie.path)}.jpg`;
+        const thumbnailPath = path.join(app.getPath('userData'), 'thumbnails', thumbnailName);
+        
+        // Extraire une frame
+        await extractRandomFrame(movie.path, thumbnailPath);
+        
+        // Mettre à jour la base de données - CORRIGÉ pour sqlite3
+        db.run('UPDATE movies SET thumbnail = ? WHERE id = ?', [thumbnailPath, movie.id], (err) => {
+          if (err) console.error('Erreur update:', err);
+        });
+        
+        console.log(`Miniature générée pour ${movie.title}`);
+        successCount++;
+      } catch (error) {
+        console.error(`Erreur pour le film ID ${movie.id}:`, error);
+        errorCount++;
+      }
+    }
+    
+    console.log(`Génération automatique terminée: ${successCount} réussies, ${errorCount} échecs`);
+  });
 }
 
 // Quand Electron est prêt
@@ -373,9 +372,12 @@ function setupIPCHandlers() {
         return { success: false, message: 'Tous les champs sont obligatoires' };
       }
       
-      // Vérifier si l'utilisateur existe déjà
-      const existingUserStmt = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?');
-      const existingUser = existingUserStmt.get(username, email);
+      // Vérifier si l'utilisateur existe déjà - CORRIGÉ pour sqlite3
+      const existingUser = await new Promise((resolve) => {
+        db.get('SELECT * FROM users WHERE username = ? OR email = ?', [username, email], (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
       
       if (existingUser) {
         return { success: false, message: 'Cet utilisateur ou cet email existe déjà' };
@@ -385,9 +387,16 @@ function setupIPCHandlers() {
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
       
-      // Insérer l'utilisateur
-      const insertStmt = db.prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)');
-      const insertInfo = insertStmt.run(username, email, hashedPassword);
+      // Insérer l'utilisateur - CORRIGÉ pour sqlite3
+      const insertInfo = await new Promise((resolve) => {
+        db.run('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', [username, email, hashedPassword], function(err) {
+          resolve(err ? null : { lastInsertRowid: this.lastID });
+        });
+      });
+      
+      if (!insertInfo) {
+        return { success: false, message: 'Erreur lors de l\'insertion' };
+      }
       
       console.log(`Nouvel utilisateur créé: ${username}`);
       
@@ -406,7 +415,7 @@ function setupIPCHandlers() {
     }
   });
   
-  // Connexion d'un utilisateur
+  // Connexion d'un utilisateur - CORRIGÉ pour sqlite3
   ipcMain.handle('user:login', async (event, credentials) => {
     try {
       const { username, password } = credentials;
@@ -415,9 +424,12 @@ function setupIPCHandlers() {
         return { success: false, message: 'Nom d\'utilisateur et mot de passe requis' };
       }
       
-      // Rechercher l'utilisateur
-      const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-      const user = stmt.get(username);
+      // Rechercher l'utilisateur - CORRIGÉ pour sqlite3
+      const user = await new Promise((resolve) => {
+        db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
       
       if (!user) {
         return { success: false, message: 'Utilisateur introuvable' };
@@ -527,9 +539,12 @@ function setupIPCHandlers() {
             continue;
           }
           
-          // Vérifier si le fichier existe déjà dans la base
-          const existingMovieStmt = db.prepare('SELECT * FROM movies WHERE path = ?');
-          const existingMovie = existingMovieStmt.get(filePath);
+          // Vérifier si le fichier existe déjà dans la base - CORRIGÉ pour sqlite3
+          const existingMovie = await new Promise((resolve) => {
+            db.get('SELECT * FROM movies WHERE path = ?', [filePath], (err, row) => {
+              resolve(err ? null : row);
+            });
+          });
           
           if (existingMovie) {
             console.log(`Fichier déjà dans la base: ${filePath}`);
@@ -568,20 +583,23 @@ function setupIPCHandlers() {
             thumbnail: thumbnailPath
           };
           
-          // Requête d'insertion
-          const insertStmt = db.prepare(`
-            INSERT INTO movies (title, path, format, duration, size_bytes, thumbnail, last_scan)
-            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          `);
-          
-          insertStmt.run(
-            movieData.title,
-            movieData.path,
-            movieData.format,
-            movieData.duration,
-            movieData.size_bytes,
-            movieData.thumbnail
-          );
+          // Requête d'insertion - CORRIGÉ pour sqlite3
+          await new Promise((resolve) => {
+            db.run(`
+              INSERT INTO movies (title, path, format, duration, size_bytes, thumbnail, last_scan)
+              VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `, [
+              movieData.title,
+              movieData.path,
+              movieData.format,
+              movieData.duration,
+              movieData.size_bytes,
+              movieData.thumbnail
+            ], function(err) {
+              if (err) console.error('Erreur insertion film:', err);
+              resolve();
+            });
+          });
           
           console.log(`Fichier ajouté à la base: ${filePath}`);
           addedCount++;
@@ -620,12 +638,15 @@ function setupIPCHandlers() {
     }
   });
   
-  // Obtenir tous les films
+  // Obtenir tous les films - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:getAll', async () => {
     try {
-      // Récupérer tous les films
-      const stmt = db.prepare('SELECT * FROM movies ORDER BY title');
-      const movies = stmt.all();
+      // Récupérer tous les films - CORRIGÉ pour sqlite3
+      const movies = await new Promise((resolve) => {
+        db.all('SELECT * FROM movies ORDER BY title', (err, rows) => {
+          resolve(err ? [] : rows);
+        });
+      });
       
       console.log(`${movies.length} vidéos récupérées de la base de données`);
       
@@ -650,12 +671,15 @@ function setupIPCHandlers() {
     }
   });
   
-  // Récupérer le chemin d'un film pour la lecture
+  // Récupérer le chemin d'un film pour la lecture - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:getPath', async (event, movieId) => {
     try {
-      // Récupérer le film
-      const stmt = db.prepare('SELECT * FROM movies WHERE id = ?');
-      const movie = stmt.get(movieId);
+      // Récupérer le film - CORRIGÉ pour sqlite3
+      const movie = await new Promise((resolve) => {
+        db.get('SELECT * FROM movies WHERE id = ?', [movieId], (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
       
       if (!movie) {
         return { success: false, message: 'Vidéo non trouvée' };
@@ -696,12 +720,15 @@ function setupIPCHandlers() {
     }
   });
   
-  // NOUVEAU GESTIONNAIRE - Récupérer les détails d'un film pour la modal
+  // NOUVEAU GESTIONNAIRE - Récupérer les détails d'un film pour la modal - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:getDetails', async (event, movieId) => {
     try {
-      // Récupérer le film depuis la base de données
-      const stmt = db.prepare('SELECT * FROM movies WHERE id = ?');
-      const movie = stmt.get(movieId);
+      // Récupérer le film depuis la base de données - CORRIGÉ pour sqlite3
+      const movie = await new Promise((resolve) => {
+        db.get('SELECT * FROM movies WHERE id = ?', [movieId], (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
       
       if (!movie) {
         return { success: false, message: 'Film non trouvé' };
@@ -746,12 +773,15 @@ function setupIPCHandlers() {
     }
   });
   
-  // Ouvrir le dossier contenant le film
+  // Ouvrir le dossier contenant le film - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:openFolder', async (event, movieId) => {
     try {
-      // Récupérer le film
-      const stmt = db.prepare('SELECT * FROM movies WHERE id = ?');
-      const movie = stmt.get(movieId);
+      // Récupérer le film - CORRIGÉ pour sqlite3
+      const movie = await new Promise((resolve) => {
+        db.get('SELECT * FROM movies WHERE id = ?', [movieId], (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
       
       if (!movie) {
         return { success: false, message: 'Vidéo non trouvée' };
@@ -777,7 +807,7 @@ function setupIPCHandlers() {
     }
   });
 
-  // Générer une miniature pour un film existant
+  // Générer une miniature pour un film existant - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:generateThumbnail', async (event, movieId) => {
     try {
       // Vérifier si ffmpeg est installé
@@ -788,9 +818,12 @@ function setupIPCHandlers() {
         };
       }
       
-      // Récupérer le film
-      const stmt = db.prepare('SELECT * FROM movies WHERE id = ?');
-      const movie = stmt.get(movieId);
+      // Récupérer le film - CORRIGÉ pour sqlite3
+      const movie = await new Promise((resolve) => {
+        db.get('SELECT * FROM movies WHERE id = ?', [movieId], (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
       
       if (!movie) {
         return { success: false, message: 'Vidéo non trouvée' };
@@ -808,9 +841,13 @@ function setupIPCHandlers() {
       // Extraire une frame aléatoire
       await extractRandomFrame(movie.path, thumbnailPath);
       
-      // Mettre à jour la base de données
-      const updateStmt = db.prepare('UPDATE movies SET thumbnail = ? WHERE id = ?');
-      updateStmt.run(thumbnailPath, movieId);
+      // Mettre à jour la base de données - CORRIGÉ pour sqlite3
+      await new Promise((resolve) => {
+        db.run('UPDATE movies SET thumbnail = ? WHERE id = ?', [thumbnailPath, movieId], (err) => {
+          if (err) console.error('Erreur update thumbnail:', err);
+          resolve();
+        });
+      });
       
       console.log(`Nouvelle miniature générée pour ID ${movieId}: ${thumbnailPath}`);
       
@@ -825,7 +862,7 @@ function setupIPCHandlers() {
     }
   });
 
-  // Générer des miniatures pour tous les films sans miniature
+  // Générer des miniatures pour tous les films sans miniature - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:generateAllThumbnails', async () => {
     try {
       // Vérifier si ffmpeg est installé
@@ -836,9 +873,12 @@ function setupIPCHandlers() {
         };
       }
       
-      // Récupérer les films sans miniature - CORRECTION ICI: Utiliser des guillemets simples pour la chaîne vide
-      const stmt = db.prepare("SELECT * FROM movies WHERE thumbnail IS NULL OR thumbnail = ''");
-      const movies = stmt.all();
+      // Récupérer les films sans miniature - CORRIGÉ pour sqlite3
+      const movies = await new Promise((resolve) => {
+        db.all("SELECT * FROM movies WHERE thumbnail IS NULL OR thumbnail = ''", (err, rows) => {
+          resolve(err ? [] : rows);
+        });
+      });
       
       if (movies.length === 0) {
         return { 
@@ -874,9 +914,13 @@ function setupIPCHandlers() {
           // Extraire une frame aléatoire
           await extractRandomFrame(movie.path, thumbnailPath);
           
-          // Mettre à jour la base de données
-          const updateStmt = db.prepare('UPDATE movies SET thumbnail = ? WHERE id = ?');
-          updateStmt.run(thumbnailPath, movie.id);
+          // Mettre à jour la base de données - CORRIGÉ pour sqlite3
+          await new Promise((resolve) => {
+            db.run('UPDATE movies SET thumbnail = ? WHERE id = ?', [thumbnailPath, movie.id], (err) => {
+              if (err) console.error('Erreur update thumbnail:', err);
+              resolve();
+            });
+          });
           
           successCount++;
           
