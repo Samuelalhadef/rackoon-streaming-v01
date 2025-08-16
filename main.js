@@ -2,7 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const { glob } = require('glob');
 const { execSync, exec } = require('child_process');
@@ -96,36 +96,42 @@ function initDatabase() {
     
     console.log(`Initialisation de la base de données: ${dbPath}`);
     
-    // Créer la connexion avec better-sqlite3
-    db = new Database(dbPath, { verbose: console.log });
+     db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Erreur lors de la connexion à la base de données:', err.message);
+    } else {
+      console.log('Connexion à la base de données SQLite établie');
     
-    // Activation du mode safe
-    db.pragma('journal_mode = WAL');
-    
-    // Création des tables si elles n'existent pas
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    
-    // Structure de base minimale de la table movies
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS movies (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        path TEXT UNIQUE NOT NULL,
-        format TEXT,
-        duration INTEGER DEFAULT 0,
-        size_bytes INTEGER,
-        thumbnail TEXT,
-        last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+      // Créer les tables
+      db.serialize(() => {
+      // Table users
+      db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      // Table movies
+      db.run(`
+        CREATE TABLE IF NOT EXISTS movies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT,
+          path TEXT UNIQUE NOT NULL,
+          format TEXT,
+          duration INTEGER DEFAULT 0,
+          size_bytes INTEGER,
+          thumbnail TEXT,
+          last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+    });
+  }
+});
     
     console.log('Tables créées avec succès');
   } catch (error) {
