@@ -1,21 +1,23 @@
 // Mettre à jour les informations d'un film
-  window.electronAPI.updateMovieDetails = async function(movieId, updates) {
-    try {
-      // Simuler une mise à jour réussie
-      // À implémenter dans l'API Electron
-      console.log(`Mise à jour des informations pour le film ${movieId}:`, updates);
-      
-      // Retourner un succès simulé
-      return { 
-        success: true, 
-        message: 'Informations mises à jour avec succès',
-        movie: { id: movieId, ...updates }
-      };
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour des informations du film:', error);
-      return { success: false, message: 'Erreur lors de la mise à jour des informations du film' };
-    }
-  };// dashboard.js - Logique pour l'interface principale style Netflix améliorée
+window.electronAPI.updateMovieDetails = async function(movieId, updates) {
+  try {
+    // Simuler une mise à jour réussie
+    // À implémenter dans l'API Electron
+    console.log(`Mise à jour des informations pour le film ${movieId}:`, updates);
+    
+    // Retourner un succès simulé
+    return { 
+      success: true, 
+      message: 'Informations mises à jour avec succès',
+      movie: { id: movieId, ...updates }
+    };
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des informations du film:', error);
+    return { success: false, message: 'Erreur lors de la mise à jour des informations du film' };
+  }
+};
+
+// dashboard.js - Logique pour l'interface principale style Netflix améliorée
 document.addEventListener('DOMContentLoaded', () => {
   // Vérifier si l'utilisateur est connecté
   const userString = localStorage.getItem('user');
@@ -114,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ]
       };
       
-      // Lancer la recherche d'un fichier (à implémenter dans votre preload.js et main.js)
+      // Lancer la recherche d'un fichier
       const result = await window.electronAPI.scanMovies(options);
       
       if (result.success) {
@@ -271,9 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const stars = card.querySelectorAll('.star');
     const movieId = card.dataset.id;
     
-    // Ajouter des index pour l'animation séquentielle
     stars.forEach((star, index) => {
-      star.style.setProperty('--star-index', index);
+      star.dataset.value = index + 1;
       
       star.addEventListener('mouseover', () => {
         const value = parseInt(star.dataset.value);
@@ -292,7 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       // Clic pour noter
-      star.addEventListener('click', () => {
+      star.addEventListener('click', (e) => {
+        e.stopPropagation();
         const value = parseInt(star.dataset.value);
         rateMovie(movieId, value);
       });
@@ -364,96 +366,175 @@ document.addEventListener('DOMContentLoaded', () => {
     return movieEdits;
   }
   
-  // Affichage des films dans la grille
-  function displayMovies(movies) {
-    if (!movies || movies.length === 0) {
-      mediaGrid.innerHTML = `
-        <div class="empty-state">
-          <span class="icon">📼</span>
-          <p>Aucune vidéo trouvée. Utilisez le bouton + pour lancer une recherche.</p>
+  // Fonction helper pour créer une section de catégorie
+  function createCategorySection(categoryTitle, moviesInCategory) {
+    let html = `
+      <div class="category-section">
+        <div class="category-header">
+          <h3 class="category-title">${categoryTitle}</h3>
+          <span class="category-count">${moviesInCategory.length} média(s)</span>
         </div>
-      `;
-      return;
-    }
-    
-    // Vider la grille
-    mediaGrid.innerHTML = '';
+        <div class="category-grid">
+    `;
     
     // Charger les préférences utilisateur
     const userPrefs = loadUserPreferences();
     
-    // Utiliser le template pour créer les cartes
-    const template = document.getElementById('media-card-template');
-    
-    // Ajouter chaque film
-    movies.forEach(movie => {
-      // Cloner le template
-      const mediaCard = template.content.cloneNode(true).querySelector('.media-card');
-      
-      // Configurer les attributs de la carte
-      mediaCard.dataset.id = movie.id;
-      mediaCard.dataset.title = movie.title.toLowerCase();
-      
-      // Configurer l'image de couverture - utiliser la miniature ou l'image personnalisée
+    // Ajouter les films de cette catégorie
+    moviesInCategory.forEach(movie => {
+      // Configurer l'image de couverture
       let thumbnailSrc;
       if (movie.posterUrl) {
         thumbnailSrc = movie.posterUrl;
       } else if (movie.thumbnail) {
         thumbnailSrc = `file://${movie.thumbnail}`;
       } else {
-        thumbnailSrc = '../public/img/default-thumbnail.svg';
+        thumbnailSrc = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFlM2E2ZCIvPgo8dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zZW0iPkF1Y3VuZSBpbWFnZTwvdGV4dD4KPC9zdmc+";
       }
       
-      const thumbnailImg = mediaCard.querySelector('.media-thumbnail');
-      thumbnailImg.src = thumbnailSrc;
-      thumbnailImg.alt = movie.title;
-      thumbnailImg.onerror = () => { thumbnailImg.src = '../public/img/default-thumbnail.svg'; };
-      
-      // Configurer le titre
-      mediaCard.querySelector('.media-title').textContent = movie.title;
-      
-      // Configurer la durée
-      mediaCard.querySelector('.duration-value').textContent = formatTime(movie.duration);
-      
-      // Configurer l'état "vu/à voir"
+      // État "vu/à voir"
       const isWatched = userPrefs.watchedMovies[movie.id] === true;
-      const watchButtons = mediaCard.querySelectorAll('.btn-watch-toggle');
+      const watchButtonText = isWatched ? 'vu !' : 'à voir';
+      const watchButtonClass = isWatched ? 'watched' : '';
       
-      watchButtons.forEach(button => {
-        if (isWatched) {
-          button.textContent = 'vu !';
-          button.classList.add('watched');
-        } else {
-          button.textContent = 'à voir';
-          button.classList.remove('watched');
-        }
-        
-        // Ajouter l'écouteur pour le changement d'état
-        button.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleWatchStatus(movie.id, button);
-        });
-      });
-      
-      // Configurer les étoiles de notation
+      // Étoiles de notation
       const rating = userPrefs.ratings[movie.id] || 0;
-      updateStarsDisplay(mediaCard, rating);
-      setupStarsInteraction(mediaCard);
+      const starsHtml = [1, 2, 3, 4, 5].map(star => {
+        const filledClass = star <= rating ? 'filled' : '';
+        return `<span class="star ${filledClass}" data-value="${star}">⭐</span>`;
+      }).join('');
       
-      // Ajouter la carte au conteneur
-      mediaGrid.appendChild(mediaCard);
+      html += `
+        <div class="media-card" data-id="${movie.id}" data-title="${movie.title}">
+          <div class="media-thumbnail">
+            <img src="${thumbnailSrc}" alt="${movie.title}" loading="lazy">
+            <div class="media-overlay">
+              <button class="play-button" title="Lire la vidéo">▶</button>
+            </div>
+          </div>
+          <div class="media-info">
+            <h4 class="media-title">${movie.title}</h4>
+            <div class="media-meta">
+              <span class="media-duration">${formatTime(movie.duration)}</span>
+              <span class="media-size">${movie.formattedSize}</span>
+            </div>
+            <div class="media-actions">
+              <div class="rating-stars">
+                ${starsHtml}
+              </div>
+              <button class="btn-watch-toggle ${watchButtonClass}" data-movie-id="${movie.id}">${watchButtonText}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    html += `
+        </div>
+      </div>
+    `;
+    
+    return html;
+  }
+  
+
+  
+  // Affichage des films dans la grille - NOUVELLE VERSION AVEC CATÉGORIES
+  function displayMovies(movies) {
+
+  // Debug : voir les catégories des films
+  console.log('Films et leurs catégories:', movies.map(m => ({title: m.title, category: m.category})));
+
+
+    if (!movies || movies.length === 0) {
+      mediaGrid.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">🎬</span>
+          <p>Aucune vidéo trouvée.</p>
+          <p>Cliquez sur le bouton "+" pour importer vos premiers médias !</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Grouper les films par catégorie
+    const moviesByCategory = movies.reduce((groups, movie) => {
+      const category = movie.category || 'Non trié';
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(movie);
+      return groups;
+    }, {});
+
+    let html = '';
+    
+    // ÉTAPE 1 : Afficher d'abord les catégories TRIÉES (sauf "Non trié")
+    const categoriesTriees = ['Film', 'Série', 'Court métrage', 'Autre'];
+    
+    categoriesTriees.forEach(category => {
+      if (moviesByCategory[category] && moviesByCategory[category].length > 0) {
+        html += createCategorySection(category, moviesByCategory[category]);
+      }
+    });
+    
+    // Afficher les catégories personnalisées (autres que les principales et "Non trié")
+    Object.keys(moviesByCategory).forEach(category => {
+      if (!categoriesTriees.includes(category) && category !== 'Non trié' && moviesByCategory[category].length > 0) {
+        html += createCategorySection(category, moviesByCategory[category]);
+      }
+    });
+    
+    // ÉTAPE 2 : Ajouter une séparation si il y a des médias triés ET non triés
+    const hasTriedMovies = categoriesTriees.some(cat => moviesByCategory[cat] && moviesByCategory[cat].length > 0) ||
+                          Object.keys(moviesByCategory).some(cat => cat !== 'Non trié' && moviesByCategory[cat] && moviesByCategory[cat].length > 0);
+    
+    if (hasTriedMovies && moviesByCategory['Non trié'] && moviesByCategory['Non trié'].length > 0) {
+      html += `
+        <div class="category-separator">
+          <hr class="separator-line">
+        </div>
+      `;
+    }
+    
+    // ÉTAPE 3 : Afficher "Non trié" EN DERNIER (en bas)
+    if (moviesByCategory['Non trié'] && moviesByCategory['Non trié'].length > 0) {
+      html += createCategorySection('📥 Médias non triés', moviesByCategory['Non trié']);
+    }
+
+    mediaGrid.innerHTML = html;
+    
+    // Réattacher les event listeners
+    setupMediaCardEvents();
+  }
+  
+  // Configurer les événements des cartes média
+  function setupMediaCardEvents() {
+    // Configurer les boutons "vu/à voir"
+    document.querySelectorAll('.btn-watch-toggle').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const movieId = button.getAttribute('data-movie-id');
+        toggleWatchStatus(movieId, button);
+      });
+    });
+    
+    // Configurer les étoiles de notation
+    document.querySelectorAll('.media-card').forEach(card => {
+      setupStarsInteraction(card);
       
-      // Ajouter un écouteur pour la carte entière (clic sur l'image pour ouvrir la modal)
-      mediaCard.addEventListener('click', async (e) => {
+      // Ajouter l'écouteur pour la carte entière (clic pour ouvrir la modal)
+      card.addEventListener('click', async (e) => {
         // Éviter de déclencher si on clique sur un bouton ou les étoiles
-        if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star')) {
+        if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star') || e.target.closest('.play-button')) {
           return;
         }
         
         try {
+          const movieId = card.getAttribute('data-id');
           // Ouvrir la modal au lieu de lire directement la vidéo
           if (window.openMovieModal) {
-            window.openMovieModal(movie.id);
+            window.openMovieModal(movieId);
           } else {
             console.error('La fonction openMovieModal n\'est pas disponible');
           }
@@ -478,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Mettre à jour l'affichage avec la nouvelle miniature
         const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
         if (card) {
-          const img = card.querySelector('.media-thumbnail');
+          const img = card.querySelector('.media-thumbnail img');
           if (img && result.thumbnail) {
             img.src = `file://${result.thumbnail}`;
           }
@@ -503,8 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const movieId = mediaCard.dataset.id;
         if (!movieId) return;
         
-        // Ici on pourrait afficher un menu contextuel personnalisé
-        // Pour l'instant, utilisons cette action pour ouvrir le dossier contenant le fichier
+        // Ouvrir le dossier contenant le fichier
         try {
           const result = await window.electronAPI.openFolder(movieId);
           if (!result.success) {
@@ -517,19 +597,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Extension pour l'API Electron (à implémenter côté main.js et preload.js)
-  // Ces fonctions sont nécessaires pour la modal
-  
-  // Récupérer les détails d'un film
+  // Extension pour l'API Electron
   window.electronAPI.getMovieDetails = async function(movieId) {
     try {
-      // Cette fonction devrait récupérer les détails complets d'un film
-      // Pour l'instant, utilisons getMoviePath comme substitut temporaire
       const result = await window.electronAPI.getMoviePath(movieId);
       
-      // Simuler un retour plus complet
       if (result.success) {
-        // Trouver le film dans la liste
         const data = await window.electronAPI.getAllMovies();
         const movie = data.movies.find(m => m.id === movieId);
         
@@ -539,7 +612,6 @@ document.addEventListener('DOMContentLoaded', () => {
             movie: {
               ...movie,
               path: result.path,
-              // Ajouter des champs supplémentaires que getMovieDetails pourrait fournir
               description: movie.description || '', 
               genres: movie.genres || [], 
               releaseDate: movie.releaseDate || '',
@@ -556,11 +628,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   
-  // Jouer un film (à implémenter)
+  // Jouer un film
   window.electronAPI.playMovie = async function(movieId) {
     try {
-      // Cette fonction pourrait avoir des fonctionnalités supplémentaires
-      // Pour l'instant, utilisons getMoviePath comme substitut
       return await window.electronAPI.getMoviePath(movieId);
     } catch (error) {
       console.error('Erreur lors de la lecture du film:', error);
@@ -571,20 +641,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Ouvrir une boîte de dialogue de sélection de fichier
   window.electronAPI.openFileDialog = async function(options) {
     try {
-      // Cette fonction serait normalement implémentée dans Electron 
-      // via l'API dialog.showOpenDialog
       console.log("Ouverture du sélecteur de fichiers avec options:", options);
-      
-      // Simuler un retour de sélection de fichier pour le développement
-      // Dans une vraie implémentation, cela appellerait l'API native d'Electron
       
       if (options.properties && options.properties.includes('openFile')) {
         const filePath = await new Promise((resolve) => {
-          // Créer un input file temporaire pour la sélection de fichier
           const fileInput = document.createElement('input');
           fileInput.type = 'file';
           
-          // Appliquer les filtres si présents
           if (options.filters && options.filters.length > 0) {
             const extensions = options.filters
               .flatMap(filter => filter.extensions.map(ext => `.${ext}`))
@@ -592,11 +655,9 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.accept = extensions;
           }
           
-          // Écouteur d'événement pour capturer la sélection
           fileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
-              // Convertir le File en URL pour l'affichage
               const objectURL = URL.createObjectURL(file);
               resolve({
                 path: objectURL,
@@ -607,7 +668,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
           
-          // Déclencher le clic pour ouvrir la boîte de dialogue
           fileInput.click();
         });
         
@@ -629,9 +689,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   
-  // Exposer la fonction loadMovies pour qu'elle puisse être appelée depuis la modal
+  // Exposer les fonctions pour la modal
   window.loadMoviesFromDashboard = loadMovies;
-  window.refreshDashboard = loadMovies; // Alias plus explicite
+  window.refreshDashboard = loadMovies;
   
   // Initialiser l'interface
   setupContextMenu();

@@ -20,7 +20,7 @@ function findFfmpegPaths() {
     path.join(os.homedir(), 'Documents', 'ffmpeg', 'ffmpeg-master-latest-win64-gpl-shared', 'bin', 'ffmpeg.exe'),
     // Chemin standard d'installation
     'C:\\ffmpeg\\bin\\ffmpeg.exe',
-    // Chemin Chocolatey
+    // Chemin Chocolateya
     'C:\\ProgramData\\chocolatey\\bin\\ffmpeg.exe',
     // Chemin dans le PATH (juste le nom du fichier)
     'ffmpeg.exe'
@@ -115,19 +115,20 @@ function initDatabase() {
             )
           `);
           
-          // Table movies
-          db.run(`
-            CREATE TABLE IF NOT EXISTS movies (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              title TEXT,
-              path TEXT UNIQUE NOT NULL,
-              format TEXT,
-              duration INTEGER DEFAULT 0,
-              size_bytes INTEGER,
-              thumbnail TEXT,
-              last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-          `);
+// Table movies
+db.run(`
+  CREATE TABLE IF NOT EXISTS movies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    path TEXT UNIQUE NOT NULL,
+    format TEXT,
+    duration INTEGER DEFAULT 0,
+    size_bytes INTEGER,
+    thumbnail TEXT,
+    category TEXT DEFAULT 'unsorted',
+    last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
           
           console.log('Tables créées avec succès');
         });
@@ -153,7 +154,7 @@ function checkFfmpegInstalled() {
 }
 
 // Extraire une frame d'une vidéo (à 20 secondes par défaut)
-function extractRandomFrame(videoPath, outputPath) {
+function extractFirstFrame(videoPath, outputPath) {
   return new Promise((resolve, reject) => {
     try {
       // Créer le dossier de sortie s'il n'existe pas
@@ -227,7 +228,7 @@ async function generateThumbnailsForNewMovies() {
         const thumbnailPath = path.join(app.getPath('userData'), 'thumbnails', thumbnailName);
         
         // Extraire une frame
-        await extractRandomFrame(movie.path, thumbnailPath);
+        await await extractFirstFrame(movie.path, thumbnailPath);
         
         // Mettre à jour la base de données - CORRIGÉ pour sqlite3
         db.run('UPDATE movies SET thumbnail = ? WHERE id = ?', [thumbnailPath, movie.id], (err) => {
@@ -565,7 +566,7 @@ function setupIPCHandlers() {
               thumbnailPath = path.join(app.getPath('userData'), 'thumbnails', thumbnailName);
               
               // Extraire une frame aléatoire
-              await extractRandomFrame(filePath, thumbnailPath);
+              await extractFirstFrame(filePath, thumbnailPath);
               console.log(`Miniature créée pour ${filePath}: ${thumbnailPath}`);
             } catch (error) {
               console.error(`Erreur lors de la création de la miniature pour ${filePath}:`, error);
@@ -585,21 +586,22 @@ function setupIPCHandlers() {
           
           // Requête d'insertion - CORRIGÉ pour sqlite3
           await new Promise((resolve) => {
-            db.run(`
-              INSERT INTO movies (title, path, format, duration, size_bytes, thumbnail, last_scan)
-              VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            `, [
-              movieData.title,
-              movieData.path,
-              movieData.format,
-              movieData.duration,
-              movieData.size_bytes,
-              movieData.thumbnail
-            ], function(err) {
-              if (err) console.error('Erreur insertion film:', err);
-              resolve();
-            });
-          });
+  db.run(`
+    INSERT INTO movies (title, path, format, duration, size_bytes, thumbnail, category, last_scan)
+    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `, [
+    movieData.title,
+    movieData.path,
+    movieData.format,
+    movieData.duration,
+    movieData.size_bytes,
+    movieData.thumbnail,
+    'unsorted'  // ← AJOUT DE LA CATÉGORIE "NON TRIÉ"
+  ], function(err) {
+    if (err) console.error('Erreur insertion film:', err);
+    resolve();
+  });
+});
           
           console.log(`Fichier ajouté à la base: ${filePath}`);
           addedCount++;
@@ -839,7 +841,7 @@ function setupIPCHandlers() {
       const thumbnailPath = path.join(app.getPath('userData'), 'thumbnails', thumbnailName);
       
       // Extraire une frame aléatoire
-      await extractRandomFrame(movie.path, thumbnailPath);
+      await extractFirstFrame(movie.path, thumbnailPath);
       
       // Mettre à jour la base de données - CORRIGÉ pour sqlite3
       await new Promise((resolve) => {
@@ -912,7 +914,7 @@ function setupIPCHandlers() {
           const thumbnailPath = path.join(app.getPath('userData'), 'thumbnails', thumbnailName);
           
           // Extraire une frame aléatoire
-          await extractRandomFrame(movie.path, thumbnailPath);
+          await extractFirstFrame(movie.path, thumbnailPath);
           
           // Mettre à jour la base de données - CORRIGÉ pour sqlite3
           await new Promise((resolve) => {
