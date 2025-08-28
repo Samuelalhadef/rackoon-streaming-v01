@@ -467,48 +467,75 @@ function setupIPCHandlers() {
   ipcMain.handle('movies:scan', async (event, options) => {
     try {
       const startTime = Date.now();
+      let videoFiles = [];
       
-      // Dialogues pour sélectionner le dossier à scanner
-      let folderToScan;
-      
-      if (!options || !options.path) {
+      // Vérifier si on veut importer un fichier unique ou un dossier
+      if (options && options.mode === 'file') {
+        // Mode fichier unique
         const result = await dialog.showOpenDialog(mainWindow, {
-          properties: ['openDirectory'],
-          title: 'Sélectionnez un dossier à scanner'
+          properties: ['openFile'],
+          title: 'Sélectionnez un fichier vidéo à ajouter',
+          filters: [
+            {
+              name: 'Fichiers vidéo',
+              extensions: SUPPORTED_FORMATS.map(ext => ext.substring(1)) // Enlever le point
+            }
+          ]
         });
         
         if (result.canceled || result.filePaths.length === 0) {
-          console.log('Sélection de dossier annulée');
-          return { success: false, message: 'Aucun dossier sélectionné' };
+          console.log('Sélection de fichier annulée');
+          return { success: false, message: 'Aucun fichier sélectionné' };
         }
         
-        folderToScan = result.filePaths[0];
+        videoFiles = result.filePaths;
+        console.log(`Fichier sélectionné: ${videoFiles[0]}`);
+        
+        mainWindow.webContents.send('scan:status', {
+          message: `Ajout du fichier ${path.basename(videoFiles[0])}...`,
+          progress: 10
+        });
       } else {
-        folderToScan = options.path;
-      }
-      
-      console.log(`Début de la recherche dans: ${folderToScan}`);
-      
-      // Commencer le scan
-      mainWindow.webContents.send('scan:status', {
-        message: `Recherche des vidéos dans ${folderToScan}...`,
-        progress: 0
-      });
-      
-      // Rechercher tous les fichiers vidéo sans filtres complexes
-      let videoFiles = [];
-      
-      for (const ext of SUPPORTED_FORMATS) {
-        try {
-          const pattern = `${folderToScan}/**/*${ext}`;
-          console.log(`Recherche avec pattern: ${pattern}`);
+        // Mode dossier (comportement original)
+        let folderToScan;
+        
+        if (!options || !options.path) {
+          const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openDirectory'],
+            title: 'Sélectionnez un dossier à scanner'
+          });
           
-          const files = await glob(pattern, { nocase: true });
-          console.log(`${ext}: ${files.length} fichiers trouvés`);
+          if (result.canceled || result.filePaths.length === 0) {
+            console.log('Sélection de dossier annulée');
+            return { success: false, message: 'Aucun dossier sélectionné' };
+          }
           
-          videoFiles = [...videoFiles, ...files];
-        } catch (error) {
-          console.error(`Erreur avec l'extension ${ext}: ${error.message}`);
+          folderToScan = result.filePaths[0];
+        } else {
+          folderToScan = options.path;
+        }
+        
+        console.log(`Début de la recherche dans: ${folderToScan}`);
+        
+        // Commencer le scan
+        mainWindow.webContents.send('scan:status', {
+          message: `Recherche des vidéos dans ${folderToScan}...`,
+          progress: 0
+        });
+        
+        // Rechercher tous les fichiers vidéo sans filtres complexes
+        for (const ext of SUPPORTED_FORMATS) {
+          try {
+            const pattern = `${folderToScan}/**/*${ext}`;
+            console.log(`Recherche avec pattern: ${pattern}`);
+            
+            const files = await glob(pattern, { nocase: true });
+            console.log(`${ext}: ${files.length} fichiers trouvés`);
+            
+            videoFiles = [...videoFiles, ...files];
+          } catch (error) {
+            console.error(`Erreur avec l'extension ${ext}: ${error.message}`);
+          }
         }
       }
       

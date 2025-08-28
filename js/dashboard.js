@@ -151,36 +151,132 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fonction pour filtrer les médias affichés
   function filterMovies(searchTerm) {
-    const cards = document.querySelectorAll('.media-card');
+    // Si pas de terme de recherche, afficher tout
+    if (!searchTerm || searchTerm === '') {
+      showAllCards();
+      return;
+    }
+    
+    // Récupérer seulement les cartes des sections originales (pas de la recherche)
+    const originalSections = document.querySelectorAll('.category-section:not(.search-results-section)');
+    const cards = [];
+    const foundMovieIds = new Set(); // Pour éviter les doublons
+    
+    originalSections.forEach(section => {
+      section.querySelectorAll('.media-card').forEach(card => {
+        const movieId = card.dataset.id;
+        if (!foundMovieIds.has(movieId)) {
+          cards.push(card);
+          foundMovieIds.add(movieId);
+        }
+      });
+    });
     
     let visibleCount = 0;
     
+    // Masquer toutes les sections originales
+    originalSections.forEach(section => {
+      section.style.display = 'none';
+    });
+    
+    // Créer ou récupérer la section de résultats de recherche
+    let searchResultsSection = document.querySelector('.search-results-section');
+    if (!searchResultsSection) {
+      searchResultsSection = document.createElement('div');
+      searchResultsSection.className = 'category-section search-results-section';
+      searchResultsSection.innerHTML = `
+        <div class="category-header">
+          <h3 class="category-title">🔍 Résultats de recherche</h3>
+          <span class="category-count" id="search-count">0 résultat(s)</span>
+        </div>
+        <div class="category-grid search-results-grid"></div>
+      `;
+      mediaGrid.insertBefore(searchResultsSection, mediaGrid.firstChild);
+    }
+    
+    const searchGrid = searchResultsSection.querySelector('.search-results-grid');
+    const searchCount = searchResultsSection.querySelector('#search-count');
+    searchGrid.innerHTML = ''; // Vider les résultats précédents
+    
+    // Filtrer et ajouter les cartes correspondantes (sans doublons)
     cards.forEach(card => {
       const title = card.dataset.title.toLowerCase();
       
       if (title.includes(searchTerm)) {
-        card.style.display = 'flex';
+        // Cloner la carte et l'ajouter aux résultats
+        const cardClone = card.cloneNode(true);
+        
+        // Réattacher les événements sur la carte clonée
+        setupCardEvents(cardClone);
+        
+        searchGrid.appendChild(cardClone);
         visibleCount++;
-      } else {
-        card.style.display = 'none';
       }
     });
     
-    // Afficher l'état vide si aucun résultat
-    const existingEmptySearch = document.querySelector('.empty-search-results');
-    if (existingEmptySearch) {
-      existingEmptySearch.remove();
+    // Mettre à jour le compteur
+    searchCount.textContent = `${visibleCount} résultat(s)`;
+    
+    // Afficher la section de résultats
+    searchResultsSection.style.display = 'block';
+    
+    // Afficher message si aucun résultat
+    if (visibleCount === 0) {
+      searchGrid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <span class="icon">🔍</span>
+          <p>Aucun résultat trouvé pour "${searchTerm}"</p>
+        </div>
+      `;
+    }
+  }
+  
+  // Fonction pour afficher toutes les cartes (réinitialiser la recherche)
+  function showAllCards() {
+    const searchResultsSection = document.querySelector('.search-results-section');
+    
+    // Supprimer la section de résultats de recherche si elle existe
+    if (searchResultsSection) {
+      searchResultsSection.remove();
     }
     
-    if (visibleCount === 0 && cards.length > 0 && searchTerm !== '') {
-      const emptyState = document.createElement('div');
-      emptyState.className = 'empty-state empty-search-results';
-      emptyState.innerHTML = `
-        <span class="icon">🔍</span>
-        <p>Aucun résultat trouvé pour "${searchTerm}"</p>
-      `;
-      mediaGrid.appendChild(emptyState);
-    }
+    // Réafficher toutes les sections originales (exclure search-results-section)
+    const originalSections = document.querySelectorAll('.category-section:not(.search-results-section)');
+    originalSections.forEach(section => {
+      section.style.display = 'block';
+    });
+  }
+  
+  // Fonction pour configurer les événements sur une carte
+  function setupCardEvents(card) {
+    const movieId = card.dataset.id;
+    
+    // Événement clic sur la carte
+    card.addEventListener('click', async (e) => {
+      if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star')) {
+        return;
+      }
+      
+      try {
+        if (window.openMovieModal) {
+          window.openMovieModal(movieId);
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'ouverture de la modal:', error);
+      }
+    });
+    
+    // Événements sur les boutons watch toggle
+    const watchButtons = card.querySelectorAll('.btn-watch-toggle');
+    watchButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleWatchStatus(movieId, button);
+      });
+    });
+    
+    // Événements sur les étoiles
+    setupStarsInteraction(card);
   }
   
   // Charger les préférences utilisateur (films vus et notations)
