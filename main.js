@@ -115,20 +115,20 @@ function initDatabase() {
             )
           `);
           
-// Table movies
-db.run(`
-  CREATE TABLE IF NOT EXISTS movies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT,
-    path TEXT UNIQUE NOT NULL,
-    format TEXT,
-    duration INTEGER DEFAULT 0,
-    size_bytes INTEGER,
-    thumbnail TEXT,
-    category TEXT DEFAULT 'unsorted',
-    last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+          // Table movies
+          db.run(`
+            CREATE TABLE IF NOT EXISTS movies (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT,
+              path TEXT UNIQUE NOT NULL,
+              format TEXT,
+              duration INTEGER DEFAULT 0,
+              size_bytes INTEGER,
+              thumbnail TEXT,
+              category TEXT DEFAULT 'unsorted',
+              last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
           
           console.log('Tables créées avec succès');
         });

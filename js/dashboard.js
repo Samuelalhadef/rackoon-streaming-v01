@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const progressBar = document.getElementById('progress-bar');
   const logoutBtn = document.getElementById('logout-btn');
   
+  
   // Gestion du menu flottant
   addBtn.addEventListener('click', () => {
     scanMenu.classList.toggle('active');
@@ -437,76 +438,190 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   }
   
-
-  
-  // Affichage des films dans la grille - NOUVELLE VERSION AVEC CATÉGORIES
-  function displayMovies(movies) {
-
+  // Affichage des films dans la grille - VERSION HYBRIDE (Template + Catégories)
+function displayMovies(movies) {
   // Debug : voir les catégories des films
   console.log('Films et leurs catégories:', movies.map(m => ({title: m.title, category: m.category})));
 
-
-    if (!movies || movies.length === 0) {
-      mediaGrid.innerHTML = `
-        <div class="empty-state">
-          <span class="icon">🎬</span>
-          <p>Aucune vidéo trouvée.</p>
-          <p>Cliquez sur le bouton "+" pour importer vos premiers médias !</p>
-        </div>
-      `;
-      return;
-    }
-
-    // Grouper les films par catégorie
-    const moviesByCategory = movies.reduce((groups, movie) => {
-      const category = movie.category || 'Non trié';
-      if (!groups[category]) {
-        groups[category] = [];
-      }
-      groups[category].push(movie);
-      return groups;
-    }, {});
-
-    let html = '';
-    
-    // ÉTAPE 1 : Afficher d'abord les catégories TRIÉES (sauf "Non trié")
-    const categoriesTriees = ['Film', 'Série', 'Court métrage', 'Autre'];
-    
-    categoriesTriees.forEach(category => {
-      if (moviesByCategory[category] && moviesByCategory[category].length > 0) {
-        html += createCategorySection(category, moviesByCategory[category]);
-      }
-    });
-    
-    // Afficher les catégories personnalisées (autres que les principales et "Non trié")
-    Object.keys(moviesByCategory).forEach(category => {
-      if (!categoriesTriees.includes(category) && category !== 'Non trié' && moviesByCategory[category].length > 0) {
-        html += createCategorySection(category, moviesByCategory[category]);
-      }
-    });
-    
-    // ÉTAPE 2 : Ajouter une séparation si il y a des médias triés ET non triés
-    const hasTriedMovies = categoriesTriees.some(cat => moviesByCategory[cat] && moviesByCategory[cat].length > 0) ||
-                          Object.keys(moviesByCategory).some(cat => cat !== 'Non trié' && moviesByCategory[cat] && moviesByCategory[cat].length > 0);
-    
-    if (hasTriedMovies && moviesByCategory['Non trié'] && moviesByCategory['Non trié'].length > 0) {
-      html += `
-        <div class="category-separator">
-          <hr class="separator-line">
-        </div>
-      `;
-    }
-    
-    // ÉTAPE 3 : Afficher "Non trié" EN DERNIER (en bas)
-    if (moviesByCategory['Non trié'] && moviesByCategory['Non trié'].length > 0) {
-      html += createCategorySection('📥 Médias non triés', moviesByCategory['Non trié']);
-    }
-
-    mediaGrid.innerHTML = html;
-    
-    // Réattacher les event listeners
-    setupMediaCardEvents();
+  if (!movies || movies.length === 0) {
+    mediaGrid.innerHTML = `
+      <div class="empty-state">
+        <span class="icon">📼</span>
+        <p>Aucune vidéo trouvée. Utilisez le bouton + pour lancer une recherche.</p>
+      </div>
+    `;
+    return;
   }
+
+  // Grouper les films par catégorie
+  const moviesByCategory = movies.reduce((groups, movie) => {
+    const category = movie.category || 'unsorted';
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(movie);
+    return groups;
+  }, {});
+
+  // Vider la grille
+  mediaGrid.innerHTML = '';
+
+  // ÉTAPE 1 : Afficher d'abord les catégories TRIÉES (sauf "unsorted")
+  const categoriesTriees = ['film', 'series', 'short', 'other'];
+  
+  categoriesTriees.forEach(category => {
+    if (moviesByCategory[category] && moviesByCategory[category].length > 0) {
+      createCategorySection(getCategoryDisplayName(category), moviesByCategory[category]);
+    }
+  });
+  
+  // Afficher les catégories personnalisées (autres que les principales et "unsorted")
+  Object.keys(moviesByCategory).forEach(category => {
+    if (!categoriesTriees.includes(category) && category !== 'unsorted' && moviesByCategory[category].length > 0) {
+      createCategorySection(category, moviesByCategory[category]);
+    }
+  });
+  
+  // ÉTAPE 2 : Ajouter une séparation si il y a des médias triés ET non triés
+  const hasTriedMovies = categoriesTriees.some(cat => moviesByCategory[cat] && moviesByCategory[cat].length > 0) ||
+                        Object.keys(moviesByCategory).some(cat => cat !== 'unsorted' && moviesByCategory[cat] && moviesByCategory[cat].length > 0);
+  
+  if (hasTriedMovies && moviesByCategory['unsorted'] && moviesByCategory['unsorted'].length > 0) {
+    const separator = document.createElement('div');
+    separator.className = 'category-separator';
+    separator.innerHTML = '<hr class="separator-line">';
+    mediaGrid.appendChild(separator);
+  }
+  
+  // ÉTAPE 3 : Afficher "unsorted" EN DERNIER (en bas)
+  if (moviesByCategory['unsorted'] && moviesByCategory['unsorted'].length > 0) {
+    createCategorySection('📥 Médias non triés', moviesByCategory['unsorted']);
+  }
+}
+
+// Fonction helper pour obtenir le nom d'affichage des catégories
+function getCategoryDisplayName(category) {
+  const displayNames = {
+    'film': '🎬 Films',
+    'series': '📺 Séries', 
+    'short': '🎞️ Courts métrages',
+    'other': '📁 Autres'
+  };
+  return displayNames[category] || category;
+}
+
+// Fonction helper pour créer une section de catégorie AVEC LE TEMPLATE
+function createCategorySection(categoryTitle, moviesInCategory) {
+  // Créer le header de la catégorie
+  const categorySection = document.createElement('div');
+  categorySection.className = 'category-section';
+  
+  const categoryHeader = document.createElement('div');
+  categoryHeader.className = 'category-header';
+  categoryHeader.innerHTML = `
+    <h3 class="category-title">${categoryTitle}</h3>
+    <span class="category-count">${moviesInCategory.length} média(s)</span>
+  `;
+  
+  const categoryGrid = document.createElement('div');
+  categoryGrid.className = 'category-grid';
+  
+  // Charger les préférences utilisateur
+  const userPrefs = loadUserPreferences();
+  
+  // Utiliser le template pour créer les cartes
+  const template = document.getElementById('media-card-template');
+  
+  // Ajouter chaque film de cette catégorie
+  moviesInCategory.forEach(movie => {
+    // Cloner le template
+    const mediaCard = template.content.cloneNode(true).querySelector('.media-card');
+    
+    // Configurer les attributs de la carte
+    mediaCard.dataset.id = movie.id;
+    mediaCard.dataset.title = movie.title.toLowerCase();
+    
+    // Configurer l'image de couverture - utiliser la miniature ou l'image personnalisée
+    let thumbnailSrc;
+    if (movie.posterUrl) {
+      thumbnailSrc = movie.posterUrl;
+    } else if (movie.thumbnail) {
+      thumbnailSrc = `file://${movie.thumbnail}`;
+    } else {
+      thumbnailSrc = '../public/img/default-thumbnail.svg';
+    }
+    
+    const thumbnailImg = mediaCard.querySelector('.media-thumbnail');
+    thumbnailImg.src = thumbnailSrc;
+    thumbnailImg.alt = movie.title;
+    thumbnailImg.onerror = () => { thumbnailImg.src = '../public/img/default-thumbnail.svg'; };
+    
+    // Configurer le titre
+    mediaCard.querySelector('.media-title').textContent = movie.title;
+    
+    // Configurer la durée
+    mediaCard.querySelector('.duration-value').textContent = formatTime(movie.duration);
+    
+    // Configurer l'état "vu/à voir"
+    const isWatched = userPrefs.watchedMovies[movie.id] === true;
+    const watchButtons = mediaCard.querySelectorAll('.btn-watch-toggle');
+    
+    watchButtons.forEach(button => {
+      if (isWatched) {
+        button.textContent = 'vu !';
+        button.classList.add('watched');
+      } else {
+        button.textContent = 'à voir';
+        button.classList.remove('watched');
+      }
+      
+      // Ajouter l'écouteur pour le changement d'état
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleWatchStatus(movie.id, button);
+      });
+    });
+    
+    // Configurer les étoiles de notation
+    const rating = userPrefs.ratings[movie.id] || 0;
+    updateStarsDisplay(mediaCard, rating);
+    setupStarsInteraction(mediaCard);
+    
+    // Ajouter un écouteur pour la carte entière (clic sur l'image pour ouvrir la modal)
+    mediaCard.addEventListener('click', async (e) => {
+      // Éviter de déclencher si on clique sur un bouton ou les étoiles
+      if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star')) {
+        return;
+      }
+      
+      try {
+        // Ouvrir la modal au lieu de lire directement la vidéo
+        if (window.openMovieModal) {
+          window.openMovieModal(movie.id);
+        } else {
+          console.error('La fonction openMovieModal n\'est pas disponible');
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'ouverture de la modal:', error);
+      }
+    });
+    
+    // Ajouter la carte au grid de la catégorie
+    categoryGrid.appendChild(mediaCard);
+  });
+  
+  // Assembler la section complète
+  categorySection.appendChild(categoryHeader);
+  categorySection.appendChild(categoryGrid);
+  
+  // Ajouter la section au mediaGrid principal
+  mediaGrid.appendChild(categorySection);
+  
+  // Initialiser les déclencheurs de modal
+  if (window.setupModalTriggers) {
+    window.setupModalTriggers();
+  }
+}
   
   // Configurer les événements des cartes média
   function setupMediaCardEvents() {

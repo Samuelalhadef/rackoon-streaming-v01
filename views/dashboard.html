@@ -81,39 +81,36 @@
     </div>
   </div>
 
-  <!-- Template pour les cartes de films -->
-  <template id="media-card-template">
-    <div class="media-card" data-id="" data-title="">
-      <div class="media-thumbnail-container">
-        <img src="" alt="" class="media-thumbnail">
-      </div>
-      <div class="media-info">
-        <div class="media-title-container">
-          <h3 class="media-title"></h3>
-          <div class="watch-top">
-            <button class="btn-watch-toggle">à voir</button>
-          </div>
+    <!-- Template pour les cartes de films -->
+    <template id="media-card-template">
+      <div class="media-card" data-id="" data-title="">
+        <div class="media-thumbnail-container">
+          <img src="" alt="" class="media-thumbnail">
         </div>
-        <div class="media-extended-info">
-          <div class="media-duration">
-            Durée: <span class="duration-value"></span>
-          </div>
-          <div class="rating-container">
-            <div class="stars-container">
-              <span class="star" data-value="1"><i class="fas fa-star"></i></span>
-              <span class="star" data-value="2"><i class="fas fa-star"></i></span>
-              <span class="star" data-value="3"><i class="fas fa-star"></i></span>
-              <span class="star" data-value="4"><i class="fas fa-star"></i></span>
-              <span class="star" data-value="5"><i class="fas fa-star"></i></span>
-            </div>
-            <div class="watch-hover">
+        <div class="media-info">
+          <div class="media-title-container">
+            <h3 class="media-title"></h3>
+            <div class="watch-top">
               <button class="btn-watch-toggle">à voir</button>
             </div>
           </div>
+          <div class="media-extended-info">
+            <div class="media-duration">
+              Durée: <span class="duration-value"></span>
+            </div>
+            <div class="rating-container">
+              <div class="stars-container">
+                <span class="star" data-value="1"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="2"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="3"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="4"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="5"><i class="fas fa-star"></i></span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </template>
+    </template>
 
   <!-- Modal de présentation du film -->
   <div class="modal-overlay" id="modal-overlay">
@@ -265,9 +262,360 @@
     </div>
   </div>
 
+  <!-- Modal Phase 1 : Tri par type - À ajouter dans dashboard.html -->
+  <div id="import-modal" class="import-modal" style="display: none;">
+    <div class="import-modal-content">
+      <div class="import-modal-header">
+        <h2>Classification des médias importés</h2>
+        <span class="import-modal-count" id="import-count">0 fichiers trouvés</span>
+      </div>
+      
+      <div class="import-modal-body">
+        <div class="import-table-container">
+          <table class="import-table" id="import-table">
+            <thead>
+              <tr>
+                <th>Aperçu</th>
+                <th>Nom du fichier</th>
+                <th>Durée</th>
+                <th>Taille</th>
+                <th>Type</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="import-table-body">
+              <!-- Les lignes seront ajoutées dynamiquement -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="import-modal-footer">
+        <div class="import-actions">
+          <button class="btn-secondary" id="skip-all-btn">Tout passer (non trié)</button>
+          <button class="btn-primary" id="validate-import-btn">Valider la sélection</button>
+        </div>
+        <div class="import-progress" id="import-progress" style="display: none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="import-progress-fill"></div>
+          </div>
+          <span class="progress-text" id="import-progress-text">Enregistrement en cours...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template pour les lignes du tableau -->
+  <template id="import-row-template">
+    <tr class="import-row" data-file-index="">
+      <td class="thumbnail-cell">
+        <div class="file-thumbnail">
+          <img src="" alt="" class="thumbnail-preview">
+        </div>
+      </td>
+      <td class="filename-cell">
+        <div class="filename-info">
+          <span class="filename-title"></span>
+          <span class="filename-path"></span>
+        </div>
+      </td>
+      <td class="duration-cell">
+        <span class="duration-value">--:--:--</span>
+      </td>
+      <td class="size-cell">
+        <span class="size-value">-- MB</span>
+      </td>
+      <td class="type-cell">
+        <select class="type-selector">
+          <option value="unsorted">À définir</option>
+          <option value="film">🎬 Film</option>
+          <option value="series">📺 Série</option>
+          <option value="short">🎞️ Court métrage</option>
+          <option value="other">📁 Autre</option>
+        </select>
+      </td>
+      <td class="actions-cell">
+        <button class="btn-small btn-outline quick-skip" title="Passer ce fichier">Passer</button>
+      </td>
+    </tr>
+  </template>
+
+  <!-- CSS pour la modal -->
+  <style>
+  .import-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .import-modal-content {
+    background-color: #081029;
+    border-radius: 15px;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .import-modal-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .import-modal-header h2 {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .import-modal-count {
+    color: #b0b0b0;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 6px 12px;
+    border-radius: 12px;
+  }
+
+  .import-modal-body {
+    flex: 1;
+    overflow: hidden;
+    padding: 20px 30px;
+  }
+
+  .import-table-container {
+    height: 100%;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .import-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .import-table th {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 15px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .import-table td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #e0e0e0;
+  }
+
+  .import-row:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .file-thumbnail {
+    width: 60px;
+    height: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #2a2a3e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .thumbnail-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .filename-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .filename-title {
+    font-weight: 500;
+    color: #ffffff;
+  }
+
+  .filename-path {
+    font-size: 12px;
+    color: #a0a0a0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+
+  .type-selector {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 140px;
+  }
+
+  .type-selector:focus {
+    outline: none;
+    border-color: #3474db;
+  }
+
+  .type-selector option {
+    background-color: #081029;
+    color: #ffffff;
+  }
+
+  .btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s;
+  }
+
+  .btn-outline {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+  }
+
+  .btn-outline:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .import-modal-footer {
+    padding: 25px 30px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .import-actions {
+    display: flex;
+    gap: 15px;
+  }
+
+  .btn-secondary {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .btn-primary {
+    background-color: #3474db;
+    color: #ffffff;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+
+  .btn-primary:hover {
+    background-color: #2a5db3;
+  }
+
+  .import-progress {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .progress-bar {
+    width: 200px;
+    height: 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background-color: #3474db;
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .progress-text {
+    color: #b0b0b0;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .import-modal-content {
+      width: 98%;
+      max-height: 95vh;
+    }
+    
+    .import-table {
+      font-size: 14px;
+    }
+    
+    .filename-path {
+      max-width: 150px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .import-modal-header {
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    
+    .import-modal-footer {
+      flex-direction: column;
+      gap: 15px;
+      align-items: stretch;
+    }
+    
+    .import-actions {
+      justify-content: center;
+    }
+  }
+  </style>  
+
   <!-- Scripts -->
   <script src="../js/dashboard.js"></script>
   <script src="../js/movie-modal.js"></script>
   <script src="../js/video-player.js"></script>
+  <script src="../js/import-simple.js"></script>
 </body>
 </html>
