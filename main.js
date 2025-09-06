@@ -126,9 +126,40 @@ function initDatabase() {
               size_bytes INTEGER,
               thumbnail TEXT,
               category TEXT DEFAULT 'unsorted',
-              last_scan DATETIME DEFAULT CURRENT_TIMESTAMP
+              series_id INTEGER,
+              season_number INTEGER,
+              episode_number INTEGER,
+              release_date TEXT,
+              description TEXT,
+              last_scan DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (series_id) REFERENCES series (id)
             )
           `);
+
+          // Table categories pour les catégories personnalisées
+          db.run(`
+            CREATE TABLE IF NOT EXISTS categories (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT UNIQUE NOT NULL,
+              icon TEXT DEFAULT '📁',
+              type TEXT DEFAULT 'unique',
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+
+          // Table series pour gérer les séries
+          db.run(`
+            CREATE TABLE IF NOT EXISTS series (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT UNIQUE NOT NULL,
+              description TEXT,
+              poster TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+          `);
+          
+          // Migration de la base de données existante
+          migrateDatabaseSchema();
           
           console.log('Tables créées avec succès');
         });
@@ -137,6 +168,85 @@ function initDatabase() {
   } catch (error) {
     console.error('Erreur lors de l\'initialisation de la base de données:', error);
   }
+}
+
+// Fonction de migration pour mettre à jour la structure de la base de données existante
+function migrateDatabaseSchema() {
+  console.log('🔄 Début de la migration de la base de données...');
+
+  // Vérifier et ajouter les colonnes manquantes dans la table movies
+  const columnsToAdd = [
+    { name: 'category', type: 'TEXT DEFAULT \'unsorted\'' },
+    { name: 'description', type: 'TEXT' },
+    { name: 'release_date', type: 'TEXT' },
+    { name: 'series_id', type: 'INTEGER' },
+    { name: 'season_number', type: 'INTEGER' },
+    { name: 'episode_number', type: 'INTEGER' },
+    { name: 'posterUrl', type: 'TEXT' },
+    { name: 'genres', type: 'TEXT' },
+    { name: 'year', type: 'INTEGER' }
+  ];
+
+  // Vérifier et ajouter les colonnes manquantes dans la table categories
+  const categoriesToAdd = [
+    { name: 'type', type: 'TEXT DEFAULT \'unique\'' }
+  ];
+
+  // Vérifier la structure actuelle de la table
+  db.all("PRAGMA table_info(movies)", (err, columns) => {
+    if (err) {
+      console.error('Erreur lors de la vérification de la structure de la table:', err);
+      return;
+    }
+
+    const existingColumns = columns.map(col => col.name);
+    console.log('📋 Colonnes existantes:', existingColumns);
+
+    // Ajouter les colonnes manquantes
+    columnsToAdd.forEach(column => {
+      if (!existingColumns.includes(column.name)) {
+        console.log(`➕ Ajout de la colonne: ${column.name}`);
+        db.run(`ALTER TABLE movies ADD COLUMN ${column.name} ${column.type}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`❌ Erreur lors de l'ajout de la colonne ${column.name}:`, alterErr);
+          } else {
+            console.log(`✅ Colonne ${column.name} ajoutée avec succès`);
+          }
+        });
+      } else {
+        console.log(`✅ Colonne ${column.name} déjà présente`);
+      }
+    });
+
+    console.log('✅ Migration terminée');
+  });
+
+  // Vérifier la structure actuelle de la table categories
+  db.all("PRAGMA table_info(categories)", (err, columns) => {
+    if (err) {
+      console.error('Erreur lors de la vérification de la structure de la table categories:', err);
+      return;
+    }
+
+    const existingColumns = columns.map(col => col.name);
+    console.log('📋 Colonnes existantes dans categories:', existingColumns);
+
+    // Ajouter les colonnes manquantes dans categories
+    categoriesToAdd.forEach(column => {
+      if (!existingColumns.includes(column.name)) {
+        console.log(`➕ Ajout de la colonne dans categories: ${column.name}`);
+        db.run(`ALTER TABLE categories ADD COLUMN ${column.name} ${column.type}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`❌ Erreur lors de l'ajout de la colonne ${column.name}:`, alterErr);
+          } else {
+            console.log(`✅ Colonne ${column.name} ajoutée avec succès dans categories`);
+          }
+        });
+      } else {
+        console.log(`✅ Colonne ${column.name} déjà présente dans categories`);
+      }
+    });
+  });
 }
 
 // Vérifier si ffmpeg est disponible
@@ -670,10 +780,42 @@ function setupIPCHandlers() {
   // Obtenir tous les films - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:getAll', async () => {
     try {
-      // Récupérer tous les films - CORRIGÉ pour sqlite3
+      // D'abord, vérifier et ajouter la colonne local_poster si nécessaire
+      await new Promise((resolve, reject) => {
+        db.all("PRAGMA table_info(movies)", (err, columns) => {
+          if (err) {
+            console.error('Erreur vérification structure table:', err);
+            resolve(); // Continue même en cas d'erreur
+            return;
+          }
+          
+          const hasLocalPosterColumn = columns.some(col => col.name === 'local_poster');
+          
+          if (!hasLocalPosterColumn) {
+            console.log('Ajout de la colonne local_poster à la table movies');
+            db.run(`ALTER TABLE movies ADD COLUMN local_poster TEXT`, (err) => {
+              if (err) {
+                console.error('Erreur ajout colonne local_poster:', err);
+              } else {
+                console.log('Colonne local_poster ajoutée avec succès');
+              }
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Récupérer tous les films (avec gestion d'erreur pour la colonne local_poster)
       const movies = await new Promise((resolve) => {
         db.all('SELECT * FROM movies ORDER BY title', (err, rows) => {
-          resolve(err ? [] : rows);
+          if (err) {
+            console.error('Erreur SQL:', err);
+            resolve([]);
+          } else {
+            resolve(rows || []);
+          }
         });
       });
       
@@ -681,8 +823,20 @@ function setupIPCHandlers() {
       
       // Formater les données
       const formattedMovies = movies.map(movie => {
+        // Parser les genres depuis JSON si ils existent
+        let parsedGenres = [];
+        if (movie.genres) {
+          try {
+            parsedGenres = JSON.parse(movie.genres);
+          } catch (e) {
+            console.log('Erreur lors du parsing des genres pour le film', movie.title);
+            parsedGenres = [];
+          }
+        }
+
         return {
           ...movie,
+          genres: parsedGenres, // Remplacer la chaîne JSON par l'array
           formattedDuration: formatDuration(movie.duration),
           formattedSize: formatFileSize(movie.size_bytes),
           resolution: 'Inconnue'
@@ -752,10 +906,15 @@ function setupIPCHandlers() {
   // NOUVEAU GESTIONNAIRE - Récupérer les détails d'un film pour la modal - CORRIGÉ pour sqlite3
   ipcMain.handle('movies:getDetails', async (event, movieId) => {
     try {
-      // Récupérer le film depuis la base de données - CORRIGÉ pour sqlite3
+      // Récupérer le film depuis la base de données (avec gestion d'erreur pour la colonne local_poster)
       const movie = await new Promise((resolve) => {
         db.get('SELECT * FROM movies WHERE id = ?', [movieId], (err, row) => {
-          resolve(err ? null : row);
+          if (err) {
+            console.error('Erreur SQL getDetails:', err);
+            resolve(null);
+          } else {
+            resolve(row);
+          }
         });
       });
       
@@ -975,6 +1134,601 @@ function setupIPCHandlers() {
       return { success: false, message: 'Erreur: ' + error.message };
     }
   });
+
+  // Supprimer un film de la base de données
+  ipcMain.handle('movies:delete', async (event, movieId) => {
+    try {
+      const result = await new Promise((resolve) => {
+        db.run('DELETE FROM movies WHERE id = ?', [movieId], function(err) {
+          resolve(err ? { success: false, error: err } : { success: true, changes: this.changes });
+        });
+      });
+
+      if (!result.success) {
+        return { success: false, message: 'Erreur lors de la suppression' };
+      }
+
+      if (result.changes === 0) {
+        return { success: false, message: 'Film non trouvé' };
+      }
+
+      console.log(`Film ID ${movieId} supprimé de la base de données`);
+      return { success: true, message: 'Film supprimé avec succès' };
+    } catch (error) {
+      console.error('Erreur lors de la suppression du film:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Obtenir les statistiques des fichiers
+  ipcMain.handle('movies:getStats', async () => {
+    try {
+      const stats = await new Promise((resolve) => {
+        db.get(`
+          SELECT 
+            COUNT(*) as totalFiles,
+            SUM(size_bytes) as totalSize,
+            SUM(duration) as totalDuration,
+            AVG(size_bytes) as avgSize,
+            AVG(duration) as avgDuration,
+            COUNT(CASE WHEN thumbnail IS NOT NULL AND thumbnail != '' THEN 1 END) as filesWithThumbnails,
+            COUNT(DISTINCT format) as uniqueFormats
+          FROM movies
+        `, (err, row) => {
+          resolve(err ? null : row);
+        });
+      });
+
+      if (!stats) {
+        return { success: false, message: 'Erreur lors de la récupération des statistiques' };
+      }
+
+      // Ajouter des statistiques par format
+      const formats = await new Promise((resolve) => {
+        db.all(`
+          SELECT 
+            format,
+            COUNT(*) as count,
+            SUM(size_bytes) as totalSize
+          FROM movies 
+          GROUP BY format 
+          ORDER BY count DESC
+        `, (err, rows) => {
+          resolve(err ? [] : rows);
+        });
+      });
+
+      return {
+        success: true,
+        stats: {
+          ...stats,
+          formats: formats
+        }
+      };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des statistiques:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Vérifier l'existence d'un fichier
+  ipcMain.handle('files:exists', async (event, filePath) => {
+    try {
+      const exists = fs.existsSync(filePath);
+      return { success: true, exists: exists };
+    } catch (error) {
+      console.error('Erreur lors de la vérification du fichier:', error);
+      return { success: false, exists: false };
+    }
+  });
+
+  // Obtenir toutes les catégories (prédéfinies + personnalisées)
+  ipcMain.handle('categories:getAll', async () => {
+    try {
+      // Catégories prédéfinies avec leurs types
+      const predefinedCategories = [
+        { id: 'films', name: 'Films', icon: '🎬', type: 'unique', predefined: true },
+        { id: 'series', name: 'Séries', icon: '📺', type: 'series', predefined: true },
+        { id: 'shorts', name: 'Court métrage', icon: '🎞️', type: 'unique', predefined: true },
+        { id: 'others', name: 'Autres', icon: '📁', type: 'hybrid', predefined: true }
+      ];
+
+      // Catégories personnalisées depuis la base
+      const customCategories = await new Promise((resolve) => {
+        db.all('SELECT * FROM categories ORDER BY name', (err, rows) => {
+          resolve(err ? [] : rows.map(row => ({ ...row, predefined: false })));
+        });
+      });
+
+      return {
+        success: true,
+        categories: [...predefinedCategories, ...customCategories]
+      };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des catégories:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Créer une nouvelle catégorie personnalisée
+  ipcMain.handle('categories:create', async (event, categoryData) => {
+    try {
+      const { name, icon, type } = categoryData;
+      
+      const result = await new Promise((resolve) => {
+        db.run('INSERT INTO categories (name, icon, type) VALUES (?, ?, ?)', [name, icon || '📁', type || 'unique'], function(err) {
+          resolve(err ? { success: false, error: err } : { success: true, id: this.lastID });
+        });
+      });
+
+      if (!result.success) {
+        return { success: false, message: 'Erreur lors de la création de la catégorie' };
+      }
+
+      console.log(`Nouvelle catégorie créée: ${name} (type: ${type || 'unique'})`);
+      return { success: true, id: result.id, name, icon, type: type || 'unique' };
+    } catch (error) {
+      console.error('Erreur lors de la création de la catégorie:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Obtenir toutes les séries
+  ipcMain.handle('series:getAll', async () => {
+    try {
+      const series = await new Promise((resolve) => {
+        db.all('SELECT * FROM series ORDER BY name', (err, rows) => {
+          resolve(err ? [] : rows);
+        });
+      });
+
+      return { success: true, series: series };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des séries:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Obtenir tous les médias organisés par série (pour les catégories de type "series")
+  ipcMain.handle('movies:getSeriesData', async (event, category) => {
+    try {
+      console.log(`🎬 ===== DEBUT getSeriesData =====`);
+      console.log(`📋 Paramètre category reçu: "${category}" (type: ${typeof category})`);
+      
+      // D'abord, vérifier combien de séries existent dans la base
+      const seriesCount = await new Promise((resolve) => {
+        db.get('SELECT COUNT(*) as count FROM series', (err, row) => {
+          resolve(err ? 0 : (row ? row.count : 0));
+        });
+      });
+      console.log(`📊 Nombre total de séries dans la base: ${seriesCount}`);
+
+      let query;
+      let params;
+
+      if (category && category !== 'series') {
+        // Filtrer par catégorie spécifique
+        query = `
+          SELECT 
+            s.id as series_id, s.name as series_name, s.description as series_description, 
+            s.poster as series_poster,
+            m.id, m.title, m.path, m.thumbnail, m.duration, m.season_number, 
+            m.episode_number, m.release_date, m.description
+          FROM series s
+          LEFT JOIN movies m ON s.id = m.series_id AND m.category = ?
+          ORDER BY s.name, m.season_number, m.episode_number
+        `;
+        params = [category];
+      } else {
+        // Pour la catégorie 'series' et toutes les séries - récupérer tous les épisodes de série
+        query = `
+          SELECT 
+            s.id as series_id, s.name as series_name, s.description as series_description, 
+            s.poster as series_poster,
+            m.id, m.title, m.path, m.thumbnail, m.duration, m.season_number, 
+            m.episode_number, m.release_date, m.description
+          FROM series s
+          LEFT JOIN movies m ON s.id = m.series_id
+          ORDER BY s.name, m.season_number, m.episode_number
+        `;
+        params = [];
+      }
+
+      console.log(`🔍 Requête getSeriesData pour catégorie "${category}":`, query);
+      console.log(`📋 Paramètres:`, params);
+
+      const rows = await new Promise((resolve) => {
+        db.all(query, params, (err, rows) => {
+          if (err) {
+            console.error('❌ Erreur SQL dans getSeriesData:', err);
+            resolve([]);
+          } else {
+            console.log(`📊 ${rows.length} lignes trouvées dans la base`);
+            console.log('📋 Première ligne:', rows.length > 0 ? rows[0] : 'Aucune donnée');
+            resolve(rows || []);
+          }
+        });
+      });
+
+      // Organiser par série > saison > épisode
+      const seriesData = {};
+      
+      rows.forEach(row => {
+        if (!seriesData[row.series_id]) {
+          seriesData[row.series_id] = {
+            id: row.series_id,
+            name: row.series_name,
+            description: row.series_description,
+            poster: row.series_poster,
+            seasons: {}
+          };
+        }
+
+        // Si il y a des épisodes
+        if (row.id) {
+          // Gérer les épisodes sans saison définie (non triés)
+          const seasonNum = row.season_number || 'unsorted';
+          
+          if (!seriesData[row.series_id].seasons[seasonNum]) {
+            seriesData[row.series_id].seasons[seasonNum] = {
+              number: seasonNum,
+              name: seasonNum === 'unsorted' ? 'Non triés' : `Saison ${seasonNum}`,
+              episodes: []
+            };
+          }
+
+          seriesData[row.series_id].seasons[seasonNum].episodes.push({
+            id: row.id,
+            title: row.title,
+            path: row.path,
+            thumbnail: row.thumbnail,
+            duration: row.duration,
+            episode_number: row.episode_number || null,
+            release_date: row.release_date,
+            description: row.description
+          });
+        }
+      });
+
+      // Convertir en tableau et trier les épisodes
+      const series = Object.values(seriesData).map(serie => ({
+        ...serie,
+        seasons: Object.values(serie.seasons).map(season => ({
+          ...season,
+          episodes: season.number === 'unsorted' 
+            ? season.episodes.sort((a, b) => (a.title || '').localeCompare(b.title || ''))  // Tri par titre pour non triés
+            : season.episodes.sort((a, b) => (a.episode_number || 1) - (b.episode_number || 1))  // Tri par numéro d'épisode
+        })).sort((a, b) => {
+          // Mettre "unsorted" à la fin
+          if (a.number === 'unsorted') return 1;
+          if (b.number === 'unsorted') return -1;
+          return a.number - b.number;
+        })
+      }));
+
+      console.log(`✅ getSeriesData retourne ${series.length} série(s) organisée(s)`);
+      console.log('📋 Séries détaillées:', series.map(s => ({ name: s.name, seasons: Object.keys(s.seasons).length })));
+
+      return { success: true, series: series };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données de série:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Créer une nouvelle série
+  ipcMain.handle('series:create', async (event, seriesData) => {
+    try {
+      const { name, description, poster } = seriesData;
+      
+      const result = await new Promise((resolve) => {
+        db.run('INSERT INTO series (name, description, poster) VALUES (?, ?, ?)', [name, description, poster], function(err) {
+          resolve(err ? { success: false, error: err } : { success: true, id: this.lastID });
+        });
+      });
+
+      if (!result.success) {
+        return { success: false, message: 'Erreur lors de la création de la série' };
+      }
+
+      console.log(`Nouvelle série créée: ${name}`);
+      return { success: true, id: result.id, name, description, poster };
+    } catch (error) {
+      console.error('Erreur lors de la création de la série:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Obtenir les films par catégorie
+  ipcMain.handle('movies:getByCategory', async (event, category) => {
+    try {
+      let query = 'SELECT * FROM movies';
+      let params = [];
+
+      if (category && category !== 'all') {
+        if (category === 'unsorted') {
+          query += ' WHERE category = ? OR category IS NULL';
+          params = ['unsorted'];
+        } else {
+          query += ' WHERE category = ?';
+          params = [category];
+        }
+      }
+
+      query += ' ORDER BY title';
+
+      const movies = await new Promise((resolve) => {
+        db.all(query, params, (err, rows) => {
+          resolve(err ? [] : rows);
+        });
+      });
+
+      return { success: true, movies: movies };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des films par catégorie:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Scan de fichiers pour classification (sans enregistrer en base)
+  ipcMain.handle('movies:scanForClassification', async (event, options) => {
+    try {
+      let videoFiles = [];
+      let scanType = 'folder'; // Par défaut
+      
+      // Vérifier si on veut importer un fichier unique ou un dossier
+      if (options && options.type === 'file') {
+        scanType = 'file';
+        // Mode fichier unique
+        const result = await dialog.showOpenDialog(mainWindow, {
+          properties: ['openFile'],
+          title: 'Sélectionnez un fichier vidéo à ajouter',
+          filters: [
+            {
+              name: 'Fichiers vidéo',
+              extensions: SUPPORTED_FORMATS.map(ext => ext.substring(1))
+            }
+          ]
+        });
+        
+        if (result.canceled || result.filePaths.length === 0) {
+          return { success: false, message: 'Aucun fichier sélectionné' };
+        }
+        
+        videoFiles = result.filePaths;
+      } else {
+        scanType = 'folder';
+        // Mode dossier
+        const result = await dialog.showOpenDialog(mainWindow, {
+          properties: ['openDirectory'],
+          title: 'Sélectionnez un dossier à scanner'
+        });
+        
+        if (result.canceled || result.filePaths.length === 0) {
+          return { success: false, message: 'Aucun dossier sélectionné' };
+        }
+        
+        const folderToScan = result.filePaths[0];
+        
+        // Rechercher tous les fichiers vidéo
+        for (const ext of SUPPORTED_FORMATS) {
+          try {
+            const pattern = `${folderToScan}/**/*${ext}`;
+            const files = await glob(pattern, { nocase: true });
+            videoFiles = [...videoFiles, ...files];
+          } catch (error) {
+            console.error(`Erreur avec l'extension ${ext}: ${error.message}`);
+          }
+        }
+      }
+      
+      if (videoFiles.length === 0) {
+        return { success: false, message: 'Aucun fichier vidéo trouvé' };
+      }
+      
+      // Préparer les informations des fichiers pour la classification
+      const filesInfo = await Promise.all(videoFiles.map(async (filePath, index) => {
+        try {
+          const stats = await fs.stat(filePath);
+          const fileInfo = {
+            id: `temp_${index}`,
+            name: path.basename(filePath),
+            title: path.basename(filePath, path.extname(filePath)),
+            path: filePath,
+            size: stats.size,
+            format: path.extname(filePath),
+            thumbnail: null,
+            duration: 0,
+            scanType: scanType
+          };
+
+          // Essayer d'extraire la durée avec ffprobe si disponible
+          if (FFPROBE_PATH) {
+            try {
+              const probeCommand = `"${FFPROBE_PATH}" -v quiet -print_format json -show_format "${filePath}"`;
+              const probeOutput = execSync(probeCommand, { encoding: 'utf8', timeout: 10000 });
+              const probeData = JSON.parse(probeOutput);
+              
+              if (probeData.format && probeData.format.duration) {
+                fileInfo.duration = parseFloat(probeData.format.duration);
+              }
+            } catch (probeError) {
+              console.log('Impossible d\'obtenir la durée pour:', path.basename(filePath));
+            }
+          }
+          
+          return fileInfo;
+        } catch (error) {
+          console.error('Erreur lors de l\'analyse du fichier:', filePath, error);
+          return null;
+        }
+      }));
+      
+      // Filtrer les fichiers valides
+      const validFiles = filesInfo.filter(file => file !== null);
+      
+      return {
+        success: true,
+        files: validFiles,
+        scanType: scanType,
+        count: validFiles.length
+      };
+      
+    } catch (error) {
+      console.error('Erreur lors du scan pour classification:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Enregistrer un fichier classifié en base
+  ipcMain.handle('movies:saveClassified', async (event, fileData) => {
+    try {
+      const { filePath, category, title, description, releaseDate, year, series_id, season_number, episode_number, seriesName, seriesId } = fileData;
+      
+      console.log('🎬 Données reçues pour saveClassified:', {
+        title: title,
+        category: category,
+        seriesId: seriesId,
+        seriesName: seriesName,
+        season_number: season_number,
+        episode_number: episode_number,
+        series_id: series_id
+      });
+      
+      // Vérifier si le fichier existe déjà
+      const existingFile = await new Promise((resolve) => {
+        db.get('SELECT id FROM movies WHERE path = ?', [filePath], (err, row) => {
+          if (err) {
+            console.error('Erreur lors de la vérification du fichier existant:', err);
+            resolve(null);
+          } else {
+            resolve(row);
+          }
+        });
+      });
+      
+      if (existingFile) {
+        console.log('Fichier déjà existant:', filePath, 'ID:', existingFile.id);
+        return { success: false, message: 'Ce fichier est déjà dans la base de données' };
+      }
+      
+      // Gérer la série si c'est un épisode
+      let finalSeriesId = series_id;
+      
+      // Priorité à seriesId si fourni, sinon utiliser la logique du seriesName (rétrocompatibilité)
+      if (seriesId) {
+        finalSeriesId = seriesId;
+        console.log(`✅ Utilisation de l'ID série fourni: ${finalSeriesId}`);
+      } else if (seriesName && season_number && episode_number) {
+        // Ancien système : rechercher par nom (rétrocompatibilité)
+        const existingSeries = await new Promise((resolve) => {
+          db.get('SELECT id FROM series WHERE name = ?', [seriesName], (err, row) => {
+            resolve(err ? null : row);
+          });
+        });
+        
+        if (existingSeries) {
+          finalSeriesId = existingSeries.id;
+          console.log(`Série "${seriesName}" trouvée avec l'ID ${finalSeriesId}`);
+        } else {
+          // Créer la nouvelle série
+          const seriesResult = await new Promise((resolve) => {
+            db.run('INSERT INTO series (name, description) VALUES (?, ?)', [seriesName, `Série: ${seriesName}`], function(err) {
+              resolve(err ? { success: false, error: err } : { success: true, id: this.lastID });
+            });
+          });
+          
+          if (seriesResult.success) {
+            finalSeriesId = seriesResult.id;
+            console.log(`Nouvelle série "${seriesName}" créée avec l'ID ${finalSeriesId}`);
+          } else {
+            console.error('Erreur lors de la création de la série:', seriesResult.error);
+            return { success: false, message: 'Erreur lors de la création de la série' };
+          }
+        }
+      }
+
+      // Préparer les données
+      const movieData = {
+        title: title || path.basename(filePath, path.extname(filePath)),
+        path: filePath,
+        format: path.extname(filePath),
+        category: category || 'unsorted',
+        description: description || null,
+        release_date: releaseDate || (year ? `${year}-01-01` : null),
+        series_id: finalSeriesId || null,
+        season_number: season_number || null,
+        episode_number: episode_number || null,
+        last_scan: new Date().toISOString()
+      };
+      
+      console.log('Données préparées pour insertion:', movieData);
+      
+      // Obtenir les infos du fichier
+      try {
+        const stats = await fs.stat(filePath);
+        movieData.size_bytes = stats.size;
+      } catch (error) {
+        console.error('Impossible d\'obtenir la taille du fichier:', error);
+      }
+      
+      // Obtenir la durée si possible
+      if (FFPROBE_PATH) {
+        try {
+          const probeCommand = `"${FFPROBE_PATH}" -v quiet -print_format json -show_format "${filePath}"`;
+          const probeOutput = execSync(probeCommand, { encoding: 'utf8', timeout: 10000 });
+          const probeData = JSON.parse(probeOutput);
+          
+          if (probeData.format && probeData.format.duration) {
+            movieData.duration = Math.round(parseFloat(probeData.format.duration));
+          }
+        } catch (probeError) {
+          console.log('Impossible d\'obtenir la durée:', probeError.message);
+        }
+      }
+      
+      // Insérer en base
+      const result = await new Promise((resolve) => {
+        const query = `
+          INSERT INTO movies (title, path, format, duration, size_bytes, category, description, release_date, series_id, season_number, episode_number, posterUrl, genres, year, last_scan)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const values = [
+          movieData.title, movieData.path, movieData.format, movieData.duration || 0,
+          movieData.size_bytes || 0, movieData.category, movieData.description,
+          movieData.release_date, movieData.series_id, movieData.season_number,
+          movieData.episode_number, movieData.posterUrl || null, 
+          movieData.genres ? JSON.stringify(movieData.genres) : null,
+          movieData.year || null, movieData.last_scan
+        ];
+        
+        db.run(query, values, function(err) {
+          if (err) {
+            console.error('Erreur lors de l\'insertion:', err);
+            resolve({ success: false, error: err });
+          } else {
+            resolve({ success: true, id: this.lastID });
+          }
+        });
+      });
+      
+      if (!result.success) {
+        console.error('Erreur SQLite détaillée:', result.error);
+        return { success: false, message: 'Erreur SQLite: ' + (result.error?.message || result.error) };
+      }
+      
+      if (finalSeriesId) {
+        console.log(`📺 Épisode enregistré: ${movieData.title} dans la série ID ${finalSeriesId} (S${movieData.season_number}E${movieData.episode_number})`);
+      } else {
+        console.log(`🎬 Fichier enregistré: ${movieData.title} dans la catégorie ${movieData.category}`);
+      }
+      return { success: true, id: result.id };
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement du fichier classifié:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
 }
 
 // Formater la durée en HH:MM:SS
@@ -1011,3 +1765,162 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
   }
 }
+
+// Handler pour télécharger une affiche
+ipcMain.handle('movies:downloadPoster', async (event, { movieId, posterUrl }) => {
+  try {
+    const https = require('https');
+    const http = require('http');
+    const crypto = require('crypto');
+    
+    // Vérifier si le mode hors ligne est activé
+    if (isOfflineModeEnabled()) {
+      console.log('🚫 Mode hors ligne: téléchargement d\'affiches désactivé');
+      return { 
+        success: false, 
+        message: 'Téléchargement d\'affiches désactivé en mode hors ligne',
+        offline: true 
+      };
+    }
+
+    console.log(`🖼️ Début téléchargement affiche pour le film ${movieId}`);
+    console.log(`📥 URL: ${posterUrl}`);
+
+    // D'abord, vérifier et ajouter la colonne local_poster si nécessaire
+    await new Promise((resolve, reject) => {
+      db.all("PRAGMA table_info(movies)", (err, columns) => {
+        if (err) {
+          console.error('❌ Erreur vérification structure table:', err);
+          reject(err);
+          return;
+        }
+        
+        const hasLocalPosterColumn = columns.some(col => col.name === 'local_poster');
+        console.log(`📋 Colonne local_poster existe: ${hasLocalPosterColumn}`);
+        
+        if (!hasLocalPosterColumn) {
+          console.log(`➕ Ajout de la colonne local_poster...`);
+          db.run(`ALTER TABLE movies ADD COLUMN local_poster TEXT`, (err) => {
+            if (err) {
+              console.error('❌ Erreur ajout colonne:', err);
+              reject(err);
+            } else {
+              console.log('✅ Colonne local_poster ajoutée');
+              resolve();
+            }
+          });
+        } else {
+          console.log('✅ Colonne local_poster déjà présente');
+          resolve();
+        }
+      });
+    });
+
+    // Créer le dossier des affiches s'il n'existe pas - dans le dossier uploads du projet
+    const postersDir = path.join(__dirname, 'uploads', 'posters');
+    console.log(`📁 Dossier affiches: ${postersDir}`);
+    await fs.ensureDir(postersDir);
+
+    // Générer un nom de fichier unique
+    const urlHash = crypto.createHash('md5').update(posterUrl).digest('hex').substring(0, 8);
+    const extension = path.extname(posterUrl.split('?')[0]) || '.jpg';
+    const filename = `poster_${movieId}_${urlHash}${extension}`;
+    const localPath = path.join(postersDir, filename);
+    
+    console.log(`📄 Nom de fichier: ${filename}`);
+    console.log(`🗂️ Chemin complet: ${localPath}`);
+
+    // Vérifier si le fichier existe déjà
+    if (await fs.pathExists(localPath)) {
+      console.log(`✅ Affiche déjà téléchargée: ${localPath}`);
+      
+      // Mettre à jour la base de données avec le chemin local
+      await new Promise((resolve, reject) => {
+        db.run('UPDATE movies SET local_poster = ? WHERE id = ?', [localPath, movieId], (err) => {
+          if (err) {
+            console.log(`❌ Erreur BDD: ${err.message}`);
+            reject(err);
+          } else {
+            console.log(`✅ BDD mise à jour pour le film ${movieId}`);
+            resolve();
+          }
+        });
+      });
+
+      return { success: true, message: 'Affiche déjà téléchargée', localPath };
+    }
+
+    // Télécharger l'affiche
+    console.log(`⬇️ Début du téléchargement...`);
+    const downloadPromise = new Promise((resolve, reject) => {
+      const requestModule = posterUrl.startsWith('https:') ? https : http;
+      const file = fs.createWriteStream(localPath);
+      
+      console.log(`🌐 Module utilisé: ${posterUrl.startsWith('https:') ? 'HTTPS' : 'HTTP'}`);
+      
+      const request = requestModule.get(posterUrl, (response) => {
+        console.log(`📡 Réponse HTTP: ${response.statusCode}`);
+        
+        if (response.statusCode !== 200) {
+          console.error(`❌ Erreur HTTP: ${response.statusCode} pour ${posterUrl}`);
+          fs.unlink(localPath, () => {});
+          reject(new Error(`HTTP ${response.statusCode}`));
+          return;
+        }
+
+        console.log(`✅ Début écriture fichier...`);
+        response.pipe(file);
+
+        file.on('finish', () => {
+          file.close(() => {
+            console.log(`🎉 Affiche téléchargée avec succès: ${localPath}`);
+            resolve(localPath);
+          });
+        });
+
+        file.on('error', (err) => {
+          console.error(`💥 Erreur lors de l'écriture du fichier:`, err);
+          fs.unlink(localPath, () => {});
+          reject(err);
+        });
+      });
+
+      request.on('error', (err) => {
+        console.error(`🚫 Erreur lors du téléchargement:`, err);
+        fs.unlink(localPath, () => {});
+        reject(err);
+      });
+
+      request.setTimeout(30000, () => {
+        console.error(`⏰ Timeout lors du téléchargement de l'affiche`);
+        request.destroy();
+        fs.unlink(localPath, () => {});
+        reject(new Error('Timeout'));
+      });
+    });
+
+    await downloadPromise;
+    console.log(`💾 Téléchargement terminé, mise à jour BDD...`);
+
+    // Mettre à jour la base de données avec le chemin local
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE movies SET local_poster = ? WHERE id = ?', [localPath, movieId], (err) => {
+        if (err) {
+          console.log(`❌ Erreur mise à jour BDD: ${err.message}`);
+          reject(err);
+        } else {
+          console.log(`✅ BDD mise à jour avec succès pour le film ${movieId}`);
+          resolve();
+        }
+      });
+    });
+
+    console.log(`🎯 Succès complet ! Affiche sauvée: ${localPath}`);
+    return { success: true, message: 'Affiche téléchargée avec succès', localPath };
+
+  } catch (error) {
+    console.error(`💥 ERREUR GLOBALE:`, error);
+    console.error(`📍 Stack:`, error.stack);
+    return { success: false, message: `Erreur lors du téléchargement de l'affiche: ${error.message}` };
+  }
+});

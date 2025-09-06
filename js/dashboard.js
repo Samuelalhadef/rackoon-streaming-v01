@@ -76,21 +76,25 @@ document.addEventListener('DOMContentLoaded', () => {
       statusMessage.textContent = 'Sélection du dossier à scanner...';
       progressBar.style.width = '0%';
       
-      // Lancer la recherche de dossier
-      const result = await window.electronAPI.scanMovies();
+      // Lancer le scan pour classification
+      const result = await window.electronAPI.scanForClassification({ type: 'folder' });
       
       if (result.success) {
-        statusMessage.textContent = result.message;
-        progressBar.style.width = '100%';
+        statusMessage.textContent = `${result.count} fichiers trouvés`;
+        progressBar.style.width = '50%';
+        
+        // Lancer le système de classification
+        if (result.files && result.files.length > 0) {
+          window.startClassification(result.files, result.scanType);
+        } else {
+          statusMessage.textContent = 'Aucun fichier vidéo trouvé';
+        }
         
         // Masquer la barre de progression après 3 secondes
         setTimeout(() => {
           progressBar.style.width = '0%';
           statusMessage.textContent = 'Prêt à rechercher des vidéos';
         }, 3000);
-        
-        // Mettre à jour la liste des films
-        loadMovies();
       } else {
         statusMessage.textContent = result.message || 'Erreur lors de la recherche';
         progressBar.style.width = '0%';
@@ -117,21 +121,25 @@ document.addEventListener('DOMContentLoaded', () => {
         ]
       };
       
-      // Lancer la recherche d'un fichier
-      const result = await window.electronAPI.scanMovies(options);
+      // Lancer le scan pour classification d'un fichier
+      const result = await window.electronAPI.scanForClassification({ type: 'file' });
       
       if (result.success) {
-        statusMessage.textContent = result.message;
-        progressBar.style.width = '100%';
+        statusMessage.textContent = `${result.count} fichier trouvé`;
+        progressBar.style.width = '50%';
+        
+        // Lancer le système de classification
+        if (result.files && result.files.length > 0) {
+          window.startClassification(result.files, result.scanType);
+        } else {
+          statusMessage.textContent = 'Aucun fichier sélectionné';
+        }
         
         // Masquer la barre de progression après 3 secondes
         setTimeout(() => {
           progressBar.style.width = '0%';
           statusMessage.textContent = 'Prêt à rechercher des vidéos';
         }, 3000);
-        
-        // Mettre à jour la liste des films
-        loadMovies();
       } else {
         statusMessage.textContent = result.message || 'Erreur lors de l\'ajout du fichier';
         progressBar.style.width = '0%';

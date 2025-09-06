@@ -18,6 +18,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openMovieFolder: (movieId) => ipcRenderer.invoke('movies:openFolder', movieId),
   generateThumbnail: (movieId) => ipcRenderer.invoke('movies:generateThumbnail', movieId),
   generateAllThumbnails: () => ipcRenderer.invoke('movies:generateAllThumbnails'),
+  deleteMovie: (movieId) => ipcRenderer.invoke('movies:delete', movieId),
+  getMovieStats: () => ipcRenderer.invoke('movies:getStats'),
+  checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
+  
+  // Classification et import avancé
+  scanForClassification: (options) => ipcRenderer.invoke('movies:scanForClassification', options),
+  saveClassifiedFile: (fileData) => ipcRenderer.invoke('movies:saveClassified', fileData),
+  
+  // Catégories
+  getAllCategories: () => ipcRenderer.invoke('categories:getAll'),
+  createCategory: (categoryData) => ipcRenderer.invoke('categories:create', categoryData),
+  getMoviesByCategory: (category) => ipcRenderer.invoke('movies:getByCategory', category),
+  
+  // Séries
+  getAllSeries: () => ipcRenderer.invoke('series:getAll'),
+  createSeries: (seriesData) => ipcRenderer.invoke('series:create', seriesData),
+  getSeriesData: (category) => ipcRenderer.invoke('movies:getSeriesData', category),
+  
+  // Affiches
+  downloadPoster: (data) => ipcRenderer.invoke('movies:downloadPoster', data),
   
   // Événements
   onScanStatus: (callback) => {

@@ -7,12 +7,25 @@
   <link rel="stylesheet" href="../css/dashboard.css">
   <link rel="stylesheet" href="../css/modal.css">
   <link rel="stylesheet" href="../css/video-player.css">
+  <link rel="stylesheet" href="../css/import-classification.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <!-- Barre de navigation -->
   <nav class="navbar">
-    <div class="logo">RACKOON</div>
+    <div class="navbar-left">
+      <div class="logo">RACKOON</div>
+      <div class="nav-links">
+        <a href="#" class="nav-link active">
+          <i class="fas fa-home"></i>
+          Accueil
+        </a>
+        <a href="file-manager-electron.html" class="nav-link">
+          <i class="fas fa-folder-open"></i>
+          Gestion des fichiers
+        </a>
+      </div>
+    </div>
     <div class="user-controls">
       <div class="user-profile">
         <span id="username"></span>
@@ -340,6 +353,105 @@
     </tr>
   </template>
 
+  <!-- Modal Phase 2 : Classification détaillée (séries, métadonnées) -->
+  <div id="details-classification-modal" class="import-modal" style="display: none;">
+    <div class="import-modal-content details-modal">
+      <div class="import-modal-header">
+        <h2>Classification détaillée</h2>
+        <div class="file-info">
+          <span id="detail-file-name">Nom du fichier</span>
+        </div>
+      </div>
+      
+      <div class="import-modal-body details-body">
+        <div class="details-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="detail-title">Titre *</label>
+              <input type="text" id="detail-title" class="form-control" placeholder="Titre du média" required>
+            </div>
+            <div class="form-group">
+              <label for="detail-category">Catégorie *</label>
+              <select id="detail-category" class="form-control" required>
+                <option value="">Sélectionner une catégorie</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" id="series-section" style="display: none;">
+            <div class="form-group">
+              <label for="detail-series">Série</label>
+              <div class="series-input-container">
+                <select id="detail-series" class="form-control">
+                  <option value="">Sélectionner une série</option>
+                </select>
+                <button type="button" id="new-series-btn" class="btn-small btn-outline">+ Nouvelle série</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="detail-season">Saison</label>
+              <input type="number" id="detail-season" class="form-control" placeholder="1" min="1">
+            </div>
+            <div class="form-group">
+              <label for="detail-episode">Épisode</label>
+              <input type="number" id="detail-episode" class="form-control" placeholder="1" min="1">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="detail-year">Année</label>
+              <input type="number" id="detail-year" class="form-control" placeholder="2023" min="1900" max="2030">
+            </div>
+            <div class="form-group">
+              <label for="detail-release-date">Date de sortie</label>
+              <input type="date" id="detail-release-date" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="detail-description">Description</label>
+            <textarea id="detail-description" class="form-control" rows="3" placeholder="Description du média (optionnel)"></textarea>
+          </div>
+        </div>
+      </div>
+      
+      <div class="import-modal-footer">
+        <div class="import-actions">
+          <button class="btn-secondary" id="skip-file-btn">Passer ce fichier</button>
+          <button class="btn-primary" id="save-file-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pour nouvelle série -->
+  <div id="new-series-modal" class="import-modal" style="display: none;">
+    <div class="import-modal-content small-modal">
+      <div class="import-modal-header">
+        <h3>Créer une nouvelle série</h3>
+      </div>
+      
+      <div class="import-modal-body">
+        <div class="form-group">
+          <label for="new-series-name">Nom de la série *</label>
+          <input type="text" id="new-series-name" class="form-control" placeholder="Ex: Breaking Bad" required>
+        </div>
+        <div class="form-group">
+          <label for="new-series-description">Description</label>
+          <textarea id="new-series-description" class="form-control" rows="2" placeholder="Description de la série (optionnel)"></textarea>
+        </div>
+      </div>
+      
+      <div class="import-modal-footer">
+        <div class="import-actions">
+          <button class="btn-secondary" id="cancel-series-btn">Annuler</button>
+          <button class="btn-primary" id="create-series-btn">Créer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CSS pour la modal -->
   <style>
   .import-modal {
@@ -610,12 +722,136 @@
       justify-content: center;
     }
   }
+
+  /* Styles pour la modal de classification détaillée */
+  .details-modal {
+    max-width: 800px;
+  }
+
+  .details-body {
+    overflow-y: auto;
+  }
+
+  .details-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .form-row.three-columns {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .form-group label {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .form-control {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #ffffff;
+    font-size: 14px;
+    transition: all 0.3s;
+  }
+
+  .form-control:focus {
+    outline: none;
+    border-color: #3474db;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .series-input-container {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .series-input-container .form-control {
+    flex: 1;
+  }
+
+  .file-info {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #b0b0b0;
+  }
+
+  #series-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 20px;
+    margin-top: 10px;
+  }
+
+  .small-modal {
+    max-width: 500px;
+  }
+
+  .btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .btn-outline {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+  }
+
+  .btn-outline:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  @media (max-width: 768px) {
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 15px;
+    }
+    
+    .series-input-container {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .details-modal {
+      width: 98%;
+    }
+  }
   </style>  
 
   <!-- Scripts -->
   <script src="../js/dashboard.js"></script>
   <script src="../js/movie-modal.js"></script>
   <script src="../js/video-player.js"></script>
+  <script src="../js/dashboard-categories.js"></script>
+  <script src="../js/import-classification.js"></script>
   <script src="../js/import-simple.js"></script>
 </body>
 </html>
