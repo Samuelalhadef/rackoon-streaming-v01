@@ -56,60 +56,31 @@ document.addEventListener('DOMContentLoaded', () => {
   let posterImageFile = null;
   let tmdbGenresCache = null;
   
-  // Stockage des modifications des films
-  const MOVIE_EDITS_STORAGE_KEY = `movieEdits_${user.id}`;
+  // Configuration des clés de stockage spécifiques à l'utilisateur
+  const USER_PREFS_KEY = `userPrefs_${user.id}`;
   
-  // Fonction pour charger les modifications des films
-  function loadMovieEdits() {
-    let movieEdits = localStorage.getItem(MOVIE_EDITS_STORAGE_KEY);
-    
-    if (!movieEdits) {
-      movieEdits = {};
-      localStorage.setItem(MOVIE_EDITS_STORAGE_KEY, JSON.stringify(movieEdits));
-    } else {
-      movieEdits = JSON.parse(movieEdits);
-    }
-    
-    return movieEdits;
-  }
-  
-  // Sauvegarder les modifications des films
-  function saveMovieEdits(movieId, edits) {
-    const movieEdits = loadMovieEdits();
-    movieEdits[movieId] = edits;
-    localStorage.setItem(MOVIE_EDITS_STORAGE_KEY, JSON.stringify(movieEdits));
-  }
-  
-  // Récupérer les modifications d'un film spécifique
-  function getMovieEdits(movieId) {
-    const movieEdits = loadMovieEdits();
-    return movieEdits[movieId] || null;
-  }
-  
-  // Fonction pour charger les préférences utilisateur
+  // Fonctions utilitaires pour les préférences utilisateur spécifiques
   function loadUserPreferences() {
-    let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
-    
-    if (!userPrefs) {
-      userPrefs = {
-        watchedMovies: {},
-        ratings: {}
-      };
-      localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(userPrefs));
-    } else {
-      userPrefs = JSON.parse(userPrefs);
+    try {
+      let userPrefs = JSON.parse(localStorage.getItem(USER_PREFS_KEY) || '{}');
       
       // S'assurer que les objets nécessaires existent
       if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
       if (!userPrefs.ratings) userPrefs.ratings = {};
+      
+      return userPrefs;
+    } catch (e) {
+      console.error('Erreur lors du chargement des préférences utilisateur:', e);
+      return { watchedMovies: {}, ratings: {} };
     }
-    
-    return userPrefs;
   }
   
-  // Sauvegarder les préférences utilisateur
   function saveUserPreferences(prefs) {
-    localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(prefs));
+    try {
+      localStorage.setItem(USER_PREFS_KEY, JSON.stringify(prefs));
+    } catch (e) {
+      console.error('Erreur lors de la sauvegarde des préférences utilisateur:', e);
+    }
   }
   
   // Fonction pour ouvrir la modal avec les données du film
@@ -122,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
       editMode.style.display = 'none';
       
       // Récupérer les modifications précédentes du film
-      const savedEdits = getMovieEdits(movieId);
+      const savedEdits = window.movieEdits.get(movieId);
       console.log("Modifications sauvegardées:", savedEdits);
       
       // Récupérer les détails du film
@@ -163,10 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
       
       modalPoster.src = posterSrc;
       modalPoster.alt = movie.title;
-      modalPoster.onerror = () => { modalPoster.src = '../public/img/default-thumbnail.svg'; };
+      window.handleImageError(modalPoster);
       
       // Configurer les informations du film
-      modalTitle.textContent = movie.title;
+      const truncatedTitle = movie.title.length > 20 ? movie.title.substring(0, 20) + '...' : movie.title;
+      modalTitle.textContent = truncatedTitle;
       
       // Extraire l'année du titre ou utiliser une valeur par défaut
       const yearMatch = movie.title.match(/\((\d{4})\)$/);
@@ -177,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
       releaseDate.textContent = movie.releaseDate || '';
       
       // Configurer la durée
-      duration.textContent = formatTime(movie.duration);
+      duration.textContent = window.formatTime(movie.duration);
       
       // Configurer les genres
       genresContainer.innerHTML = '';
@@ -239,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Configurer l'image d'aperçu
       imagePreview.src = posterSrc;
-      imagePreview.onerror = () => { imagePreview.src = '../public/img/default-thumbnail.svg'; };
+      window.handleImageError(imagePreview);
       
       // Configurer le synopsis
       editSynopsisInput.value = movie.description || '';
@@ -281,19 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Formater la durée (secondes -> HH:MM:SS)
-  function formatTime(seconds) {
-    if (!seconds || isNaN(seconds) || seconds <= 0) {
-      return '00:00:00';
-    }
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    // Format "2h 35m" comme dans l'image
-    return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-  }
   
   // Gérer l'interaction avec les étoiles
   modalStars.forEach((star, index) => {
@@ -330,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mettre également à jour les étoiles dans la carte du film
       const card = document.querySelector(`.media-card[data-id="${currentMovieId}"]`);
       if (card) {
-        updateStarsDisplay(card, value);
+        window.updateStarsDisplay(card, value);
       }
     });
   });
@@ -346,18 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Mettre à jour l'affichage des étoiles dans la carte (réutilisation de la fonction du dashboard)
-  function updateStarsDisplay(card, rating) {
-    const stars = card.querySelectorAll('.star');
-    
-    stars.forEach((star, index) => {
-      if (index < rating) {
-        star.classList.add('filled');
-      } else {
-        star.classList.remove('filled');
-      }
-    });
-  }
   
   // Gérer le bouton "Vu/À voir"
   watchToggleModal.addEventListener('click', () => {
@@ -902,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       movieCard.innerHTML = `
         <div class="tmdb-movie-poster">
-          <img src="${posterPath}" alt="${movie.title}" onerror="this.src='../public/img/default-thumbnail.svg'">
+          <img src="${posterPath}" alt="${movie.title}" onload="window.handleImageError(this)">
         </div>
         <div class="tmdb-movie-info">
           <div class="tmdb-movie-title">${movie.title}</div>
@@ -1075,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       
       // Enregistrer les modifications localement
-      saveMovieEdits(currentMovieId, movieUpdates);
+      window.movieEdits.save(currentMovieId, movieUpdates);
       
       console.log("Données sauvegardées:", movieUpdates);
       
@@ -1164,6 +1111,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+    
+    // Ajouter l'event listener pour le bouton play dans la modal
+    const playMovieBtn = document.getElementById('play-movie-btn');
+    if (playMovieBtn) {
+      playMovieBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (currentMovieData && currentMovieData.id) {
+          try {
+            await window.openVideoPlayer(currentMovieData.id, currentMovieData.title, currentMovieData.path);
+          } catch (error) {
+            console.error('Erreur lors du lancement du lecteur vidéo:', error);
+            alert('Erreur lors du lancement de la vidéo: ' + error.message);
+          }
+        }
+      });
+    }
   }
   
   // Exposer la fonction pour pouvoir l'appeler depuis dashboard.js

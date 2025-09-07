@@ -1,21 +1,3 @@
-// Mettre à jour les informations d'un film
-window.electronAPI.updateMovieDetails = async function(movieId, updates) {
-  try {
-    // Simuler une mise à jour réussie
-    // À implémenter dans l'API Electron
-    console.log(`Mise à jour des informations pour le film ${movieId}:`, updates);
-    
-    // Retourner un succès simulé
-    return { 
-      success: true, 
-      message: 'Informations mises à jour avec succès',
-      movie: { id: movieId, ...updates }
-    };
-  } catch (error) {
-    console.error('Erreur lors de la mise à jour des informations du film:', error);
-    return { success: false, message: 'Erreur lors de la mise à jour des informations du film' };
-  }
-};
 
 // dashboard.js - Logique pour l'interface principale style Netflix améliorée
 document.addEventListener('DOMContentLoaded', () => {
@@ -284,11 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Événements sur les étoiles
-    setupStarsInteraction(card);
+    window.setupStarsInteraction(card, (rating) => rateMovie(movieId, rating));
   }
   
-  // Charger les préférences utilisateur (films vus et notations)
-  function loadUserPreferences() {
+  
+  // Marquer un film comme vu/à voir
+  function toggleWatchStatus(movieId, button) {
     let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
     
     if (!userPrefs) {
@@ -296,35 +279,20 @@ document.addEventListener('DOMContentLoaded', () => {
         watchedMovies: {},
         ratings: {}
       };
-      localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(userPrefs));
     } else {
       userPrefs = JSON.parse(userPrefs);
-      
-      // S'assurer que les objets nécessaires existent
       if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
       if (!userPrefs.ratings) userPrefs.ratings = {};
     }
     
-    return userPrefs;
-  }
-  
-  // Sauvegarder les préférences utilisateur
-  function saveUserPreferences(prefs) {
-    localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(prefs));
-  }
-  
-  // Marquer un film comme vu/à voir
-  function toggleWatchStatus(movieId, button) {
-    const prefs = loadUserPreferences();
-    
-    if (prefs.watchedMovies[movieId]) {
+    if (userPrefs.watchedMovies[movieId]) {
       // Film déjà vu, le marquer comme "à voir"
-      delete prefs.watchedMovies[movieId];
+      delete userPrefs.watchedMovies[movieId];
       button.textContent = 'à voir';
       button.classList.remove('watched');
     } else {
       // Film pas encore vu, le marquer comme "vu"
-      prefs.watchedMovies[movieId] = true;
+      userPrefs.watchedMovies[movieId] = true;
       button.textContent = 'vu !';
       button.classList.add('watched');
     }
@@ -336,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     otherButtons.forEach(otherBtn => {
       if (otherBtn !== button) {
         otherBtn.textContent = button.textContent;
-        if (prefs.watchedMovies[movieId]) {
+        if (userPrefs.watchedMovies[movieId]) {
           otherBtn.classList.add('watched');
         } else {
           otherBtn.classList.remove('watched');
@@ -344,87 +312,39 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     
-    saveUserPreferences(prefs);
+    localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(userPrefs));
   }
   
   // Noter un film (1-5 étoiles)
   function rateMovie(movieId, rating) {
-    const prefs = loadUserPreferences();
-    prefs.ratings[movieId] = rating;
-    saveUserPreferences(prefs);
+    let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+    
+    if (!userPrefs) {
+      userPrefs = {
+        watchedMovies: {},
+        ratings: {}
+      };
+    } else {
+      userPrefs = JSON.parse(userPrefs);
+      if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
+      if (!userPrefs.ratings) userPrefs.ratings = {};
+    }
+    
+    userPrefs.ratings[movieId] = rating;
+    localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(userPrefs));
     
     // Mettre à jour l'affichage des étoiles
     const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
     if (card) {
-      updateStarsDisplay(card, rating);
+      window.updateStarsDisplay(card, rating);
     }
   }
   
-  // Mettre à jour l'affichage des étoiles
-  function updateStarsDisplay(card, rating) {
-    const stars = card.querySelectorAll('.star');
-    
-    stars.forEach((star, index) => {
-      if (index < rating) {
-        star.classList.add('filled');
-      } else {
-        star.classList.remove('filled');
-      }
-    });
-  }
   
-  // Gérer l'interaction avec les étoiles
-  function setupStarsInteraction(card) {
-    const stars = card.querySelectorAll('.star');
-    const movieId = card.dataset.id;
-    
-    stars.forEach((star, index) => {
-      star.dataset.value = index + 1;
-      
-      star.addEventListener('mouseover', () => {
-        const value = parseInt(star.dataset.value);
-        
-        stars.forEach((s, idx) => {
-          if (idx < value) {
-            s.classList.add('hover');
-          } else {
-            s.classList.remove('hover');
-          }
-        });
-      });
-      
-      star.addEventListener('mouseout', () => {
-        stars.forEach(s => s.classList.remove('hover'));
-      });
-      
-      // Clic pour noter
-      star.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const value = parseInt(star.dataset.value);
-        rateMovie(movieId, value);
-      });
-    });
-  }
   
-  // Formater la durée (secondes -> HH:MM:SS)
-  function formatTime(seconds) {
-    if (!seconds || isNaN(seconds) || seconds <= 0) {
-      return '00:00:00';
-    }
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    return [
-      hours.toString().padStart(2, '0'),
-      minutes.toString().padStart(2, '0'),
-      secs.toString().padStart(2, '0')
-    ].join(':');
-  }
   
   // Chargement des films
-  async function loadMovies() {
+  window.loadMovies = async function() {
     try {
       const data = await window.electronAPI.getAllMovies();
       
@@ -444,7 +364,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fonction pour appliquer les modifications locales aux films
   function applyLocalEdits(movies) {
-    const movieEdits = loadMovieEdits();
+    const storageKey = `movieEdits_${user.id}`;
+    let movieEdits = localStorage.getItem(storageKey);
+    
+    if (!movieEdits) {
+      movieEdits = {};
+    } else {
+      movieEdits = JSON.parse(movieEdits);
+    }
     
     return movies.map(movie => {
       const edits = movieEdits[movie.id];
@@ -456,20 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Fonction pour charger les modifications des films
-  function loadMovieEdits() {
-    const storageKey = `movieEdits_${user.id}`;
-    let movieEdits = localStorage.getItem(storageKey);
-    
-    if (!movieEdits) {
-      movieEdits = {};
-      localStorage.setItem(storageKey, JSON.stringify(movieEdits));
-    } else {
-      movieEdits = JSON.parse(movieEdits);
-    }
-    
-    return movieEdits;
-  }
   
   // Fonction helper pour créer une section de catégorie
   function createCategorySection(categoryTitle, moviesInCategory) {
@@ -483,7 +396,18 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     
     // Charger les préférences utilisateur
-    const userPrefs = loadUserPreferences();
+    let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+    
+    if (!userPrefs) {
+      userPrefs = {
+        watchedMovies: {},
+        ratings: {}
+      };
+    } else {
+      userPrefs = JSON.parse(userPrefs);
+      if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
+      if (!userPrefs.ratings) userPrefs.ratings = {};
+    }
     
     // Ajouter les films de cette catégorie
     moviesInCategory.forEach(movie => {
@@ -520,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="media-info">
             <h4 class="media-title">${movie.title}</h4>
             <div class="media-meta">
-              <span class="media-duration">${formatTime(movie.duration)}</span>
+              <span class="media-duration">${window.formatTime(movie.duration)}</span>
               <span class="media-size">${movie.formattedSize}</span>
             </div>
             <div class="media-actions">
@@ -631,7 +555,18 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   categoryGrid.className = 'category-grid';
   
   // Charger les préférences utilisateur
-  const userPrefs = loadUserPreferences();
+  let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+  
+  if (!userPrefs) {
+    userPrefs = {
+      watchedMovies: {},
+      ratings: {}
+    };
+  } else {
+    userPrefs = JSON.parse(userPrefs);
+    if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
+    if (!userPrefs.ratings) userPrefs.ratings = {};
+  }
   
   // Utiliser le template pour créer les cartes
   const template = document.getElementById('media-card-template');
@@ -664,7 +599,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     mediaCard.querySelector('.media-title').textContent = movie.title;
     
     // Configurer la durée
-    mediaCard.querySelector('.duration-value').textContent = formatTime(movie.duration);
+    mediaCard.querySelector('.duration-value').textContent = window.formatTime(movie.duration);
     
     // Configurer l'état "vu/à voir"
     const isWatched = userPrefs.watchedMovies[movie.id] === true;
@@ -688,13 +623,30 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     
     // Configurer les étoiles de notation
     const rating = userPrefs.ratings[movie.id] || 0;
-    updateStarsDisplay(mediaCard, rating);
-    setupStarsInteraction(mediaCard);
+    window.updateStarsDisplay(mediaCard, rating);
+    window.setupStarsInteraction(mediaCard, (rating) => rateMovie(movie.id, rating));
+    
+    // Ajouter un écouteur pour le bouton de lecture
+    const playBtn = mediaCard.querySelector('.play-btn');
+    if (playBtn) {
+      playBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          await window.openVideoPlayer(movie.id, movie.title, movie.path);
+        } catch (error) {
+          console.error('Erreur lors du lancement du lecteur vidéo:', error);
+          alert('Erreur lors du lancement de la vidéo: ' + error.message);
+        }
+      });
+    }
     
     // Ajouter un écouteur pour la carte entière (clic sur l'image pour ouvrir la modal)
     mediaCard.addEventListener('click', async (e) => {
       // Éviter de déclencher si on clique sur un bouton ou les étoiles
-      if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star')) {
+      if (e.target.closest('.btn-watch-toggle') || 
+          e.target.closest('.star') || 
+          e.target.closest('.play-btn') ||
+          e.target.closest('.play-overlay')) {
         return;
       }
       
@@ -740,7 +692,8 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     
     // Configurer les étoiles de notation
     document.querySelectorAll('.media-card').forEach(card => {
-      setupStarsInteraction(card);
+      const movieId = card.getAttribute('data-id');
+      window.setupStarsInteraction(card, (rating) => rateMovie(movieId, rating));
       
       // Ajouter l'écouteur pour la carte entière (clic pour ouvrir la modal)
       card.addEventListener('click', async (e) => {
@@ -847,13 +800,24 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     }
   };
   
-  // Jouer un film
+  // Jouer un film avec le lecteur intégré
   window.electronAPI.playMovie = async function(movieId) {
     try {
-      return await window.electronAPI.getMoviePath(movieId);
+      // Obtenir les détails du film
+      const movieDetails = await window.electronAPI.getMovieDetails(movieId);
+      if (!movieDetails.success) {
+        throw new Error(movieDetails.message || 'Impossible de charger les détails du film');
+      }
+      
+      const movie = movieDetails.movie;
+      
+      // Ouvrir le lecteur vidéo moderne
+      await window.openVideoPlayer(movieId, movie.title, movie.path);
+      
+      return { success: true, message: 'Lecteur vidéo ouvert' };
     } catch (error) {
       console.error('Erreur lors de la lecture du film:', error);
-      return { success: false, message: 'Erreur lors de la lecture du film' };
+      return { success: false, message: 'Erreur lors de la lecture du film: ' + error.message };
     }
   };
   
@@ -909,10 +873,10 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   };
   
   // Exposer les fonctions pour la modal
-  window.loadMoviesFromDashboard = loadMovies;
-  window.refreshDashboard = loadMovies;
+  window.loadMoviesFromDashboard = window.loadMovies;
+  window.refreshDashboard = window.loadMovies;
   
   // Initialiser l'interface
   setupContextMenu();
-  loadMovies();
+  window.loadMovies();
 });

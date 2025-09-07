@@ -99,6 +99,11 @@
       <div class="media-card" data-id="" data-title="">
         <div class="media-thumbnail-container">
           <img src="" alt="" class="media-thumbnail">
+          <div class="play-overlay">
+            <button class="play-btn" title="Lancer la lecture">
+              <i class="fas fa-play"></i>
+            </button>
+          </div>
         </div>
         <div class="media-info">
           <div class="media-title-container">
@@ -148,6 +153,17 @@
           <div class="movie-meta">
             <div class="release-date" id="release-date"></div>
             <div class="duration" id="duration">2h 35m</div>
+          </div>
+          
+          <div class="action-buttons">
+            <button class="play-movie-btn" id="play-movie-btn">
+              <i class="fas fa-play"></i>
+              Lecture
+            </button>
+            <button class="watch-toggle-btn" id="watch-toggle-btn">
+              <i class="fas fa-bookmark"></i>
+              À voir
+            </button>
           </div>
           
           <div class="genres-container" id="genres-container">
@@ -848,9 +864,9 @@
 
   <!-- Scripts -->
   <script src="../js/utils.js"></script>
+  <script src="../js/video-player.js"></script>
   <script src="../js/dashboard.js"></script>
   <script src="../js/movie-modal.js"></script>
-  <script src="../js/video-player.js"></script>
   <script src="../js/dashboard-categories.js"></script>
   <script src="../js/import-classification.js"></script>
   <script src="../js/import-simple.js"></script>

@@ -144,6 +144,61 @@
   color: #c0c0c0;
 }
 
+/* Boutons d'action */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.play-movie-btn,
+.watch-toggle-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.play-movie-btn {
+  background: linear-gradient(135deg, #3474db, #2a5db3);
+  color: white;
+  box-shadow: 0 4px 15px rgba(52, 116, 219, 0.3);
+}
+
+.play-movie-btn:hover {
+  background: linear-gradient(135deg, #2a5db3, #1e4082);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 116, 219, 0.4);
+}
+
+.watch-toggle-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #c0c0c0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.watch-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.watch-toggle-btn.watched {
+  background: linear-gradient(135deg, #27ae60, #229954);
+  color: white;
+  border-color: #27ae60;
+}
+
+.watch-toggle-btn.watched:hover {
+  background: linear-gradient(135deg, #229954, #1e8449);
+}
+
 .release-date, .duration {
   display: flex;
   align-items: center;

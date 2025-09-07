@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Affiches
   downloadPoster: (data) => ipcRenderer.invoke('movies:downloadPoster', data),
   
+  // Mise à jour des détails de films
+  updateMovieDetails: (movieId, updates) => ipcRenderer.invoke('movies:updateDetails', movieId, updates),
+  
   // Événements
   onScanStatus: (callback) => {
     // Création d'un canal sécurisé pour recevoir l'état du scan

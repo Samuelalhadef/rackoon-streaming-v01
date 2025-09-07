@@ -1,4 +1,483 @@
-/* Styles temporaires pour le lecteur vidéo - À développer */
-.video-player {
-  /* Styles à implémenter */
+/* Lecteur vidéo moderne complet */
+
+/* Modal du lecteur vidéo */
+.video-player-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.video-player-modal.active {
+  display: flex;
+}
+
+/* Conteneur principal du lecteur */
+.video-player-container {
+  position: relative;
+  width: 90%;
+  max-width: 1200px;
+  max-height: 80%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Élément vidéo */
+.video-player-element {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #000;
+  outline: none;
+}
+
+/* Contrôles du lecteur */
+.video-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  padding: 40px 20px 20px;
+  transform: translateY(0);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.video-player-container.hide-controls .video-controls {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* Timeline/Barre de progression */
+.timeline-container {
+  position: relative;
+  margin-bottom: 15px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: height 0.2s ease;
+}
+
+.timeline-container:hover {
+  height: 8px;
+}
+
+.timeline {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.timeline-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ff6b6b;
+  border-radius: 3px;
+  width: 0;
+  transition: width 0.1s ease;
+}
+
+.timeline-buffer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 3px;
+  width: 0;
+}
+
+.timeline-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: #ff6b6b;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  cursor: grab;
+}
+
+.timeline-thumb:active {
+  cursor: grabbing;
+}
+
+.timeline-container:hover .timeline-thumb {
+  opacity: 1;
+}
+
+/* Infos de temps */
+.time-display {
+  position: absolute;
+  top: -35px;
+  left: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.timeline-container:hover .time-display {
+  opacity: 1;
+}
+
+/* Contrôles principaux */
+.main-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+}
+
+.controls-left,
+.controls-center,
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Boutons de contrôle */
+.control-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.control-btn:active {
+  transform: scale(0.95);
+}
+
+.control-btn.play-pause {
+  font-size: 24px;
+  padding: 10px;
+}
+
+/* Volume */
+.volume-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.volume-slider {
+  width: 80px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+}
+
+.volume-progress {
+  height: 100%;
+  background: white;
+  border-radius: 2px;
+  width: 100%;
+  transition: width 0.1s ease;
+}
+
+/* Informations vidéo */
+.video-info {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 15px;
+  border-radius: 6px;
+  transform: translateY(0);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.video-player-container.hide-controls .video-info {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+.video-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.video-details {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* Bouton de fermeture */
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background 0.2s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: rgba(255, 0, 0, 0.6);
+  transform: scale(1.1);
+}
+
+/* Menu de vitesse */
+.speed-menu {
+  position: absolute;
+  bottom: 60px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 6px;
+  padding: 10px 0;
+  min-width: 120px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+  z-index: 1000;
+}
+
+.speed-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.speed-option {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease;
+}
+
+.speed-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.speed-option.active {
+  background: rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+}
+
+/* Menus audio et sous-titres */
+.audio-menu,
+.subtitle-menu {
+  position: absolute;
+  bottom: 60px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 6px;
+  padding: 0;
+  min-width: 200px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+  z-index: 1000;
+}
+
+.audio-menu.active,
+.subtitle-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.menu-header {
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-weight: bold;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px 6px 0 0;
+}
+
+.audio-option,
+.subtitle-option {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease;
+  font-size: 14px;
+}
+
+.audio-option:hover,
+.subtitle-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.audio-option.active,
+.subtitle-option.active {
+  background: rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+}
+
+.no-tracks {
+  padding: 10px 16px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* Positionnement des menus multiples */
+.audio-menu {
+  right: 180px;
+}
+
+.subtitle-menu {
+  right: 20px;
+}
+
+/* Indicateurs */
+.loading-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 24px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.loading-indicator.active {
+  opacity: 1;
+}
+
+.buffering-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.buffering-indicator.active {
+  opacity: 1;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .video-player-container {
+    width: 95%;
+    max-height: 90%;
+  }
+  
+  .video-controls {
+    padding: 30px 15px 15px;
+  }
+  
+  .controls-left,
+  .controls-center,
+  .controls-right {
+    gap: 10px;
+  }
+  
+  .control-btn {
+    font-size: 16px;
+    padding: 6px;
+  }
+  
+  .volume-slider {
+    width: 60px;
+  }
+  
+  .video-info {
+    top: 15px;
+    left: 15px;
+    padding: 8px 12px;
+  }
+  
+  .video-title {
+    font-size: 16px;
+  }
+  
+  .video-details {
+    font-size: 12px;
+  }
+}
+
+/* Mode plein écran */
+.video-player-container.fullscreen {
+  width: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+/* Curseur masqué en plein écran */
+.video-player-container.fullscreen.hide-cursor {
+  cursor: none;
+}
+
+.video-player-container.fullscreen.hide-cursor * {
+  cursor: none !important;
 }

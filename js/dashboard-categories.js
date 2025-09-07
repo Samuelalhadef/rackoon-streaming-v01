@@ -262,7 +262,7 @@ class DashboardCategories {
     
     const duration = card.querySelector('.duration-value');
     if (duration) {
-      duration.textContent = this.formatDuration(movie.duration || 0);
+      duration.textContent = window.formatTime(movie.duration || 0);
     }
 
     return cardElement;
@@ -282,10 +282,8 @@ class DashboardCategories {
       const result = await window.electronAPI.createCategory({ name, icon: '📁' });
       
       if (result.success) {
-        // Recharger les catégories
-        await this.loadCategories();
-        await this.loadCategoryCounts();
-        this.displayCategories();
+        // Recharger les données et réafficher
+        await this.refresh();
         
         console.log('Nouvelle catégorie créée:', name);
       } else {
@@ -295,17 +293,6 @@ class DashboardCategories {
       console.error('Erreur lors de la création de la catégorie:', error);
       alert('Erreur lors de la création de la catégorie');
     }
-  }
-
-  // Utilitaire pour formater la durée
-  formatDuration(seconds) {
-    if (!seconds) return '0:00:00';
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
 
   // Actualiser les catégories

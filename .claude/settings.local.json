@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(git fetch:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git commit:*)",
+      "Bash(npm test)",
+      "Bash(npm run:*)",
+      "Bash(npm start)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

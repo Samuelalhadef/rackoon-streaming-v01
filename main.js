@@ -1727,6 +1727,87 @@ function setupIPCHandlers() {
       return { success: false, message: 'Erreur: ' + error.message };
     }
   });
+
+  // Handler pour mettre à jour les détails d'un film
+  ipcMain.handle('movies:updateDetails', async (event, movieId, updates) => {
+    try {
+      console.log(`🎬 Mise à jour du film ${movieId}:`, updates);
+      
+      // Construire la requête de mise à jour dynamiquement
+      const fields = [];
+      const values = [];
+      
+      if (updates.title !== undefined) {
+        fields.push('title = ?');
+        values.push(updates.title);
+      }
+      if (updates.description !== undefined) {
+        fields.push('description = ?');
+        values.push(updates.description);
+      }
+      if (updates.category !== undefined) {
+        fields.push('category = ?');
+        values.push(updates.category);
+      }
+      if (updates.release_date !== undefined) {
+        fields.push('release_date = ?');
+        values.push(updates.release_date);
+      }
+      if (updates.year !== undefined) {
+        fields.push('year = ?');
+        values.push(updates.year);
+      }
+      if (updates.genres !== undefined) {
+        fields.push('genres = ?');
+        values.push(JSON.stringify(updates.genres));
+      }
+      if (updates.series_id !== undefined) {
+        fields.push('series_id = ?');
+        values.push(updates.series_id);
+      }
+      if (updates.season_number !== undefined) {
+        fields.push('season_number = ?');
+        values.push(updates.season_number);
+      }
+      if (updates.episode_number !== undefined) {
+        fields.push('episode_number = ?');
+        values.push(updates.episode_number);
+      }
+      if (updates.posterUrl !== undefined) {
+        fields.push('posterUrl = ?');
+        values.push(updates.posterUrl);
+      }
+      if (updates.local_poster !== undefined) {
+        fields.push('local_poster = ?');
+        values.push(updates.local_poster);
+      }
+      
+      if (fields.length === 0) {
+        return { success: false, message: 'Aucune mise à jour à effectuer' };
+      }
+      
+      // Ajouter l'ID du film à la fin
+      values.push(movieId);
+      
+      const query = `UPDATE movies SET ${fields.join(', ')} WHERE id = ?`;
+      
+      return new Promise((resolve) => {
+        db.run(query, values, function(err) {
+          if (err) {
+            console.error('❌ Erreur lors de la mise à jour:', err);
+            resolve({ success: false, message: 'Erreur lors de la mise à jour: ' + err.message });
+          } else {
+            console.log(`✅ Film ${movieId} mis à jour avec succès`);
+            resolve({ success: true, message: 'Film mis à jour avec succès' });
+          }
+        });
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour du film:', error);
+      return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
 }
 
 // Les fonctions de formatage ont été supprimées car elles sont dupliquées.
