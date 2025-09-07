@@ -130,8 +130,8 @@ class FileManagerElectron {
   // Mettre à jour l'affichage des statistiques
   updateStatsDisplay(stats) {
     document.getElementById('total-files').textContent = stats.totalFiles || 0;
-    document.getElementById('total-size').textContent = this.formatFileSize(stats.totalSize || 0);
-    document.getElementById('total-duration').textContent = this.formatDuration(stats.totalDuration || 0);
+    document.getElementById('total-size').textContent = window.formatFileSize(stats.totalSize || 0);
+    document.getElementById('total-duration').textContent = window.formatTime(stats.totalDuration || 0);
     document.getElementById('files-with-thumbnails').textContent = stats.filesWithThumbnails || 0;
   }
 
@@ -382,7 +382,7 @@ class FileManagerElectron {
         <span class="folder-badge">Dossier</span>
       </td>
       <td>${fileCount} fichier(s)</td>
-      <td>${this.formatFileSize(totalSize)}</td>
+      <td>${window.formatFileSize(totalSize)}</td>
       <td>
         <span class="status-badge status-info">${accessibleCount}/${fileCount} accessible(s)</span>
       </td>
@@ -434,8 +434,8 @@ class FileManagerElectron {
       <td>
         <span class="format-badge">${(file.format || 'N/A').toUpperCase()}</span>
       </td>
-      <td>${this.formatDuration(file.duration || 0)}</td>
-      <td>${this.formatFileSize(file.size_bytes || 0)}</td>
+      <td>${window.formatTime(file.duration || 0)}</td>
+      <td>${window.formatFileSize(file.size_bytes || 0)}</td>
       <td>
         <span class="status-badge ${statusClass}">${statusText}</span>
       </td>
@@ -539,8 +539,8 @@ class FileManagerElectron {
         document.getElementById('detail-title').textContent = file.title || 'Sans titre';
         document.getElementById('detail-path').textContent = file.path || 'N/A';
         document.getElementById('detail-format').textContent = (file.format || 'N/A').toUpperCase();
-        document.getElementById('detail-duration').textContent = this.formatDuration(file.duration || 0);
-        document.getElementById('detail-size').textContent = this.formatFileSize(file.size_bytes || 0);
+        document.getElementById('detail-duration').textContent = window.formatTime(file.duration || 0);
+        document.getElementById('detail-size').textContent = window.formatFileSize(file.size_bytes || 0);
         document.getElementById('detail-last-scan').textContent = this.formatDate(file.last_scan);
         
         const thumbnailStatus = document.getElementById('detail-thumbnail-status');
@@ -662,22 +662,6 @@ class FileManagerElectron {
   }
 
   // Utilitaires
-  formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-  }
-
-  formatDuration(seconds) {
-    if (!seconds) return '0:00:00';
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
 
   formatDate(dateString) {
     if (!dateString) return 'N/A';
