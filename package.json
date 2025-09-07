@@ -1,8 +1,17 @@
 {
-  "name": "film-finder",
+  "name": "rackoon-streaming",
   "version": "1.0.0",
-  "description": "Application pour rechercher les fichiers vidéo sur votre ordinateur",
+  "description": "🎬 Application de streaming vidéo moderne avec lecteur intégré, support MKV, pistes audio multiples et sous-titres",
   "main": "main.js",
+  "keywords": ["electron", "video", "streaming", "player", "mkv", "subtitles", "media"],
+  "homepage": "https://github.com/Samuelalhadef/Rackoon-Streaming-1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Samuelalhadef/Rackoon-Streaming-1.0.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Samuelalhadef/Rackoon-Streaming-1.0/issues"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
@@ -10,11 +19,14 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win --x64 --publish=never"
   },
-  "author": "Votre Nom",
+  "author": {
+    "name": "Production Directive",
+    "email": "contact@production-directive.com"
+  },
   "license": "MIT",
   "build": {
-    "appId": "com.votredomaine.filmfinder",
-    "productName": "Film Finder",
+    "appId": "com.production-directive.rackoon-streaming",
+    "productName": "Rackoon Streaming",
     "directories": {
       "output": "dist"
     },
