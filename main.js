@@ -837,8 +837,7 @@ function setupIPCHandlers() {
         return {
           ...movie,
           genres: parsedGenres, // Remplacer la chaîne JSON par l'array
-          formattedDuration: formatDuration(movie.duration),
-          formattedSize: formatFileSize(movie.size_bytes),
+          // Le formatage sera fait côté client avec window.formatTime et window.formatFileSize
           resolution: 'Inconnue'
         };
       });
@@ -938,8 +937,7 @@ function setupIPCHandlers() {
       // Enrichir les données du film pour l'affichage dans la modal
       const enrichedMovie = {
         ...movie,
-        formattedDuration: formatDuration(movie.duration),
-        formattedSize: formatFileSize(movie.size_bytes),
+        // Le formatage sera fait côté client avec window.formatTime et window.formatFileSize
         year: year,
         releaseDate: extractReleaseDate(movie),
         genres: extractGenres(movie),
@@ -1731,40 +1729,9 @@ function setupIPCHandlers() {
   });
 }
 
-// Formater la durée en HH:MM:SS
-function formatDuration(seconds) {
-  // Gérer les valeurs invalides
-  if (!seconds || isNaN(seconds) || seconds < 0) {
-    return '00:00:00';
-  }
-  
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  
-  return [
-    hours.toString().padStart(2, '0'),
-    minutes.toString().padStart(2, '0'),
-    remainingSeconds.toString().padStart(2, '0')
-  ].join(':');
-}
-
-// Formater la taille du fichier
-function formatFileSize(bytes) {
-  if (!bytes || isNaN(bytes) || bytes < 0) {
-    return '0 B';
-  }
-  
-  if (bytes < 1024) {
-    return bytes + ' B';
-  } else if (bytes < 1024 * 1024) {
-    return (bytes / 1024).toFixed(2) + ' KB';
-  } else if (bytes < 1024 * 1024 * 1024) {
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  } else {
-    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-  }
-}
+// Les fonctions de formatage ont été supprimées car elles sont dupliquées.
+// Le formatage se fait maintenant côté client avec window.formatTime() et window.formatFileSize()
+// définies dans js/utils.js
 
 // Handler pour télécharger une affiche
 ipcMain.handle('movies:downloadPoster', async (event, { movieId, posterUrl }) => {

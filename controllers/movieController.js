@@ -19,14 +19,11 @@ const MovieController = {
         });
       }
       
-      // Formater les données pour l'affichage
+      // Les données seront formatées côté client avec window.formatTime() et window.formatFileSize()
+      // Le formatage se fait maintenant côté client avec window.formatTime() et window.formatFileSize()
       const formattedMovies = movies.map(movie => {
         return {
-          ...movie,
-          // Convertir la durée en format lisible (HH:MM:SS)
-          formattedDuration: formatDuration(movie.duration),
-          // Convertir la taille en format lisible (MB, GB)
-          formattedSize: formatFileSize(movie.size_bytes)
+          ...movie
         };
       });
       
@@ -147,31 +144,9 @@ const MovieController = {
 
 // Fonctions utilitaires
 
-// Formater la durée en HH:MM:SS
-function formatDuration(seconds) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  
-  return [
-    hours.toString().padStart(2, '0'),
-    minutes.toString().padStart(2, '0'),
-    remainingSeconds.toString().padStart(2, '0')
-  ].join(':');
-}
-
-// Formater la taille du fichier
-function formatFileSize(bytes) {
-  if (bytes < 1024) {
-    return bytes + ' B';
-  } else if (bytes < 1024 * 1024) {
-    return (bytes / 1024).toFixed(2) + ' KB';
-  } else if (bytes < 1024 * 1024 * 1024) {
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  } else {
-    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-  }
-}
+// Les fonctions formatDuration et formatFileSize ont été supprimées car elles sont dupliquées.
+// Le formatage se fait maintenant côté client avec window.formatTime() et window.formatFileSize()
+// définies dans js/utils.js
 
 // Fonction récursive pour scanner un répertoire à la recherche de films
 async function scanDirectoryForMovies(directoryPath) {
