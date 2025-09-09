@@ -50,10 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let posterImageFile = null;
   let tmdbGenresCache = null;
   
-  // Configuration des clés de stockage spécifiques à l'utilisateur
-  const USER_PREFS_KEY = `userPrefs_${user.id}`;
+  // Configuration des clés de stockage (plus de système utilisateur)
+  const USER_PREFS_KEY = 'userPrefs_global';
   
-  // Fonctions utilitaires pour les préférences utilisateur spécifiques
+  // Fonctions utilitaires pour les préférences globales
   function loadUserPreferences() {
     try {
       let userPrefs = JSON.parse(localStorage.getItem(USER_PREFS_KEY) || '{}');

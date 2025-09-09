@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openMovieFolder: (moviePath) => ipcRenderer.invoke('movies:openFolder', moviePath),
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
   
+  // APIs temporaires pour éviter les erreurs
+  getAllCategories: () => Promise.resolve({ success: true, categories: [] }),
+  getAllSeries: () => Promise.resolve({ success: true, series: [] }),
+  
   // Événements
   onScanStatus: (callback) => {
     // Création d'un canal sécurisé pour recevoir l'état du scan

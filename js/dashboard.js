@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Marquer un film comme vu/à voir
   function toggleWatchStatus(movieId, button) {
-    let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+    let userPrefs = localStorage.getItem('userPrefs_global');
     
     if (!userPrefs) {
       userPrefs = {
@@ -336,12 +336,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     
-    localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(userPrefs));
+    localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
   }
   
   // Noter un film (1-5 étoiles)
   function rateMovie(movieId, rating) {
-    let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+    let userPrefs = localStorage.getItem('userPrefs_global');
     
     if (!userPrefs) {
       userPrefs = {
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     userPrefs.ratings[movieId] = rating;
-    localStorage.setItem(`userPrefs_${user.id}`, JSON.stringify(userPrefs));
+    localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
     
     // Mettre à jour l'affichage des étoiles
     const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
@@ -388,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fonction pour appliquer les modifications locales aux films
   function applyLocalEdits(movies) {
-    const storageKey = `movieEdits_${user.id}`;
+    const storageKey = 'movieEdits_global';
     let movieEdits = localStorage.getItem(storageKey);
     
     if (!movieEdits) {
@@ -420,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     
     // Charger les préférences utilisateur
-    let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+    let userPrefs = localStorage.getItem('userPrefs_global');
     
     if (!userPrefs) {
       userPrefs = {
@@ -579,7 +579,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   categoryGrid.className = 'category-grid';
   
   // Charger les préférences utilisateur
-  let userPrefs = localStorage.getItem(`userPrefs_${user.id}`);
+  let userPrefs = localStorage.getItem('userPrefs_global');
   
   if (!userPrefs) {
     userPrefs = {
