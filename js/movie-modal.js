@@ -40,13 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const TMDB_API_BASE_URL = 'https://api.themoviedb.org/3';
   const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
   
-  // Récupérer le stockage des préférences utilisateur
-  const userString = localStorage.getItem('user');
-  if (!userString) {
-    window.location.href = 'login.html';
-    return;
-  }
-  const user = JSON.parse(userString);
+  // Plus de système utilisateur - supprimé
   
   // Variables globales pour le film actuel
   let currentMovieId = null;
