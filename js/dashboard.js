@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filterMovies(searchTerm);
   });
   
-  // Fonction pour afficher les films
+  // Fonction pour afficher les films avec miniatures
   function displayMovies(movies) {
     const mediaGrid = document.getElementById('media-grid');
     mediaGrid.innerHTML = '';
@@ -98,9 +98,17 @@ document.addEventListener('DOMContentLoaded', () => {
     movies.forEach(movie => {
       const movieCard = document.createElement('div');
       movieCard.className = 'media-card';
+      
+      // Gérer l'affichage des miniatures
+      let thumbnailSrc = '../public/img/default-thumbnail.svg';
+      if (movie.thumbnail) {
+        // Utiliser le chemin local de la miniature
+        thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
+      }
+      
       movieCard.innerHTML = `
         <div class="media-poster">
-          <img src="../public/img/default-thumbnail.svg" alt="${movie.title}" onerror="this.src='../public/img/default-thumbnail.svg'">
+          <img src="${thumbnailSrc}" alt="${movie.title}" onerror="this.src='../public/img/default-thumbnail.svg'">
           <div class="play-overlay">
             <div class="play-button" onclick="playMovie('${movie.path.replace(/'/g, "\\'")}')">▶</div>
           </div>
@@ -110,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="media-details">
             <span class="media-duration">${window.formatFileSize ? window.formatFileSize(movie.size_bytes) : 'N/A'}</span>
             <span class="media-format">${movie.format.toUpperCase()}</span>
+            ${movie.dateAdded ? `<span class="media-date">Ajouté ${new Date(movie.dateAdded).toLocaleDateString()}</span>` : ''}
           </div>
         </div>
       `;
@@ -131,8 +140,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   
-  // Charger les films au démarrage (vide par défaut)
-  displayMovies([]);
+  // Charger les films au démarrage depuis la base JSON
+  async function loadMoviesFromDatabase() {
+    try {
+      const result = await window.electronAPI.getAllMovies();
+      if (result.success) {
+        console.log(`📚 ${result.count} films chargés depuis la base`);
+        displayMovies(result.movies);
+        if (result.count > 0) {
+          statusMessage.textContent = `${result.count} films dans la bibliothèque`;
+        }
+      } else {
+        console.error('Erreur chargement films:', result.message);
+        displayMovies([]);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
+      displayMovies([]);
+    }
+  }
+  
+  // Charger les films au démarrage
+  loadMoviesFromDatabase();
   
   // Fonction pour filtrer les médias affichés
   function filterMovies(searchTerm) {

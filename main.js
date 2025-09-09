@@ -1,10 +1,11 @@
-// Version simplifiée sans base de données
+// Version avec système de stockage JSON
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
 const { glob } = require('glob');
 const { execSync, exec } = require('child_process');
 const os = require('os');
+const JSONDatabase = require('./js/db-manager');
 
 // Chemins pour FFmpeg
 let FFMPEG_PATH;
@@ -56,8 +57,9 @@ function findFfmpegPaths() {
 // Formats de fichiers vidéo supportés
 const SUPPORTED_FORMATS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpg', '.mpeg', '.3gp', '.ts'];
 
-// Variable pour stocker la fenêtre principale
+// Variables globales
 let mainWindow;
+let db;
 
 // Créer la fenêtre principale
 function createWindow() {
@@ -96,10 +98,53 @@ function checkFfmpegInstalled() {
   }
 }
 
-// Configuration des gestionnaires de messages IPC - version simplifiée
+// Extraire une frame d'une vidéo pour créer une miniature
+function extractThumbnail(videoPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    try {
+      // Créer le dossier de sortie s'il n'existe pas
+      fs.ensureDirSync(path.dirname(outputPath));
+      
+      // Commande ffmpeg pour extraire une frame à 20 secondes
+      const command = `"${FFMPEG_PATH}" -ss 00:00:20 -i "${videoPath}" -vframes 1 -q:v 2 "${outputPath}" -y`;
+      
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          // Si échec à 20s, essayer à 5s
+          const fallbackCommand = `"${FFMPEG_PATH}" -ss 00:00:05 -i "${videoPath}" -vframes 1 -q:v 2 "${outputPath}" -y`;
+          
+          exec(fallbackCommand, (err, stdout, stderr) => {
+            if (err) {
+              console.error('Erreur extraction miniature:', err.message);
+              reject(err);
+              return;
+            }
+            
+            if (fs.existsSync(outputPath)) {
+              resolve(outputPath);
+            } else {
+              reject(new Error('Miniature non créée'));
+            }
+          });
+          return;
+        }
+        
+        if (fs.existsSync(outputPath)) {
+          resolve(outputPath);
+        } else {
+          reject(new Error('Miniature non créée'));
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Configuration des gestionnaires de messages IPC avec stockage JSON
 function setupIPCHandlers() {
   
-  // Recherche de films sur un ou plusieurs lecteurs
+  // Recherche et ajout de films dans la base JSON
   ipcMain.handle('movies:scan', async (event, options) => {
     try {
       let videoFiles = [];
@@ -116,7 +161,12 @@ function setupIPCHandlers() {
       }
       
       const folderToScan = result.filePaths[0];
-      console.log(`Début de la recherche dans: ${folderToScan}`);
+      console.log(`🔍 Début du scan dans: ${folderToScan}`);
+      
+      mainWindow.webContents.send('scan:status', {
+        message: `Recherche des vidéos dans ${path.basename(folderToScan)}...`,
+        progress: 0
+      });
       
       // Rechercher tous les fichiers vidéo
       for (const ext of SUPPORTED_FORMATS) {
@@ -129,44 +179,115 @@ function setupIPCHandlers() {
         }
       }
       
-      console.log(`Total: ${videoFiles.length} fichiers vidéo trouvés`);
+      console.log(`📊 Total: ${videoFiles.length} fichiers vidéo trouvés`);
       
-      // Retourner la liste des fichiers trouvés
-      const movies = videoFiles.map((filePath, index) => {
-        const stats = fs.statSync(filePath);
-        const fileExtension = path.extname(filePath).toLowerCase();
-        const fileName = path.basename(filePath, fileExtension);
-        
-        return {
-          id: index + 1,
-          title: fileName,
-          path: filePath,
-          format: fileExtension.substring(1),
-          duration: 0,
-          size_bytes: stats.size,
-          thumbnail: null,
-          category: 'unsorted'
-        };
+      mainWindow.webContents.send('scan:status', {
+        message: `${videoFiles.length} fichiers trouvés. Ajout à la bibliothèque...`,
+        progress: 20
       });
       
+      let addedCount = 0;
+      let skippedCount = 0;
+      const ffmpegInstalled = checkFfmpegInstalled();
+      
+      // Traiter chaque fichier trouvé
+      for (let i = 0; i < videoFiles.length; i++) {
+        const filePath = videoFiles[i];
+        
+        try {
+          const stats = fs.statSync(filePath);
+          const fileExtension = path.extname(filePath).toLowerCase();
+          const fileName = path.basename(filePath, fileExtension);
+          
+          // Vérifier si le film existe déjà
+          const existingMovies = await db.getAllMovies();
+          const exists = existingMovies.find(m => m.path === filePath);
+          if (exists) {
+            skippedCount++;
+            continue;
+          }
+          
+          // Générer miniature si FFmpeg disponible
+          let thumbnailName = null;
+          if (ffmpegInstalled) {
+            try {
+              const thumbnailPath = path.join(__dirname, 'data', 'thumbnails', `thumb_${Date.now()}_${i}.jpg`);
+              await extractThumbnail(filePath, thumbnailPath);
+              thumbnailName = path.basename(thumbnailPath);
+              console.log(`🖼️ Miniature créée: ${thumbnailName}`);
+            } catch (error) {
+              console.log(`⚠️ Pas de miniature pour: ${fileName}`);
+            }
+          }
+          
+          // Créer l'objet film
+          const movieData = {
+            title: fileName,
+            path: filePath,
+            format: fileExtension.substring(1),
+            duration: 0,
+            size_bytes: stats.size,
+            thumbnail: thumbnailName,
+            category: 'unsorted',
+            description: '',
+            dateAdded: new Date().toISOString()
+          };
+          
+          // Ajouter à la base JSON
+          const result = await db.addMovie(movieData);
+          if (result.success) {
+            addedCount++;
+            console.log(`✅ Ajouté: ${fileName}`);
+          }
+          
+          // Mettre à jour le statut
+          const progress = Math.round(((i + 1) / videoFiles.length) * 70) + 20;
+          mainWindow.webContents.send('scan:status', {
+            message: `Traitement: ${i + 1}/${videoFiles.length} (${addedCount} nouveaux)`,
+            progress
+          });
+          
+        } catch (error) {
+          console.error(`❌ Erreur pour ${filePath}:`, error.message);
+        }
+      }
+      
+      const finalMessage = `Scan terminé: ${addedCount} nouveaux films, ${skippedCount} ignorés`;
+      console.log(`🎉 ${finalMessage}`);
+      
+      mainWindow.webContents.send('scan:status', {
+        message: finalMessage,
+        progress: 100
+      });
+      
+      // Retourner tous les films de la base
+      const allMovies = await db.getAllMovies();
       return {
         success: true,
-        message: `${videoFiles.length} fichiers vidéo trouvés`,
-        movies: movies
+        message: finalMessage,
+        movies: allMovies,
+        stats: { added: addedCount, skipped: skippedCount, total: videoFiles.length }
       };
+      
     } catch (error) {
-      console.error('Erreur lors de la recherche:', error);
-      return { success: false, message: 'Erreur lors de la recherche: ' + error.message };
+      console.error('❌ Erreur lors du scan:', error);
+      return { success: false, message: 'Erreur lors du scan: ' + error.message };
     }
   });
   
-  // Obtenir tous les films - retourne une liste vide par défaut
+  // Obtenir tous les films depuis la base JSON
   ipcMain.handle('movies:getAll', async () => {
-    return {
-      success: true,
-      count: 0,
-      movies: []
-    };
+    try {
+      const movies = await db.getAllMovies();
+      return {
+        success: true,
+        count: movies.length,
+        movies: movies
+      };
+    } catch (error) {
+      console.error('❌ Erreur récupération films:', error);
+      return { success: false, message: error.message };
+    }
   });
   
   // Récupérer le chemin d'un film pour la lecture
@@ -227,9 +348,15 @@ function setupIPCHandlers() {
 }
 
 // Quand Electron est prêt
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Trouver les chemins de FFmpeg
   findFfmpegPaths();
+  
+  // Initialiser la base de données JSON
+  const dbPath = path.join(__dirname, 'data', 'movies.json');
+  db = new JSONDatabase(dbPath);
+  await db.load();
+  console.log('📊 Base de données JSON initialisée');
   
   // Créer la fenêtre
   createWindow();

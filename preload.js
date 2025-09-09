@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Exposer les fonctions protégées à la fenêtre du navigateur
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Films - APIs simplifiées
+  // Films - APIs avec stockage JSON
   scanMovies: (options) => ipcRenderer.invoke('movies:scan', options),
   getAllMovies: () => ipcRenderer.invoke('movies:getAll'),
   getMoviePath: (moviePath) => ipcRenderer.invoke('movies:getPath', moviePath),
