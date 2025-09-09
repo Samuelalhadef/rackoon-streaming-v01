@@ -1,19 +1,8 @@
 
-// dashboard.js - Logique pour l'interface principale style Netflix améliorée
+// dashboard.js - Logique pour l'interface principale style Netflix simplifiée
 document.addEventListener('DOMContentLoaded', () => {
-  // Vérifier si l'utilisateur est connecté
-  const userString = localStorage.getItem('user');
-  
-  if (!userString) {
-    // Rediriger vers la page de connexion
-    window.location.href = 'login.html';
-    return;
-  }
-  
-  const user = JSON.parse(userString);
-  
-  // Afficher le nom d'utilisateur
-  document.getElementById('username').textContent = user.username;
+  // Plus de système de connexion - application directe
+  console.log('Application Rackoon Streaming démarrée');
   
   // Éléments de l'interface
   const addBtn = document.getElementById('add-btn');
@@ -45,11 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     progressBar.style.width = `${status.progress}%`;
   });
   
-  // Gestion de la déconnexion
-  logoutBtn.addEventListener('click', () => {
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
-  });
+  // Plus de système de déconnexion
   
   // Recherche de dossier
   scanFolderBtn.addEventListener('click', async () => {
@@ -58,16 +43,16 @@ document.addEventListener('DOMContentLoaded', () => {
       statusMessage.textContent = 'Sélection du dossier à scanner...';
       progressBar.style.width = '0%';
       
-      // Lancer le scan pour classification
-      const result = await window.electronAPI.scanForClassification({ type: 'folder' });
+      // Lancer le scan direct
+      const result = await window.electronAPI.scanMovies();
       
       if (result.success) {
-        statusMessage.textContent = `${result.count} fichiers trouvés`;
-        progressBar.style.width = '50%';
+        statusMessage.textContent = `${result.movies.length} fichiers vidéo trouvés`;
+        progressBar.style.width = '100%';
         
-        // Lancer le système de classification
-        if (result.files && result.files.length > 0) {
-          window.startClassification(result.files, result.scanType);
+        // Afficher les films trouvés
+        if (result.movies && result.movies.length > 0) {
+          displayMovies(result.movies);
         } else {
           statusMessage.textContent = 'Aucun fichier vidéo trouvé';
         }
@@ -88,49 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Recherche de fichier
+  // Recherche de fichier - désactivée pour simplifier
   scanFileBtn.addEventListener('click', async () => {
-    try {
-      scanMenu.classList.remove('active');
-      statusMessage.textContent = 'Sélection du fichier à ajouter...';
-      progressBar.style.width = '0%';
-      
-      // Configuration pour rechercher un seul fichier
-      const options = {
-        mode: 'file',
-        filters: [
-          { name: 'Vidéos', extensions: ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'] }
-        ]
-      };
-      
-      // Lancer le scan pour classification d'un fichier
-      const result = await window.electronAPI.scanForClassification({ type: 'file' });
-      
-      if (result.success) {
-        statusMessage.textContent = `${result.count} fichier trouvé`;
-        progressBar.style.width = '50%';
-        
-        // Lancer le système de classification
-        if (result.files && result.files.length > 0) {
-          window.startClassification(result.files, result.scanType);
-        } else {
-          statusMessage.textContent = 'Aucun fichier sélectionné';
-        }
-        
-        // Masquer la barre de progression après 3 secondes
-        setTimeout(() => {
-          progressBar.style.width = '0%';
-          statusMessage.textContent = 'Prêt à rechercher des vidéos';
-        }, 3000);
-      } else {
-        statusMessage.textContent = result.message || 'Erreur lors de l\'ajout du fichier';
-        progressBar.style.width = '0%';
-      }
-    } catch (error) {
-      console.error('Erreur lors de l\'ajout du fichier:', error);
-      statusMessage.textContent = 'Erreur lors de l\'ajout du fichier';
-      progressBar.style.width = '0%';
-    }
+    scanMenu.classList.remove('active');
+    statusMessage.textContent = 'Fonction temporairement désactivée - utilisez le scan de dossier';
+    progressBar.style.width = '0%';
   });
   
   // Recherche dans la section films
@@ -138,6 +85,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchTerm = filterSearch.value.toLowerCase().trim();
     filterMovies(searchTerm);
   });
+  
+  // Fonction pour afficher les films
+  function displayMovies(movies) {
+    const mediaGrid = document.getElementById('media-grid');
+    mediaGrid.innerHTML = '';
+    
+    if (!movies || movies.length === 0) {
+      mediaGrid.innerHTML = '<p class="no-movies">Aucun film trouvé. Utilisez le bouton + pour scanner un dossier.</p>';
+      return;
+    }
+    
+    movies.forEach(movie => {
+      const movieCard = document.createElement('div');
+      movieCard.className = 'media-card';
+      movieCard.innerHTML = `
+        <div class="media-poster">
+          <img src="../public/img/default-thumbnail.svg" alt="${movie.title}" onerror="this.src='../public/img/default-thumbnail.svg'">
+          <div class="play-overlay">
+            <div class="play-button" onclick="playMovie('${movie.path.replace(/'/g, "\\'")}')">▶</div>
+          </div>
+        </div>
+        <div class="media-info">
+          <h3 class="media-title">${movie.title}</h3>
+          <div class="media-details">
+            <span class="media-duration">${window.formatFileSize ? window.formatFileSize(movie.size_bytes) : 'N/A'}</span>
+            <span class="media-format">${movie.format.toUpperCase()}</span>
+          </div>
+        </div>
+      `;
+      mediaGrid.appendChild(movieCard);
+    });
+  }
+  
+  // Fonction pour jouer un film
+  window.playMovie = async function(moviePath) {
+    try {
+      const result = await window.electronAPI.getMoviePath(moviePath);
+      if (result.success) {
+        window.openVideoPlayer(result.path);
+      } else {
+        console.error('Erreur:', result.message);
+      }
+    } catch (error) {
+      console.error('Erreur lors du lancement de la vidéo:', error);
+    }
+  };
+  
+  // Charger les films au démarrage (vide par défaut)
+  displayMovies([]);
   
   // Fonction pour filtrer les médias affichés
   function filterMovies(searchTerm) {
