@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const mediaGrid = document.getElementById('media-grid');
   const statusMessage = document.getElementById('status-message');
   const progressBar = document.getElementById('progress-bar');
-  const logoutBtn = document.getElementById('logout-btn');
   
   
   // Gestion du menu flottant
