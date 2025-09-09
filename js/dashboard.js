@@ -72,11 +72,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Recherche de fichier - désactivée pour simplifier
+  // Recherche de fichier individuel
   scanFileBtn.addEventListener('click', async () => {
-    scanMenu.classList.remove('active');
-    statusMessage.textContent = 'Fonction temporairement désactivée - utilisez le scan de dossier';
-    progressBar.style.width = '0%';
+    try {
+      scanMenu.classList.remove('active');
+      statusMessage.textContent = 'Sélection du fichier vidéo...';
+      progressBar.style.width = '0%';
+      
+      // Lancer la sélection de fichier unique
+      const result = await window.electronAPI.scanSingleMovie();
+      
+      if (result.success) {
+        if (result.movie) {
+          statusMessage.textContent = `Fichier ajouté: ${result.movie.title}`;
+          progressBar.style.width = '100%';
+          
+          // Recharger tous les films pour afficher le nouveau
+          await loadMoviesFromDatabase();
+        } else {
+          statusMessage.textContent = result.message || 'Fichier non ajouté';
+        }
+        
+        // Masquer la barre de progression après 3 secondes
+        setTimeout(() => {
+          progressBar.style.width = '0%';
+          statusMessage.textContent = 'Prêt à rechercher des vidéos';
+        }, 3000);
+      } else {
+        statusMessage.textContent = result.message || 'Erreur lors de la sélection';
+        progressBar.style.width = '0%';
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sélection de fichier:', error);
+      statusMessage.textContent = 'Erreur lors de la sélection de fichier';
+      progressBar.style.width = '0%';
+    }
   });
   
   // Recherche dans la section films
@@ -116,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="media-info">
           <h3 class="media-title">${movie.title}</h3>
           <div class="media-details">
-            <span class="media-duration">${window.formatFileSize ? window.formatFileSize(movie.size_bytes) : 'N/A'}</span>
+            <span class="media-duration">${window.formatTime ? window.formatTime(movie.duration) : '0min'}</span>
             <span class="media-format">${movie.format.toUpperCase()}</span>
             ${movie.dateAdded ? `<span class="media-date">Ajouté ${new Date(movie.dateAdded).toLocaleDateString()}</span>` : ''}
           </div>
@@ -388,13 +418,18 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fonction pour appliquer les modifications locales aux films
   function applyLocalEdits(movies) {
-    const storageKey = 'movieEdits_global';
+    const storageKey = 'movieEdits'; // Utiliser la même clé que window.movieEdits
     let movieEdits = localStorage.getItem(storageKey);
     
     if (!movieEdits) {
       movieEdits = {};
     } else {
-      movieEdits = JSON.parse(movieEdits);
+      try {
+        movieEdits = JSON.parse(movieEdits);
+      } catch (e) {
+        console.error('Erreur lors du parsing des modifications:', e);
+        movieEdits = {};
+      }
     }
     
     return movies.map(movie => {
@@ -609,7 +644,8 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     if (movie.posterUrl) {
       thumbnailSrc = movie.posterUrl;
     } else if (movie.thumbnail) {
-      thumbnailSrc = `file://${movie.thumbnail}`;
+      // Utiliser le chemin absolu vers le dossier data/thumbnails
+      thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
     } else {
       thumbnailSrc = '../public/img/default-thumbnail.svg';
     }

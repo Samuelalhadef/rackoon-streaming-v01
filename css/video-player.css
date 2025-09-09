@@ -40,6 +40,47 @@
   outline: none;
 }
 
+/* Masquer complètement tous les contrôles natifs */
+.video-player-element::-webkit-media-controls {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-play-button {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-timeline {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-current-time-display {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-volume-slider {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-mute-button {
+  display: none !important;
+}
+
+.video-player-element::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+}
+
 /* Contrôles du lecteur */
 .video-controls {
   position: absolute;
@@ -365,6 +406,15 @@
 .subtitle-option.active {
   background: rgba(255, 107, 107, 0.3);
   color: #ff6b6b;
+}
+
+.subtitle-option.image-based {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.subtitle-option.image-based:hover {
+  background: rgba(255, 193, 7, 0.1);
 }
 
 .no-tracks {

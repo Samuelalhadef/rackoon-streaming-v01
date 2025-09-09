@@ -16,7 +16,8 @@
       "Bash(find:*)",
       "Bash(test:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

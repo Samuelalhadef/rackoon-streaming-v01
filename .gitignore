@@ -128,6 +128,7 @@ data/
 uploads/
 media/
 thumbnails/
+tmdb-images/
 *.mp4
 *.mkv
 *.avi
@@ -237,3 +238,20 @@ backup/
 
 # Workspace files
 *.code-workspace
+
+# Rackoon Streaming specific
+# Configuration locale Claude Code
+.claude/settings.local.json
+
+# Fichiers temporaires de sous-titres extraits
+temp/subtitles/
+temp/
+
+# Base de données locale avec chemins personnels
+data/movies.json.backup
+
+# Miniatures générées localement
+data/thumbnails/
+
+# Fichiers corrompus/temporaires
+nul

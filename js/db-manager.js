@@ -10,6 +10,7 @@ class JSONDatabase {
   constructor(dbPath) {
     this.dbPath = dbPath;
     this.thumbnailsPath = path.join(path.dirname(dbPath), 'thumbnails');
+    this.tmdbImagesPath = path.join(path.dirname(dbPath), 'tmdb-images');
     this.data = null;
     this.ensureDirectories();
   }
@@ -18,6 +19,7 @@ class JSONDatabase {
   ensureDirectories() {
     fs.ensureDirSync(path.dirname(this.dbPath));
     fs.ensureDirSync(this.thumbnailsPath);
+    fs.ensureDirSync(this.tmdbImagesPath);
   }
 
   // Charger les données depuis le fichier JSON

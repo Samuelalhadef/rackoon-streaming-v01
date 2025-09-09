@@ -61,11 +61,28 @@ window.movieEdits = {
     }
   },
 
-  save: function(movieId, edits) {
+  save: async function(movieId, edits) {
     try {
+      // Sauvegarder d'abord en localStorage pour la compatibilité
       const existing = this.load();
       existing[movieId] = { ...existing[movieId], ...edits };
       localStorage.setItem('movieEdits', JSON.stringify(existing));
+      
+      // Puis sauvegarder dans la base JSON via l'API
+      if (window.electronAPI && window.electronAPI.updateMovie) {
+        const result = await window.electronAPI.updateMovie(movieId, edits);
+        if (result.success) {
+          console.log('✅ Modifications sauvegardées dans la base JSON:', edits);
+          
+          // Optionnel: nettoyer localStorage après sauvegarde réussie
+          // delete existing[movieId];
+          // localStorage.setItem('movieEdits', JSON.stringify(existing));
+        } else {
+          console.error('❌ Erreur sauvegarde base JSON:', result.message);
+        }
+      } else {
+        console.warn('⚠️ API updateMovie non disponible, sauvegarde en localStorage uniquement');
+      }
     } catch (e) {
       console.error('Erreur lors de la sauvegarde des modifications:', e);
     }

@@ -828,7 +828,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Afficher chaque résultat
-    results.forEach(movie => {
+    results.forEach((movie) => {
+      // Utiliser directement l'URL TMDB pour l'affichage (pas de téléchargement)
       const posterPath = movie.poster_path 
         ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}`
         : '../public/img/default-thumbnail.svg';
@@ -875,11 +876,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Convertir les IDs de genres en noms
       const genreNames = movieDetails.genres.map(genre => genre.name);
       
-      // Formater les données
+      // Formater les données (pas de téléchargement ici, juste préparation)
       const formattedMovie = {
         title: movieDetails.title,
         release_date: movieDetails.release_date,
         poster_path: movieDetails.poster_path ? `${TMDB_IMAGE_BASE_URL}${movieDetails.poster_path}` : null,
+        tmdb_poster_path: movieDetails.poster_path, // Garder le chemin TMDB original pour le téléchargement
         overview: movieDetails.overview,
         genres: genreNames,
         year: movieDetails.release_date ? new Date(movieDetails.release_date).getFullYear() : null
@@ -975,6 +977,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
+  // Fonction pour mettre à jour immédiatement la carte dans la bibliothèque
+  function updateMovieCardInLibrary(movieId, updates) {
+    try {
+      const movieCard = document.querySelector(`.media-card[data-id="${movieId}"]`);
+      if (!movieCard) {
+        console.log('Carte de film non trouvée dans la bibliothèque');
+        return;
+      }
+      
+      // Mettre à jour le titre
+      if (updates.title) {
+        const titleElement = movieCard.querySelector('.media-title');
+        if (titleElement) {
+          titleElement.textContent = updates.title;
+        }
+      }
+      
+      // Mettre à jour l'image
+      if (updates.posterUrl) {
+        const imageElement = movieCard.querySelector('.media-thumbnail, .media-thumbnail img');
+        if (imageElement) {
+          imageElement.src = updates.posterUrl;
+          imageElement.alt = updates.title || imageElement.alt;
+        }
+      }
+      
+      console.log(`✅ Carte mise à jour en temps réel pour le film ${movieId}`);
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la carte:', error);
+    }
+  }
+  
   // Sauvegarder les modifications
   saveChangesBtn.addEventListener('click', async () => {
     try {
@@ -997,7 +1031,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Capture l'URL de l'image actuelle
-      const imageUrl = imagePreview.src;
+      let finalImageUrl = imagePreview.src;
+      
+      // Télécharger l'image TMDB uniquement si c'est une URL TMDB
+      if (finalImageUrl && finalImageUrl.includes('image.tmdb.org')) {
+        try {
+          console.log('🔄 Téléchargement de l\'image TMDB lors de la sauvegarde...');
+          const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, title);
+          
+          if (downloadResult.success) {
+            finalImageUrl = `file://${downloadResult.localPath}`;
+            console.log(`✅ Image TMDB sauvegardée localement: ${downloadResult.filename}`);
+          } else {
+            console.warn(`⚠️ Échec du téléchargement de l'image TMDB: ${downloadResult.message}`);
+            // Garder l'URL originale en cas d'échec
+          }
+        } catch (error) {
+          console.error('❌ Erreur lors du téléchargement de l\'image TMDB:', error);
+          // Garder l'URL originale en cas d'erreur
+        }
+      }
       
       // Extraire l'année pour l'enregistrer séparément
       let year = null;
@@ -1011,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
         releaseDate: formattedDate,
         genres: selectedGenres,
         description: editSynopsisInput.value.trim(),
-        posterUrl: imageUrl, // Sauvegarder l'URL ou Data URL de l'image
+        posterUrl: finalImageUrl, // Utiliser l'image locale ou l'URL originale
         year: year
       };
       
@@ -1042,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
       synopsisContent.textContent = editSynopsisInput.value.trim();
       
       // Mise à jour de l'image
-      modalPoster.src = imageUrl;
+      modalPoster.src = finalImageUrl;
       
       // Tenter d'enregistrer les modifications via l'API Electron si disponible
       if (window.electronAPI && window.electronAPI.updateMovieDetails) {
@@ -1057,6 +1110,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       
+      // Mettre à jour immédiatement la carte dans la bibliothèque
+      updateMovieCardInLibrary(currentMovieId, movieUpdates);
+      
       alert('Modifications enregistrées avec succès');
       
       // Revenir au mode visualisation
@@ -1069,7 +1125,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Rafraîchir le dashboard pour refléter les modifications
-      // Cette fonction doit être définie dans dashboard.js
       if (typeof window.refreshDashboard === 'function') {
         window.refreshDashboard();
       } else {

@@ -17,6 +17,7 @@ class VideoPlayer {
     this.volume = 1;
     this.playbackRate = 1;
     this.controlsVisible = true;
+    this.isClosing = false;
     
     // Timers
     this.hideControlsTimer = null;
@@ -41,7 +42,7 @@ class VideoPlayer {
     this.modal.innerHTML = `
       <div class="video-player-container">
         <!-- Élément vidéo principal -->
-        <video class="video-player-element" controls="false"></video>
+        <video class="video-player-element" controls="false" controlslist="nodownload nofullscreen noremoteplayback"></video>
         
         <!-- Informations vidéo -->
         <div class="video-info">
@@ -65,7 +66,7 @@ class VideoPlayer {
         <div class="video-controls">
           <!-- Timeline -->
           <div class="timeline-container">
-            <div class="time-display">00:00</div>
+            <div class="time-display" style="opacity: 0;">00:00</div>
             <div class="timeline">
               <div class="timeline-buffer"></div>
               <div class="timeline-progress"></div>
@@ -352,9 +353,20 @@ class VideoPlayer {
   }
   
   close() {
+    this.isClosing = true; // Marquer comme en cours de fermeture
     this.pause();
     this.modal.classList.remove('active');
-    this.video.src = '';
+    
+    // Nettoyer les URLs de sous-titres
+    if (this.subtitleUrls) {
+      this.subtitleUrls.forEach(url => URL.revokeObjectURL(url));
+      this.subtitleUrls = [];
+    }
+    
+    // Supprimer l'URL de la vidéo de manière propre
+    this.video.removeAttribute('src');
+    this.video.load(); // Forcer le nettoyage
+    
     this.currentMovie = null;
     this.resetPlayer();
     
@@ -362,6 +374,11 @@ class VideoPlayer {
     if (this.isFullscreen) {
       this.exitFullscreen();
     }
+    
+    // Reset le flag après un délai pour éviter les erreurs retardées
+    setTimeout(() => {
+      this.isClosing = false;
+    }, 100);
   }
   
   resetPlayer() {
@@ -543,8 +560,40 @@ class VideoPlayer {
     this.elements.audioTracks.innerHTML = '';
     
     try {
-      // Tentative 1: API audioTracks native (si supportée)
-      if (this.video.audioTracks && this.video.audioTracks.length > 0) {
+      // Priorité 1: Demander les informations via FFprobe (plus fiable)
+      if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
+        console.log('🎵 Détection pistes audio via FFprobe...');
+        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
+        if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
+          console.log('🎵 Pistes audio détectées via FFprobe:', videoInfo.audioTracks.length);
+          
+          // Stocker les informations pour utilisation ultérieure
+          this.detectedAudioTracks = videoInfo.audioTracks;
+          
+          videoInfo.audioTracks.forEach((track, index) => {
+            let label = '';
+            if (track.title) {
+              label = track.title;
+            } else if (track.language && track.language !== 'und') {
+              const langName = this.getLanguageName(track.language);
+              label = `${langName} (${track.codec_name || 'Audio'})`;
+            } else {
+              label = `Piste ${index + 1} (${track.codec_name || 'Audio'})`;
+            }
+            
+            // Afficher aussi les informations techniques si disponibles
+            if (track.channels) {
+              label += ` - ${track.channels} canaux`;
+            }
+            
+            this.createAudioTrackButton(index, label, index === 0);
+          });
+          return;
+        }
+      }
+      
+      // Fallback 1: API audioTracks native (si supportée)
+      if (this.video.audioTracks && this.video.audioTracks.length > 1) {
         console.log('🎵 Pistes audio détectées via audioTracks API:', this.video.audioTracks.length);
         for (let i = 0; i < this.video.audioTracks.length; i++) {
           const track = this.video.audioTracks[i];
@@ -553,23 +602,9 @@ class VideoPlayer {
         return;
       }
       
-      // Tentative 2: Demander les informations via FFmpeg (Electron)
-      if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
-        console.log('🎵 Tentative de détection via FFmpeg...');
-        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
-        if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 1) {
-          console.log('🎵 Pistes audio détectées via FFmpeg:', videoInfo.audioTracks.length);
-          videoInfo.audioTracks.forEach((track, index) => {
-            const label = track.title || track.language || `${track.codec_name || 'Audio'} ${index + 1}`;
-            this.createAudioTrackButton(index, label, index === 0);
-          });
-          return;
-        }
-      }
-      
-      // Tentative 3: Vérifier via les propriétés de base de HTMLMediaElement
+      // Fallback 2: Vérifier via les propriétés de base de HTMLMediaElement
       if (this.hasAudioTrack()) {
-        console.log('🎵 Audio détecté via HTMLMediaElement');
+        console.log('🎵 Une seule piste audio détectée');
         this.createAudioTrackButton(0, 'Piste audio principale', true);
         return;
       }
@@ -721,16 +756,35 @@ class VideoPlayer {
     this.elements.audioTracks.appendChild(button);
   }
   
-  setAudioTrack(trackIndex) {
-    if (this.video.audioTracks) {
-      for (let i = 0; i < this.video.audioTracks.length; i++) {
-        this.video.audioTracks[i].enabled = (i === trackIndex);
+  async setAudioTrack(trackIndex) {
+    console.log('🎵 Changement piste audio vers:', trackIndex);
+    
+    try {
+      // Méthode 1: Utiliser les audioTracks natifs si disponibles
+      if (this.video.audioTracks && this.video.audioTracks.length > trackIndex) {
+        for (let i = 0; i < this.video.audioTracks.length; i++) {
+          this.video.audioTracks[i].enabled = (i === trackIndex);
+        }
+        console.log('🎵 Piste audio native changée');
+      }
+      // Méthode 2: Si c'est une piste détectée via FFmpeg et qu'on a plusieurs pistes
+      else if (this.detectedAudioTracks && this.detectedAudioTracks.length > 1) {
+        // Pour l'instant, on ne peut pas changer de piste audio en temps réel via FFmpeg
+        // sans recharger la vidéo. On affiche un message informatif.
+        console.log('🎵 Changement de piste audio FFmpeg non supporté en temps réel');
+        
+        // Alternative: On pourrait recharger la vidéo avec une piste audio spécifique
+        // mais cela nécessiterait une implémentation plus complexe
+        alert('Le changement de piste audio en temps réel n\'est pas encore supporté pour ce fichier.\nVeuillez redémarrer la lecture pour changer de piste.');
       }
       
       // Mettre à jour l'interface
       this.elements.audioTracks.querySelectorAll('.audio-option').forEach((btn, index) => {
         btn.classList.toggle('active', index === trackIndex);
       });
+      
+    } catch (error) {
+      console.error('Erreur lors du changement de piste audio:', error);
     }
     
     this.elements.audioMenu.classList.remove('active');
@@ -761,8 +815,43 @@ class VideoPlayer {
     let tracksFound = false;
     
     try {
-      // Tentative 1: TextTracks API native
-      if (this.video.textTracks && this.video.textTracks.length > 0) {
+      // Priorité 1: Demander les informations via FFprobe (plus fiable)
+      if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
+        console.log('📝 Détection sous-titres via FFprobe...');
+        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
+        if (videoInfo.success && videoInfo.subtitleTracks && videoInfo.subtitleTracks.length > 0) {
+          console.log('📝 Sous-titres détectés via FFprobe:', videoInfo.subtitleTracks.length);
+          
+          // Stocker les informations pour utilisation ultérieure
+          this.detectedSubtitles = videoInfo.subtitleTracks;
+          
+          videoInfo.subtitleTracks.forEach((track, index) => {
+            let label = '';
+            if (track.title) {
+              label = track.title;
+            } else if (track.language && track.language !== 'und') {
+              const langName = this.getLanguageName(track.language);
+              label = `${langName} (${track.codec_name || 'Sub'})`;
+            } else {
+              label = `Sous-titre ${index + 1} (${track.codec_name || 'Sub'})`;
+            }
+            
+            // Indiquer le type de format pour information
+            const isImageBased = track.codec_name === 'hdmv_pgs_subtitle' || 
+                               track.codec_name === 'pgssub' || 
+                               track.codec_name === 'dvd_subtitle' ||
+                               track.codec_name === 'dvdsub';
+            
+            // Ne plus ajouter le marqueur (Image) car on essaie maintenant de les convertir
+            
+            this.createSubtitleTrackButton(index, label, false, isImageBased);
+            tracksFound = true;
+          });
+        }
+      }
+      
+      // Fallback 1: TextTracks API native
+      if (!tracksFound && this.video.textTracks && this.video.textTracks.length > 0) {
         console.log('📝 Sous-titres détectés via textTracks API:', this.video.textTracks.length);
         for (let i = 0; i < this.video.textTracks.length; i++) {
           const track = this.video.textTracks[i];
@@ -770,31 +859,6 @@ class VideoPlayer {
             this.createSubtitleTrackButton(i, track.label || track.language || `Sous-titre ${i + 1}`, track.mode === 'showing');
             tracksFound = true;
           }
-        }
-      }
-      
-      // Tentative 2: Utiliser les sous-titres détectés précédemment via FFmpeg
-      if (!tracksFound && this.detectedSubtitles && this.detectedSubtitles.length > 0) {
-        console.log('📝 Utilisation des sous-titres détectés via FFmpeg:', this.detectedSubtitles.length);
-        this.detectedSubtitles.forEach((track, index) => {
-          const label = track.title || track.language || `Sous-titre ${index + 1}`;
-          this.createSubtitleTrackButton(index, label, false);
-          tracksFound = true;
-        });
-      }
-      
-      // Tentative 3: Demander les informations via FFmpeg si pas encore fait
-      if (!tracksFound && window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
-        console.log('📝 Tentative de détection des sous-titres via FFmpeg...');
-        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
-        if (videoInfo.success && videoInfo.subtitleTracks && videoInfo.subtitleTracks.length > 0) {
-          console.log('📝 Sous-titres détectés via FFmpeg:', videoInfo.subtitleTracks.length);
-          this.detectedSubtitles = videoInfo.subtitleTracks; // Stocker pour réutilisation
-          videoInfo.subtitleTracks.forEach((track, index) => {
-            const label = track.title || track.language || `Sous-titre ${index + 1}`;
-            this.createSubtitleTrackButton(index, label, false);
-            tracksFound = true;
-          });
         }
       }
       
@@ -815,11 +879,16 @@ class VideoPlayer {
     }
   }
   
-  createSubtitleTrackButton(index, label, isActive) {
+  createSubtitleTrackButton(index, label, isActive, isImageBased = false) {
     const button = document.createElement('button');
     button.className = 'subtitle-option';
     button.textContent = label;
     button.dataset.track = index;
+    
+    if (isImageBased) {
+      button.classList.add('image-based');
+      button.title = 'Format d\'image non supporté par le lecteur web';
+    }
     
     if (isActive) {
       button.classList.add('active');
@@ -873,30 +942,172 @@ class VideoPlayer {
     
     try {
       console.log('📝 Extraction sous-titre piste:', trackIndex);
+      console.log('📝 Chemin vidéo:', this.currentMovie.path);
+      
+      // Afficher un indicateur de chargement
+      const loadingIndicator = this.showExtractionLoading();
+      
       const result = await window.electronAPI.extractSubtitle(this.currentMovie.path, trackIndex);
+      
+      // Supprimer l'indicateur de chargement
+      if (loadingIndicator.parentNode) {
+        loadingIndicator.parentNode.removeChild(loadingIndicator);
+      }
+      
+      console.log('📝 Résultat extraction:', result);
       
       if (result.success && result.subtitlePath) {
         console.log('📝 Sous-titre extrait vers:', result.subtitlePath);
         
-        // Créer un élément track et l'ajouter à la vidéo
+        // Vérifier le format du fichier extrait
+        const format = result.format || 'srt';
+        
+        // Seuls certains formats sont supportés par le lecteur web
+        const supportedFormats = ['srt', 'vtt', 'ass'];
+        
+        if (!supportedFormats.includes(format)) {
+          console.log('⚠️ Format non supporté par le lecteur web:', format);
+          alert(`Les sous-titres ont été extraits mais le format ${format.toUpperCase()} n'est pas supporté par le lecteur web.\nSeuls les formats SRT, VTT et ASS sont supportés.`);
+          return;
+        }
+        
+        // Lire le contenu du fichier via Electron
+        console.log('📖 Lecture du fichier de sous-titres...');
+        const subtitleData = await window.electronAPI.readSubtitleFile(result.subtitlePath);
+        
+        if (!subtitleData.success) {
+          console.error('❌ Erreur lecture fichier:', subtitleData.message);
+          alert('Erreur lors de la lecture du fichier de sous-titres : ' + subtitleData.message);
+          return;
+        }
+        
+        console.log('📝 Contenu du fichier lu:', subtitleData.content.length, 'caractères');
+        
+        // Convertir le contenu vers WebVTT pour meilleure compatibilité
+        let vttContent = subtitleData.content;
+        
+        if (format === 'ass' || format === 'ssa') {
+          console.log('🔄 Conversion ASS vers SRT puis WebVTT...');
+          const srtContent = this.convertAssToSrt(subtitleData.content);
+          vttContent = this.convertSrtToVtt(srtContent);
+        } else if (format === 'srt' || !format) {
+          console.log('🔄 Conversion SRT vers WebVTT...');
+          vttContent = this.convertSrtToVtt(subtitleData.content);
+        } else if (format === 'vtt') {
+          console.log('📝 WebVTT natif utilisé');
+          // S'assurer que le WebVTT a un header
+          if (!vttContent.startsWith('WEBVTT')) {
+            vttContent = 'WEBVTT\n\n' + vttContent;
+          }
+        }
+        
+        // Créer un Blob URL avec le type WebVTT
+        const blob = new Blob([vttContent], { type: 'text/vtt; charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        console.log('📝 Contenu WebVTT créé:', vttContent.substring(0, 200));
+        
+        // Créer l'élément track
         const track = document.createElement('track');
         track.kind = 'subtitles';
-        track.src = `file:///${result.subtitlePath.replace(/\\\\/g, '/')}`;
         track.label = this.detectedSubtitles[trackIndex].title || this.detectedSubtitles[trackIndex].language || `Sous-titre ${trackIndex + 1}`;
         track.srclang = this.detectedSubtitles[trackIndex].language || 'fr';
+        track.default = false;
+        track.src = blobUrl;
         
+        console.log('📝 Ajout du track avec Blob URL');
+        
+        // Stocker l'URL pour nettoyage ultérieur
+        if (!this.subtitleUrls) this.subtitleUrls = [];
+        this.subtitleUrls.push(blobUrl);
+        
+        // Ajouter les événements
+        track.addEventListener('load', () => {
+          console.log('📝 Track WebVTT chargé avec succès');
+          const textTrack = Array.from(this.video.textTracks).find(t => t.label === track.label);
+          if (textTrack) {
+            textTrack.mode = 'showing';
+            console.log('📝 Sous-titre WebVTT activé, cues:', textTrack.cues ? textTrack.cues.length : 0);
+            
+            if (textTrack.cues && textTrack.cues.length > 0) {
+              this.showSubtitleConfirmation();
+            }
+          }
+        });
+        
+        track.addEventListener('error', (e) => {
+          console.error('❌ Erreur chargement track WebVTT:', e);
+          console.error('❌ URL du blob:', blobUrl);
+        });
+        
+        // Ajouter le track à la vidéo
         this.video.appendChild(track);
         
-        // Activer le nouveau track
-        const newTrackIndex = this.video.textTracks.length - 1;
-        this.video.textTracks[newTrackIndex].mode = 'showing';
+        // Activation manuelle après un délai plus long pour WebVTT
+        setTimeout(() => {
+          const textTrack = Array.from(this.video.textTracks).find(t => t.label === track.label);
+          if (textTrack) {
+            textTrack.mode = 'showing';
+            console.log('📝 Activation manuelle WebVTT, mode:', textTrack.mode);
+            
+            // Vérifier les cues après un délai plus long
+            setTimeout(() => {
+              const cueCount = textTrack.cues ? textTrack.cues.length : 0;
+              console.log('📝 Nombre final de cues WebVTT:', cueCount);
+              if (cueCount > 0) {
+                console.log('✅ Sous-titres WebVTT chargés avec succès');
+                
+                // Vérifier les détails des sous-titres
+                console.log('📝 Première cue:', textTrack.cues[0]);
+                console.log('📝 Temps vidéo actuel:', this.video.currentTime);
+                console.log('📝 Mode du track:', textTrack.mode);
+                console.log('📝 Activecues:', textTrack.activeCues ? textTrack.activeCues.length : 'N/A');
+                
+                // Forcer l'affichage en cherchant une cue active
+                this.checkAndDisplaySubtitles(textTrack);
+                
+                // Ajouter un listener pour surveiller les cues actives
+                this.addCueChangeListener(textTrack);
+                
+                this.showSubtitleConfirmation();
+              } else {
+                console.log('⚠️ Aucune cue WebVTT chargée');
+                console.log('📝 Aperçu du contenu WebVTT:', vttContent.substring(0, 300));
+                console.log('📝 Statut du textTrack:', textTrack.readyState);
+                
+                // Essayer de forcer le chargement
+                if (textTrack.readyState === 0) { // NONE
+                  console.log('🔄 Tentative de rechargement du track...');
+                  textTrack.mode = 'hidden';
+                  setTimeout(() => {
+                    textTrack.mode = 'showing';
+                  }, 100);
+                }
+              }
+            }, 2000);
+          }
+        }, 1000);
         
-        console.log('📝 Sous-titre externe chargé et activé');
       } else {
         console.error('📝 Échec de l\'extraction:', result.message);
+        
+        // Afficher un message d'erreur à l'utilisateur
+        if (result.codecType && (result.codecType === 'hdmv_pgs_subtitle' || result.codecType === 'pgssub')) {
+          alert('Ces sous-titres sont au format image (PGS) et ne peuvent pas être affichés dans le lecteur web.\n\nPour utiliser ces sous-titres, vous devriez :\n- Utiliser un lecteur externe comme VLC\n- Ou convertir le fichier avec des sous-titres SRT');
+        } else {
+          alert('Erreur lors de l\'extraction des sous-titres : ' + (result.message || 'Erreur inconnue'));
+        }
       }
     } catch (error) {
       console.error('📝 Erreur lors de l\'extraction des sous-titres:', error);
+      
+      // Supprimer l'indicateur de chargement en cas d'erreur
+      const loadingIndicator = this.container.querySelector('.extraction-loading');
+      if (loadingIndicator && loadingIndicator.parentNode) {
+        loadingIndicator.parentNode.removeChild(loadingIndicator);
+      }
+      
+      alert('Erreur lors de l\'extraction des sous-titres : ' + error.message);
     }
   }
   
@@ -1008,6 +1219,18 @@ class VideoPlayer {
     this.hideLoading();
     this.hideBuffering();
     
+    // Ne pas afficher d'alerte si le lecteur est en cours de fermeture
+    if (this.isClosing) {
+      console.log('Erreur vidéo ignorée (lecteur en cours de fermeture)');
+      return;
+    }
+    
+    // Ne pas afficher d'alerte si la modal n'est pas active
+    if (!this.modal.classList.contains('active')) {
+      console.log('Erreur vidéo ignorée (modal inactive)');
+      return;
+    }
+    
     let errorMessage = 'Erreur lors de la lecture de la vidéo';
     if (this.video.error) {
       switch(this.video.error.code) {
@@ -1042,6 +1265,356 @@ class VideoPlayer {
     } else {
       return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
+  }
+
+  getLanguageName(langCode) {
+    const languages = {
+      'fr': 'Français',
+      'en': 'Anglais',
+      'es': 'Espagnol',
+      'de': 'Allemand',
+      'it': 'Italien',
+      'pt': 'Portugais',
+      'ru': 'Russe',
+      'ja': 'Japonais',
+      'ko': 'Coréen',
+      'zh': 'Chinois',
+      'ar': 'Arabe',
+      'hi': 'Hindi',
+      'tr': 'Turc',
+      'pl': 'Polonais',
+      'nl': 'Néerlandais',
+      'sv': 'Suédois',
+      'da': 'Danois',
+      'no': 'Norvégien',
+      'fi': 'Finnois',
+      'cs': 'Tchèque',
+      'hu': 'Hongrois',
+      'ro': 'Roumain',
+      'bg': 'Bulgare',
+      'hr': 'Croate',
+      'sk': 'Slovaque',
+      'sl': 'Slovène',
+      'et': 'Estonien',
+      'lv': 'Letton',
+      'lt': 'Lituanien',
+      'el': 'Grec',
+      'he': 'Hébreu',
+      'th': 'Thaï',
+      'vi': 'Vietnamien',
+      'id': 'Indonésien',
+      'ms': 'Malais',
+      'tl': 'Tagalog',
+      'uk': 'Ukrainien',
+      'be': 'Biélorusse',
+      'mk': 'Macédonien',
+      'sr': 'Serbe',
+      'bs': 'Bosniaque',
+      'sq': 'Albanais',
+      'ca': 'Catalan',
+      'eu': 'Basque',
+      'gl': 'Galicien',
+      'cy': 'Gallois',
+      'ga': 'Irlandais',
+      'mt': 'Maltais',
+      'is': 'Islandais',
+      'fo': 'Féroïen',
+      'und': 'Non défini'
+    };
+    
+    return languages[langCode] || langCode.toUpperCase();
+  }
+
+  showSubtitleConfirmation() {
+    // Créer un message temporaire pour confirmer que les sous-titres sont actifs
+    const confirmationDiv = document.createElement('div');
+    confirmationDiv.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      z-index: 10001;
+      font-size: 16px;
+      text-align: center;
+    `;
+    confirmationDiv.textContent = '✅ Sous-titres activés';
+    
+    this.container.appendChild(confirmationDiv);
+    
+    // Supprimer après 2 secondes
+    setTimeout(() => {
+      if (confirmationDiv.parentNode) {
+        confirmationDiv.parentNode.removeChild(confirmationDiv);
+      }
+    }, 2000);
+  }
+
+  showExtractionLoading() {
+    // Créer un indicateur de chargement pour l'extraction
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'extraction-loading';
+    loadingDiv.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      z-index: 10002;
+      font-size: 16px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    `;
+    loadingDiv.innerHTML = `
+      <div style="
+        width: 20px;
+        height: 20px;
+        border: 2px solid #fff;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      "></div>
+      <span>Extraction des sous-titres...</span>
+    `;
+    
+    // Ajouter l'animation CSS
+    if (!document.querySelector('#extraction-loading-styles')) {
+      const style = document.createElement('style');
+      style.id = 'extraction-loading-styles';
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    this.container.appendChild(loadingDiv);
+    return loadingDiv;
+  }
+
+
+  convertAssToSrt(assContent) {
+    console.log('🔄 Conversion ASS vers SRT en cours...');
+    
+    try {
+      const lines = assContent.split('\n');
+      const dialogueLines = lines.filter(line => line.startsWith('Dialogue:'));
+      
+      if (dialogueLines.length === 0) {
+        console.log('⚠️ Aucune ligne de dialogue trouvée dans le fichier ASS');
+        return '1\n00:00:01,000 --> 00:00:05,000\nAucun dialogue trouvé dans le fichier ASS\n';
+      }
+      
+      let srtContent = '';
+      let index = 1;
+      
+      dialogueLines.forEach(line => {
+        try {
+          // Format ASS : Dialogue: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
+          const parts = line.substring(9).split(','); // Enlever 'Dialogue:'
+          
+          if (parts.length < 10) return;
+          
+          const startTime = this.convertAssTimeToSrt(parts[1]);
+          const endTime = this.convertAssTimeToSrt(parts[2]);
+          const text = parts.slice(9).join(',').replace(/\{[^}]*\}/g, '').replace(/\\N/g, '\n');
+          
+          if (startTime && endTime && text.trim()) {
+            srtContent += `${index}\n${startTime} --> ${endTime}\n${text.trim()}\n\n`;
+            index++;
+          }
+        } catch (err) {
+          console.log('⚠️ Erreur conversion ligne ASS:', err.message);
+        }
+      });
+      
+      if (srtContent) {
+        console.log('✅ Conversion ASS vers SRT réussie:', index - 1, 'sous-titres');
+        return srtContent;
+      } else {
+        return '1\n00:00:01,000 --> 00:00:05,000\nErreur de conversion du fichier ASS\n';
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur conversion ASS:', error);
+      return '1\n00:00:01,000 --> 00:00:05,000\nErreur de conversion du format ASS\n';
+    }
+  }
+
+  convertAssTimeToSrt(assTime) {
+    try {
+      // Format ASS : H:MM:SS.CC (centièmes)
+      // Format SRT : HH:MM:SS,mmm (millièmes)
+      const parts = assTime.split(':');
+      if (parts.length !== 3) return null;
+      
+      const hours = parseInt(parts[0]).toString().padStart(2, '0');
+      const minutes = parseInt(parts[1]).toString().padStart(2, '0');
+      const secParts = parts[2].split('.');
+      const seconds = parseInt(secParts[0]).toString().padStart(2, '0');
+      const centiseconds = secParts[1] || '00';
+      const milliseconds = (parseInt(centiseconds) * 10).toString().padStart(3, '0');
+      
+      return `${hours}:${minutes}:${seconds},${milliseconds}`;
+    } catch (error) {
+      console.error('❌ Erreur conversion temps ASS:', error);
+      return null;
+    }
+  }
+
+  convertSrtToVtt(srtContent) {
+    console.log('🔄 Conversion SRT vers WebVTT en cours...');
+    
+    try {
+      // Ajouter l'en-tête WebVTT
+      let vttContent = 'WEBVTT\n\n';
+      
+      // Diviser en blocs de sous-titres
+      const blocks = srtContent.trim().split(/\n\s*\n/);
+      
+      blocks.forEach((block, index) => {
+        const lines = block.trim().split('\n');
+        if (lines.length >= 3) {
+          // Ignorer le numéro de séquence (première ligne)
+          const timeLine = lines[1];
+          const textLines = lines.slice(2);
+          
+          // Convertir le format de temps SRT vers WebVTT
+          // SRT: 00:00:30,489 --> 00:00:32,866
+          // VTT: 00:00:30.489 --> 00:00:32.866
+          const vttTimeLine = timeLine.replace(/,/g, '.');
+          
+          // Nettoyer et convertir le texte
+          let text = textLines.join('\n')
+            .replace(/<i>/g, '<i>')
+            .replace(/<\/i>/g, '</i>')
+            .replace(/<b>/g, '<b>')
+            .replace(/<\/b>/g, '</b>')
+            .replace(/<u>/g, '<u>')
+            .replace(/<\/u>/g, '</u>');
+          
+          // Ajouter le bloc WebVTT
+          vttContent += `${vttTimeLine}\n${text}\n\n`;
+        }
+      });
+      
+      console.log('✅ Conversion SRT vers WebVTT réussie');
+      return vttContent;
+      
+    } catch (error) {
+      console.error('❌ Erreur conversion SRT vers WebVTT:', error);
+      // Fallback basique
+      return `WEBVTT\n\n00:00:01.000 --> 00:00:05.000\nErreur de conversion SRT vers WebVTT\n\n`;
+    }
+  }
+
+  checkAndDisplaySubtitles(textTrack) {
+    console.log('🔍 Vérification de l\'affichage des sous-titres...');
+    
+    // Forcer l'affichage des styles CSS pour les sous-titres
+    this.ensureSubtitleStyles();
+    
+    // Vérifier si on a des cues actives au temps actuel
+    const currentTime = this.video.currentTime;
+    let activeCueFound = false;
+    
+    if (textTrack.cues) {
+      for (let i = 0; i < textTrack.cues.length; i++) {
+        const cue = textTrack.cues[i];
+        if (currentTime >= cue.startTime && currentTime <= cue.endTime) {
+          console.log('📝 Cue active trouvée:', cue.text);
+          activeCueFound = true;
+          break;
+        }
+      }
+    }
+    
+    if (!activeCueFound) {
+      console.log('📝 Aucune cue active au temps', currentTime);
+      console.log('📝 Première cue commence à:', textTrack.cues[0]?.startTime || 'N/A');
+      
+      // Aller au début de la première cue pour tester (que ce soit avant ou après)
+      if (textTrack.cues && textTrack.cues.length > 0) {
+        const firstCueTime = textTrack.cues[0].startTime;
+        if (Math.abs(currentTime - firstCueTime) > 2) { // Si on est loin du premier sous-titre
+          console.log('🔄 Navigation vers le premier sous-titre pour test...');
+          console.log(`📝 Passage de ${currentTime.toFixed(1)}s à ${firstCueTime.toFixed(1)}s`);
+          this.video.currentTime = firstCueTime + 0.1;
+          
+          // Attendre un peu puis vérifier si les sous-titres s'affichent
+          setTimeout(() => {
+            const newActiveCues = textTrack.activeCues;
+            console.log('📝 Après navigation - Cues actives:', newActiveCues ? newActiveCues.length : 0);
+            if (newActiveCues && newActiveCues.length > 0) {
+              console.log('✅ Sous-titre maintenant visible:', newActiveCues[0].text);
+            }
+          }, 500);
+        }
+      }
+    }
+    
+    // Vérifier que l'élément vidéo a les bons attributs
+    console.log('📝 Attributs vidéo - crossorigin:', this.video.crossOrigin);
+    console.log('📝 Éléments track dans le DOM:', this.video.querySelectorAll('track').length);
+  }
+
+  ensureSubtitleStyles() {
+    // Ajouter des styles CSS pour s'assurer que les sous-titres sont visibles
+    if (!document.querySelector('#subtitle-styles')) {
+      const style = document.createElement('style');
+      style.id = 'subtitle-styles';
+      style.textContent = `
+        .video-player-element::cue {
+          background-color: rgba(0, 0, 0, 0.8);
+          color: white;
+          font-size: 18px;
+          font-family: Arial, sans-serif;
+          text-align: center;
+          line-height: 1.4;
+          padding: 0.1em 0.3em;
+          border-radius: 2px;
+        }
+        
+        .video-player-element::-webkit-media-text-track-display {
+          z-index: 9999 !important;
+        }
+        
+        .video-player-element::-webkit-media-text-track-container {
+          z-index: 9999 !important;
+          position: relative !important;
+        }
+      `;
+      document.head.appendChild(style);
+      console.log('📝 Styles des sous-titres ajoutés');
+    }
+  }
+
+  addCueChangeListener(textTrack) {
+    // Surveiller les changements de cues actives
+    textTrack.addEventListener('cuechange', () => {
+      const activeCues = textTrack.activeCues;
+      console.log('📝 Changement de cues:', activeCues ? activeCues.length : 0, 'actives');
+      
+      if (activeCues && activeCues.length > 0) {
+        for (let i = 0; i < activeCues.length; i++) {
+          console.log('📝 Cue active:', activeCues[i].text);
+        }
+      } else {
+        console.log('📝 Aucune cue active');
+      }
+    });
+    
+    console.log('📝 Listener cuechange ajouté');
   }
 }
 

@@ -8,10 +8,20 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Films - APIs avec stockage JSON
   scanMovies: (options) => ipcRenderer.invoke('movies:scan', options),
+  scanSingleMovie: () => ipcRenderer.invoke('movies:scanSingle'),
   getAllMovies: () => ipcRenderer.invoke('movies:getAll'),
   getMoviePath: (moviePath) => ipcRenderer.invoke('movies:getPath', moviePath),
+  getMovieDetails: (movieId) => ipcRenderer.invoke('movies:getDetails', movieId),
+  updateMovie: (movieId, updates) => ipcRenderer.invoke('movies:update', movieId, updates),
   openMovieFolder: (moviePath) => ipcRenderer.invoke('movies:openFolder', moviePath),
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
+  downloadTMDBImage: (imageUrl, movieTitle) => ipcRenderer.invoke('movies:downloadTMDBImage', imageUrl, movieTitle),
+  updateMoviesMetadata: () => ipcRenderer.invoke('movies:updateMetadata'),
+  
+  // APIs pour informations vidéo
+  getVideoInfo: (filePath) => ipcRenderer.invoke('video:getInfo', filePath),
+  extractSubtitle: (videoPath, trackIndex) => ipcRenderer.invoke('video:extractSubtitle', videoPath, trackIndex),
+  readSubtitleFile: (subtitlePath) => ipcRenderer.invoke('video:readSubtitleFile', subtitlePath),
   
   // APIs temporaires pour éviter les erreurs
   getAllCategories: () => Promise.resolve({ success: true, categories: [] }),
