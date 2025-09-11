@@ -1,6 +1,6 @@
-# Rackoon Streaming
+# 🎬 Rackoon Streaming v1.0
 
-Une application Electron moderne pour gérer et lire votre collection de films personnels avec des fonctionnalités avancées de sous-titres et de métadonnées.
+Application de streaming vidéo moderne avec lecteur intégré, support MKV, pistes audio multiples et sous-titres.
 
 ## 🎬 Fonctionnalités
 
@@ -41,34 +41,54 @@ Une application Electron moderne pour gérer et lire votre collection de films p
 
 ## 📋 Prérequis
 
-- **Node.js** (version 16 ou supérieure)
-- **FFmpeg** installé et accessible dans le PATH système
-  - Windows : Télécharger depuis [FFmpeg.org](https://ffmpeg.org/download.html)
-  - Ou via Chocolatey : `choco install ffmpeg`
+- **Node.js** 18.0.0 ou supérieur
+- **npm** 8.0.0 ou supérieur
+- **Système d'exploitation**: Windows, macOS, ou Linux
 
-## 🚀 Installation
+### Vérifier vos versions
+```bash
+node --version    # doit être >= 18.0.0
+npm --version     # doit être >= 8.0.0
+```
 
-1. **Cloner le repository**
-   ```bash
-   git clone https://github.com/votre-username/rackoon-streaming.git
-   cd rackoon-streaming
-   ```
+## 🚀 Installation Rapide
 
-2. **Installer les dépendances**
-   ```bash
-   npm install
-   ```
+### Windows
+```bash
+# Double-cliquer sur install.bat ou exécuter dans PowerShell
+.\install.bat
+```
 
-3. **Vérifier FFmpeg**
-   ```bash
-   ffmpeg -version
-   ffprobe -version
-   ```
+### macOS / Linux
+```bash
+# Rendre le script exécutable et l'exécuter
+chmod +x install.sh
+./install.sh
+```
 
-4. **Lancer l'application**
-   ```bash
-   npm start
-   ```
+### Installation Manuelle
+```bash
+# 1. Cloner le projet
+git clone https://github.com/Samuelalhadef/Rackoon-Streaming-1.0.git
+cd rackoon-streaming-v01
+
+# 2. Installer les dépendances
+npm install
+
+# 3. Démarrer l'application
+npm start
+```
+
+## 🛠️ Scripts Disponibles
+
+| Commande | Description |
+|----------|-------------|
+| `npm start` | Démarre l'application |
+| `npm run dev` | Mode développement |
+| `npm run build` | Construit l'application |
+| `npm run dist` | Crée un exécutable |
+| `npm run clean` | Nettoie node_modules |
+| `npm run install:clean` | Installation propre |
 
 ## 📁 Structure du Projet
 
@@ -129,30 +149,42 @@ Le projet recherche FFmpeg dans plusieurs emplacements :
 - PATH système
 - Installation Chocolatey
 
-## 🐛 Dépannage
+## 🔧 Dépannage
 
-### Problèmes Courants
+### Problèmes d'installation
 
-**FFmpeg non trouvé**
-```bash
-# Vérifier l'installation
-ffmpeg -version
+1. **Erreur "node n'est pas reconnu"**
+   - Installer Node.js depuis [nodejs.org](https://nodejs.org/)
+   - Redémarrer le terminal
 
-# Installer via Chocolatey (Windows)
-choco install ffmpeg
+2. **Erreur lors de npm install**
+   ```bash
+   npm cache clean --force
+   npm run install:clean
+   ```
 
-# Ou télécharger manuellement et ajouter au PATH
-```
+3. **Problèmes de permissions (Linux/macOS)**
+   ```bash
+   sudo chown -R $(whoami) ~/.npm
+   ```
 
-**Sous-titres ne s'affichent pas**
-- Vérifier que le fichier contient des sous-titres : menu "Sous-titres"
-- Les PGS (images) sont convertis automatiquement mais peuvent être limités
-- Préférer les fichiers avec sous-titres SRT intégrés
+### Problèmes de lancement
 
-**Lecteur ne démarre pas**
-- Vérifier les permissions de lecture du fichier vidéo
-- S'assurer que le format est supporté
-- Vérifier les logs dans la console développeur (Ctrl+Shift+I)
+1. **L'application ne démarre pas**
+   - Vérifier que toutes les dépendances sont installées
+   - Exécuter `npm run postinstall`
+
+2. **Erreur FFmpeg**
+   - Les binaires FFmpeg sont inclus automatiquement
+   - Redémarrer l'application si nécessaire
+
+## 🐛 Signaler un Bug
+
+Si vous rencontrez un problème, veuillez [créer une issue](https://github.com/Samuelalhadef/Rackoon-Streaming-1.0/issues) avec :
+- Description du problème
+- Étapes pour reproduire
+- Version de Node.js (`node --version`)
+- Système d'exploitation
 
 ## 🤝 Contribution
 
