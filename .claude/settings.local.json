@@ -23,7 +23,8 @@
       "Bash(npm cache clean:*)",
       "Bash(del package-lock.json)",
       "Bash(chmod:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []

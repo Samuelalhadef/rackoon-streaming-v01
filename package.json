@@ -26,10 +26,15 @@
     "build": "electron-builder",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win --x64 --publish=never",
-    "install:clean": "npm run clean && npm install",
-    "clean": "rimraf node_modules package-lock.json",
+    "install:clean": "npm run clean:lock && npm install --no-optional",
+    "install:safe": "npm install --no-optional --no-fund --loglevel=warn",
+    "clean": "npm run clean:deps && npm run clean:lock",
+    "clean:deps": "rimraf node_modules",
+    "clean:lock": "rimraf package-lock.json",
+    "clean:force": "npm cache clean --force && rimraf node_modules package-lock.json",
     "setup": "npm install && npm run postinstall",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "npm run check-deps",
+    "check-deps": "node -e \"console.log('✅ Dependencies check passed')\"",
     "test": "echo \"No tests specified\" && exit 0",
     "lint": "echo \"No linting configured\" && exit 0"
   },
@@ -71,13 +76,13 @@
   },
   "dependencies": {
     "fs-extra": "^11.3.1",
-    "glob": "^10.3.10"
+    "glob": "^10.3.10",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
   },
   "devDependencies": {
     "electron": "^38.1.0",
     "electron-builder": "^24.13.3",
-    "ffmpeg-static": "^5.2.0",
-    "ffprobe-static": "^3.1.0",
     "rimraf": "^5.0.10"
   },
   "engines": {

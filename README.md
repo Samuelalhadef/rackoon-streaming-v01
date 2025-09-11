@@ -55,7 +55,13 @@ npm --version     # doit être >= 8.0.0
 
 ### Windows
 ```bash
-# Double-cliquer sur install.bat ou exécuter dans PowerShell
+# Méthode recommandée (installation sécurisée)
+.\install-safe.bat
+
+# Si problèmes persistants
+.\install-alternative.bat
+
+# Méthode classique
 .\install.bat
 ```
 
@@ -89,6 +95,7 @@ npm start
 | `npm run dist` | Crée un exécutable |
 | `npm run clean` | Nettoie node_modules |
 | `npm run install:clean` | Installation propre |
+| `npm run install:safe` | Installation sécurisée Windows |
 
 ## 📁 Structure du Projet
 
@@ -157,10 +164,17 @@ Le projet recherche FFmpeg dans plusieurs emplacements :
    - Installer Node.js depuis [nodejs.org](https://nodejs.org/)
    - Redémarrer le terminal
 
-2. **Erreur lors de npm install**
+2. **Erreur lors de npm install (Windows)**
    ```bash
+   # Fermer tous les processus Electron
+   taskkill /f /im electron.exe
+   
+   # Essayer l'installation sécurisée
+   .\install-safe.bat
+   
+   # Ou installation manuelle
    npm cache clean --force
-   npm run install:clean
+   npm run install:safe
    ```
 
 3. **Problèmes de permissions (Linux/macOS)**

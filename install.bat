@@ -27,13 +27,19 @@ echo 📦 Installation des dépendances...
 echo.
 
 REM Nettoyer les anciennes installations
-if exist node_modules (
-    echo 🧹 Nettoyage des anciennes dépendances...
-    rmdir /s /q node_modules
+echo 🧹 Nettoyage des anciennes dépendances...
+if exist package-lock.json (
+    del /q package-lock.json
 )
 
-if exist package-lock.json (
-    del package-lock.json
+REM Nettoyage forcé si nécessaire
+if exist node_modules (
+    echo ⚠️ Suppression de node_modules existant...
+    rmdir /s /q node_modules 2>nul
+    if exist node_modules (
+        echo ⚠️ Certains fichiers sont verrouillés, nettoyage du cache npm...
+        npm cache clean --force
+    )
 )
 
 REM Installation propre

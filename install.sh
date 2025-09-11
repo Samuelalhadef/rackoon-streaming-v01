@@ -40,13 +40,19 @@ echo "📦 Installation des dépendances..."
 echo
 
 # Nettoyer les anciennes installations
-if [ -d "node_modules" ]; then
-    echo "🧹 Nettoyage des anciennes dépendances..."
-    rm -rf node_modules
+echo "🧹 Nettoyage des anciennes dépendances..."
+if [ -f "package-lock.json" ]; then
+    rm -f package-lock.json
 fi
 
-if [ -f "package-lock.json" ]; then
-    rm package-lock.json
+if [ -d "node_modules" ]; then
+    echo "⚠️ Suppression de node_modules existant..."
+    rm -rf node_modules
+    if [ -d "node_modules" ]; then
+        echo "⚠️ Problème de suppression, nettoyage du cache npm..."
+        npm cache clean --force
+        sudo rm -rf node_modules 2>/dev/null || rm -rf node_modules
+    fi
 fi
 
 # Installation propre
