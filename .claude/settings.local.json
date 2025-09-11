@@ -17,7 +17,13 @@
       "Bash(test:*)",
       "Bash(git remote add:*)",
       "Bash(git push:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(npm install)",
+      "Bash(npm audit:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(del package-lock.json)",
+      "Bash(chmod:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

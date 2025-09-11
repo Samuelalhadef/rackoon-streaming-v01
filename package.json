@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "🎬 Application de streaming vidéo moderne avec lecteur intégré, support MKV, pistes audio multiples et sous-titres",
   "main": "main.js",
-  "keywords": ["electron", "video", "streaming", "player", "mkv", "subtitles", "media"],
+  "keywords": [
+    "electron",
+    "video",
+    "streaming",
+    "player",
+    "mkv",
+    "subtitles",
+    "media"
+  ],
   "homepage": "https://github.com/Samuelalhadef/Rackoon-Streaming-1.0",
   "repository": {
     "type": "git",
@@ -17,7 +25,13 @@
     "dev": "electron .",
     "build": "electron-builder",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --win --x64 --publish=never"
+    "dist": "electron-builder --win --x64 --publish=never",
+    "install:clean": "npm run clean && npm install",
+    "clean": "rimraf node_modules package-lock.json",
+    "setup": "npm install && npm run postinstall",
+    "postinstall": "electron-builder install-app-deps",
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "echo \"No linting configured\" && exit 0"
   },
   "author": {
     "name": "Production Directive",
@@ -60,9 +74,19 @@
     "glob": "^10.3.10"
   },
   "devDependencies": {
-    "electron": "^29.4.6",
+    "electron": "^38.1.0",
     "electron-builder": "^24.13.3",
     "ffmpeg-static": "^5.2.0",
-    "ffprobe-static": "^3.1.0"
-  }
+    "ffprobe-static": "^3.1.0",
+    "rimraf": "^5.0.10"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ]
 }
