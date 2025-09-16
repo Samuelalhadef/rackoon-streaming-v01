@@ -32,6 +32,7 @@ class JSONDatabase {
         // Créer le fichier initial
         this.data = {
           movies: [],
+          series: [],
           settings: {
             version: "1.0.0",
             lastScan: null,
@@ -81,7 +82,13 @@ class JSONDatabase {
   // Ajouter un film
   async addMovie(movieData) {
     if (!this.data) await this.load();
-    
+
+    // Si c'est un épisode de série, le rediriger vers addEpisodeToSeries
+    if (movieData.category === 'series' && movieData.seriesId) {
+      console.log('📺 Redirection vers addEpisodeToSeries pour:', movieData.title);
+      return await this.addEpisodeToSeries(movieData);
+    }
+
     // Vérifier si le film existe déjà
     const existingMovie = this.data.movies.find(m => m.path === movieData.path);
     if (existingMovie) {
@@ -105,6 +112,28 @@ class JSONDatabase {
     return { success: true, movie };
   }
 
+  // Mettre à jour un film existant
+  async updateMovie(movieData) {
+    if (!this.data) await this.load();
+
+    const existingIndex = this.data.movies.findIndex(m => m.path === movieData.path);
+    if (existingIndex === -1) {
+      return { success: false, message: 'Film non trouvé pour mise à jour' };
+    }
+
+    // Mettre à jour le film en conservant l'ID et la date d'ajout
+    const existingMovie = this.data.movies[existingIndex];
+    this.data.movies[existingIndex] = {
+      ...existingMovie,
+      ...movieData,
+      id: existingMovie.id, // Conserver l'ID original
+      dateAdded: existingMovie.dateAdded // Conserver la date d'ajout originale
+    };
+
+    await this.save();
+    return { success: true, movie: this.data.movies[existingIndex] };
+  }
+
   // Obtenir tous les films
   async getAllMovies() {
     if (!this.data) await this.load();
@@ -124,19 +153,6 @@ class JSONDatabase {
     return this.data.movies.filter(m => m.category === category);
   }
 
-  // Mettre à jour un film
-  async updateMovie(id, updates) {
-    if (!this.data) await this.load();
-    
-    const movieIndex = this.data.movies.findIndex(m => m.id === id);
-    if (movieIndex === -1) {
-      return { success: false, message: 'Film non trouvé' };
-    }
-
-    this.data.movies[movieIndex] = { ...this.data.movies[movieIndex], ...updates };
-    await this.save();
-    return { success: true, movie: this.data.movies[movieIndex] };
-  }
 
   // Supprimer un film
   async deleteMovie(id) {
@@ -232,6 +248,177 @@ class JSONDatabase {
       console.error('Erreur lors de la sauvegarde de la miniature:', error);
       return null;
     }
+  }
+
+  // Gestion des séries
+
+  // Ajouter une série
+  async addSeries(seriesData) {
+    if (!this.data) await this.load();
+
+    // S'assurer que la section series existe
+    if (!this.data.series) {
+      this.data.series = [];
+    }
+
+    // Vérifier si la série existe déjà
+    const existingSeries = this.data.series.find(s => s.name.toLowerCase() === seriesData.name.toLowerCase());
+    if (existingSeries) {
+      return { success: false, message: 'Série déjà existante' };
+    }
+
+    // Créer la série avec un ID unique
+    const series = {
+      id: this.generateId(),
+      name: seriesData.name,
+      description: seriesData.description || '',
+      dateAdded: new Date().toISOString(),
+      episodeCount: 0
+    };
+
+    this.data.series.push(series);
+    await this.save();
+
+    return { success: true, series };
+  }
+
+  // Récupérer toutes les séries
+  async getAllSeries() {
+    if (!this.data) await this.load();
+
+    // S'assurer que la section series existe
+    if (!this.data.series) {
+      this.data.series = [];
+      await this.save();
+    }
+
+    return { success: true, series: this.data.series };
+  }
+
+  // Récupérer une série par ID
+  async getSeriesById(seriesId) {
+    if (!this.data) await this.load();
+    const series = this.data.series.find(s => s.id === seriesId);
+    if (!series) {
+      return { success: false, message: 'Série non trouvée' };
+    }
+    return { success: true, series };
+  }
+
+  // Ajouter un épisode à une série
+  async addEpisodeToSeries(episodeData) {
+    if (!this.data) await this.load();
+
+    // S'assurer que la section series existe
+    if (!this.data.series) {
+      this.data.series = [];
+    }
+
+    // Trouver la série
+    const series = this.data.series.find(s => s.id === episodeData.seriesId);
+    if (!series) {
+      return { success: false, message: 'Série non trouvée' };
+    }
+
+    // Créer l'épisode
+    const episode = {
+      id: this.generateId(),
+      title: episodeData.title,
+      path: episodeData.path,
+      format: episodeData.format,
+      duration: episodeData.duration,
+      size_bytes: episodeData.size_bytes,
+      thumbnail: episodeData.thumbnail,
+      width: episodeData.width,
+      height: episodeData.height,
+      season_number: episodeData.season_number || 1,
+      episode_number: episodeData.episode_number || null,
+      description: episodeData.description || '',
+      dateAdded: new Date().toISOString(),
+      lastWatched: null,
+      rating: 0
+    };
+
+    // Initialiser la structure des saisons si nécessaire
+    if (!series.seasons) {
+      series.seasons = [];
+    }
+
+    // Trouver ou créer la saison
+    let season = series.seasons.find(s => s.number === episode.season_number);
+    if (!season) {
+      season = {
+        number: episode.season_number,
+        episodes: []
+      };
+      series.seasons.push(season);
+      // Trier les saisons par numéro
+      series.seasons.sort((a, b) => a.number - b.number);
+    }
+
+    // Vérifier si l'épisode existe déjà
+    const existingEpisode = season.episodes.find(e => e.path === episode.path);
+    if (existingEpisode) {
+      return { success: false, message: 'Épisode déjà existant dans cette série' };
+    }
+
+    // Ajouter l'épisode
+    season.episodes.push(episode);
+
+    // Trier les épisodes par numéro (les épisodes sans numéro à la fin)
+    season.episodes.sort((a, b) => {
+      if (a.episode_number && b.episode_number) {
+        return a.episode_number - b.episode_number;
+      }
+      if (a.episode_number && !b.episode_number) return -1;
+      if (!a.episode_number && b.episode_number) return 1;
+      return 0;
+    });
+
+    // Mettre à jour le compteur d'épisodes de la série
+    const totalEpisodes = series.seasons.reduce((total, season) => total + season.episodes.length, 0);
+    series.episodeCount = totalEpisodes;
+
+    await this.save();
+
+    console.log(`📺 Épisode ajouté à la série "${series.name}": ${episode.title}`);
+    return { success: true, episode, series };
+  }
+
+  // Mettre à jour une série
+  async updateSeries(seriesId, updates) {
+    if (!this.data) await this.load();
+
+    const seriesIndex = this.data.series.findIndex(s => s.id === seriesId);
+    if (seriesIndex === -1) {
+      return { success: false, message: 'Série non trouvée' };
+    }
+
+    this.data.series[seriesIndex] = { ...this.data.series[seriesIndex], ...updates };
+    await this.save();
+
+    return { success: true, series: this.data.series[seriesIndex] };
+  }
+
+  // Supprimer une série
+  async deleteSeries(seriesId) {
+    if (!this.data) await this.load();
+
+    const seriesIndex = this.data.series.findIndex(s => s.id === seriesId);
+    if (seriesIndex === -1) {
+      return { success: false, message: 'Série non trouvée' };
+    }
+
+    // Vérifier si des épisodes sont associés à cette série
+    const relatedEpisodes = this.data.movies.filter(m => m.seriesId === seriesId);
+    if (relatedEpisodes.length > 0) {
+      return { success: false, message: `Impossible de supprimer la série: ${relatedEpisodes.length} épisode(s) associé(s)` };
+    }
+
+    this.data.series.splice(seriesIndex, 1);
+    await this.save();
+
+    return { success: true };
   }
 }
 

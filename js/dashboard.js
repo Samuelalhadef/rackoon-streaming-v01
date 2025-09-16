@@ -49,9 +49,17 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = `${result.movies.length} fichiers vidéo trouvés`;
         progressBar.style.width = '100%';
         
-        // Afficher les films trouvés
+        // Si des fichiers ont été trouvés, lancer la modale de tri
         if (result.movies && result.movies.length > 0) {
-          displayMovies(result.movies);
+          console.log('🎯 Lancement de la modale de tri pour', result.movies.length, 'fichiers');
+          
+          // Lancer la modale de tri au lieu d'afficher directement les films
+          if (window.startTriage) {
+            window.startTriage(result.movies, 'folder');
+          } else {
+            console.error('❌ Système de tri non disponible, affichage direct');
+            displayMovies(result.movies);
+          }
         } else {
           statusMessage.textContent = 'Aucun fichier vidéo trouvé';
         }
@@ -84,13 +92,20 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (result.success) {
         if (result.movie) {
-          statusMessage.textContent = `Fichier ajouté: ${result.movie.title}`;
+          statusMessage.textContent = `Fichier sélectionné: ${result.movie.title}`;
           progressBar.style.width = '100%';
           
-          // Recharger tous les films pour afficher le nouveau
-          await loadMoviesFromDatabase();
+          console.log('🎯 Lancement de la modale de tri pour 1 fichier');
+          
+          // Lancer la modale de tri même pour un seul fichier
+          if (window.startTriage) {
+            window.startTriage([result.movie], 'file');
+          } else {
+            console.error('❌ Système de tri non disponible, ajout direct');
+            await loadMoviesFromDatabase();
+          }
         } else {
-          statusMessage.textContent = result.message || 'Fichier non ajouté';
+          statusMessage.textContent = result.message || 'Fichier non sélectionné';
         }
         
         // Masquer la barre de progression après 3 secondes
@@ -173,23 +188,153 @@ document.addEventListener('DOMContentLoaded', () => {
   // Charger les films au démarrage depuis la base JSON
   async function loadMoviesFromDatabase() {
     try {
-      const result = await window.electronAPI.getAllMovies();
-      if (result.success) {
-        console.log(`📚 ${result.count} films chargés depuis la base`);
-        displayMovies(result.movies);
-        if (result.count > 0) {
-          statusMessage.textContent = `${result.count} films dans la bibliothèque`;
-        }
+      // Charger tous les médias
+      const moviesResult = await window.electronAPI.getAllMovies();
+
+      let totalCount = 0;
+      let allMovies = [];
+
+      if (moviesResult.success) {
+        allMovies = moviesResult.movies;
+        totalCount = moviesResult.count;
+        console.log(`📚 ${moviesResult.count} médias chargés depuis la base`);
       } else {
-        console.error('Erreur chargement films:', result.message);
-        displayMovies([]);
+        console.error('Erreur chargement médias:', moviesResult.message);
       }
+
+      // Séparer les films des séries
+      const films = allMovies.filter(movie =>
+        movie.category !== null && movie.category !== 'series'
+      );
+
+      const seriesEpisodes = allMovies.filter(movie =>
+        movie.category === 'series'
+      );
+
+      // Grouper les épisodes par série
+      const seriesGroups = {};
+      seriesEpisodes.forEach(episode => {
+        if (!episode.seriesId || !episode.seriesName) return;
+
+        if (!seriesGroups[episode.seriesId]) {
+          seriesGroups[episode.seriesId] = {
+            id: episode.seriesId,
+            name: episode.seriesName,
+            episodes: [],
+            episodeCount: 0
+          };
+        }
+        seriesGroups[episode.seriesId].episodes.push(episode);
+        seriesGroups[episode.seriesId].episodeCount++;
+      });
+
+      const series = Object.values(seriesGroups);
+
+      console.log(`📺 ${series.length} séries reconstituées depuis les épisodes`);
+      console.log('🔍 Séries créées:', series);
+
+      // Afficher les films et séries
+      displayMovies(films);
+      displaySeries(series);
+
+      if (totalCount > 0) {
+        statusMessage.textContent = `${totalCount} médias dans la bibliothèque`;
+      }
+
     } catch (error) {
       console.error('Erreur lors du chargement:', error);
       displayMovies([]);
+      displaySeries([]);
     }
   }
   
+  // Fonction pour afficher les séries
+  function displaySeries(series) {
+    console.log('🔍 displaySeries appelée avec:', series);
+    const seriesGrid = document.getElementById('series-grid');
+    const seriesCount = document.getElementById('series-count');
+
+    console.log('🔍 seriesGrid trouvé:', !!seriesGrid);
+    console.log('🔍 seriesCount trouvé:', !!seriesCount);
+
+    if (!seriesGrid) {
+      console.error('❌ Grid des séries non trouvé');
+      return;
+    }
+
+    // Mettre à jour le compteur
+    if (seriesCount) {
+      seriesCount.textContent = series.length;
+      console.log(`✅ Compteur séries mis à jour: ${series.length}`);
+    }
+
+    // Vider le grid
+    seriesGrid.innerHTML = '';
+
+    if (!series || series.length === 0) {
+      console.log('ℹ️ Aucune série à afficher');
+      seriesGrid.innerHTML = '<p class="no-media">Aucune série trouvée.</p>';
+      return;
+    }
+
+    console.log(`✅ Création de ${series.length} cartes série`);
+    // Créer les cartes pour chaque série
+    series.forEach((serie, index) => {
+      console.log(`📺 Création carte pour: ${serie.name} (${serie.episodeCount} épisodes)`);
+      const seriesCard = createSeriesCard(serie);
+      seriesGrid.appendChild(seriesCard);
+    });
+  }
+
+  // Fonction pour créer une carte série
+  function createSeriesCard(serie) {
+    const card = document.createElement('div');
+    card.className = 'media-card series-card';
+    card.dataset.seriesId = serie.id;
+
+    // Utiliser le thumbnail du premier épisode ou une image par défaut
+    let thumbnailSrc = '../public/img/default-series-thumbnail.svg';
+    if (serie.episodes && serie.episodes.length > 0) {
+      const firstEpisode = serie.episodes[0];
+      if (firstEpisode.thumbnail) {
+        thumbnailSrc = `../data/thumbnails/${firstEpisode.thumbnail}`;
+      }
+    }
+
+    card.innerHTML = `
+      <div class="media-thumbnail">
+        <img src="${thumbnailSrc}" alt="${serie.name}" loading="lazy"
+             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjUwJSIgeT0iNDAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjBweCI+U8OJUKLPQT4KPC90ZXh0Pgo8L3N2Zz4K'">
+        <div class="media-overlay">
+          <button class="play-btn" onclick="openSeries('${serie.id}')">
+            <i class="fas fa-play"></i>
+          </button>
+        </div>
+        <div class="media-badge series-badge">
+          <i class="fas fa-tv"></i>
+          ${serie.episodeCount || 0} ép.
+        </div>
+      </div>
+      <div class="media-info">
+        <h3 class="media-title">${serie.name}</h3>
+        <div class="media-meta">
+          <span class="media-year">${serie.year || 'Année inconnue'}</span>
+          <span class="media-duration">${serie.episodeCount || 0} épisodes</span>
+        </div>
+      </div>
+    `;
+
+    // Ajouter l'événement de clic pour ouvrir la modale série
+    card.addEventListener('click', (e) => {
+      // Ne pas déclencher si on clique sur le bouton play
+      if (!e.target.closest('.play-btn')) {
+        openSeries(serie.id);
+      }
+    });
+
+    return card;
+  }
+
   // Charger les films au démarrage
   loadMoviesFromDatabase();
   
@@ -200,74 +345,80 @@ document.addEventListener('DOMContentLoaded', () => {
       showAllCards();
       return;
     }
-    
-    // Récupérer seulement les cartes des sections originales (pas de la recherche)
-    const originalSections = document.querySelectorAll('.category-section:not(.search-results-section)');
-    const cards = [];
-    const foundMovieIds = new Set(); // Pour éviter les doublons
-    
-    originalSections.forEach(section => {
-      section.querySelectorAll('.media-card').forEach(card => {
-        const movieId = card.dataset.id;
-        if (!foundMovieIds.has(movieId)) {
-          cards.push(card);
-          foundMovieIds.add(movieId);
-        }
-      });
+
+    const categoriesContainer = document.querySelector('.categories-container');
+    if (!categoriesContainer) return;
+
+    // Récupérer toutes les cartes de tous les grids
+    const allCards = [];
+    const foundMovieIds = new Set();
+
+    const gridIds = ['films-grid', 'series-grid', 'shorts-grid', 'others-grid', 'unsorted-grid'];
+
+    gridIds.forEach(gridId => {
+      const grid = document.getElementById(gridId);
+      if (grid) {
+        grid.querySelectorAll('.media-card').forEach(card => {
+          const movieId = card.dataset.id;
+          if (movieId && !foundMovieIds.has(movieId)) {
+            allCards.push(card);
+            foundMovieIds.add(movieId);
+          }
+        });
+      }
     });
-    
+
     let visibleCount = 0;
-    
-    // Masquer toutes les sections originales
-    originalSections.forEach(section => {
-      section.style.display = 'none';
+
+    // Masquer toutes les catégories
+    document.querySelectorAll('.media-category').forEach(category => {
+      category.style.display = 'none';
     });
-    
+
     // Créer ou récupérer la section de résultats de recherche
     let searchResultsSection = document.querySelector('.search-results-section');
     if (!searchResultsSection) {
       searchResultsSection = document.createElement('div');
-      searchResultsSection.className = 'category-section search-results-section';
+      searchResultsSection.className = 'media-category search-results-section';
       searchResultsSection.innerHTML = `
         <div class="category-header">
-          <h3 class="category-title">🔍 Résultats de recherche</h3>
+          <h3 class="category-title">
+            <i class="fas fa-search"></i>
+            Résultats de recherche
+          </h3>
           <span class="category-count" id="search-count">0 résultat(s)</span>
         </div>
-        <div class="category-grid search-results-grid"></div>
+        <div class="media-grid search-results-grid" id="search-results-grid"></div>
       `;
-      mediaGrid.insertBefore(searchResultsSection, mediaGrid.firstChild);
+      categoriesContainer.insertBefore(searchResultsSection, categoriesContainer.firstChild);
     }
-    
-    const searchGrid = searchResultsSection.querySelector('.search-results-grid');
+
+    const searchGrid = searchResultsSection.querySelector('#search-results-grid');
     const searchCount = searchResultsSection.querySelector('#search-count');
     searchGrid.innerHTML = ''; // Vider les résultats précédents
-    
-    // Filtrer et ajouter les cartes correspondantes (sans doublons)
-    cards.forEach(card => {
-      const title = card.dataset.title.toLowerCase();
-      
+
+    // Filtrer et ajouter les cartes correspondantes
+    allCards.forEach(card => {
+      const title = card.dataset.title ? card.dataset.title.toLowerCase() : '';
+
       if (title.includes(searchTerm)) {
         // Cloner la carte et l'ajouter aux résultats
         const cardClone = card.cloneNode(true);
-        
-        // Réattacher les événements sur la carte clonée
-        setupCardEvents(cardClone);
-        
         searchGrid.appendChild(cardClone);
         visibleCount++;
       }
     });
-    
+
     // Mettre à jour le compteur
-    searchCount.textContent = `${visibleCount} résultat(s)`;
-    
+    searchCount.textContent = `${visibleCount}`;
+
     // Afficher la section de résultats
     searchResultsSection.style.display = 'block';
-    
+
     // Afficher message si aucun résultat
     if (visibleCount === 0) {
       searchGrid.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state">
           <span class="icon">🔍</span>
           <p>Aucun résultat trouvé pour "${searchTerm}"</p>
         </div>
@@ -278,16 +429,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fonction pour afficher toutes les cartes (réinitialiser la recherche)
   function showAllCards() {
     const searchResultsSection = document.querySelector('.search-results-section');
-    
+
     // Supprimer la section de résultats de recherche si elle existe
     if (searchResultsSection) {
       searchResultsSection.remove();
     }
-    
-    // Réafficher toutes les sections originales (exclure search-results-section)
-    const originalSections = document.querySelectorAll('.category-section:not(.search-results-section)');
-    originalSections.forEach(section => {
-      section.style.display = 'block';
+
+    // Réafficher toutes les catégories principales
+    document.querySelectorAll('.media-category:not(.search-results-section)').forEach(category => {
+      category.style.display = 'block';
     });
   }
   
@@ -525,23 +675,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   }
   
-  // Affichage des films dans la grille - VERSION HYBRIDE (Template + Catégories)
+  // Affichage des films dans la grille - VERSION CATÉGORIES FIXES
 function displayMovies(movies) {
   // Debug : voir les catégories des films
   console.log('Films et leurs catégories:', movies.map(m => ({title: m.title, category: m.category})));
 
-  if (!movies || movies.length === 0) {
-    mediaGrid.innerHTML = `
-      <div class="empty-state">
-        <span class="icon">📼</span>
-        <p>Aucune vidéo trouvée. Utilisez le bouton + pour lancer une recherche.</p>
-      </div>
-    `;
-    return;
-  }
-
   // Grouper les films par catégorie
   const moviesByCategory = movies.reduce((groups, movie) => {
+    // Ne pas afficher les films avec category: null (en attente de tri)
+    if (movie.category === null) {
+      return groups;
+    }
     const category = movie.category || 'unsorted';
     if (!groups[category]) {
       groups[category] = [];
@@ -550,47 +694,192 @@ function displayMovies(movies) {
     return groups;
   }, {});
 
-  // Vider la grille
-  mediaGrid.innerHTML = '';
+  // Nettoyer toutes les grilles et compter les médias
+  const categoryMapping = {
+    'film': { gridId: 'films-grid', countId: 'films-count' },
+    'series': { gridId: 'series-grid', countId: 'series-count' },
+    'short': { gridId: 'shorts-grid', countId: 'shorts-count' },
+    'other': { gridId: 'others-grid', countId: 'others-count' },
+    'unsorted': { gridId: 'unsorted-grid', countId: 'unsorted-count' }
+  };
 
-  // ÉTAPE 1 : Afficher d'abord les catégories TRIÉES (sauf "unsorted")
-  const categoriesTriees = ['film', 'series', 'short', 'other'];
-  
-  categoriesTriees.forEach(category => {
-    if (moviesByCategory[category] && moviesByCategory[category].length > 0) {
-      createCategorySection(getCategoryDisplayName(category), moviesByCategory[category]);
+  // Réinitialiser toutes les catégories
+  Object.values(categoryMapping).forEach(({ gridId, countId }) => {
+    const grid = document.getElementById(gridId);
+    const count = document.getElementById(countId);
+
+    if (grid && count) {
+      grid.innerHTML = '<div class="empty-state"><span class="icon">📼</span><p>Aucun média trouvé.</p></div>';
+      count.textContent = '0';
     }
   });
-  
-  // Afficher les catégories personnalisées (autres que les principales et "unsorted")
+
+  // Remplir chaque catégorie avec ses médias
+  Object.keys(categoryMapping).forEach(category => {
+    const { gridId, countId } = categoryMapping[category];
+    const moviesInCategory = moviesByCategory[category] || [];
+
+    const grid = document.getElementById(gridId);
+    const count = document.getElementById(countId);
+
+    if (grid && count) {
+      count.textContent = moviesInCategory.length.toString();
+
+      if (moviesInCategory.length > 0) {
+        // Vider le grid et ajouter les médias
+        grid.innerHTML = '';
+
+        // Utiliser le template pour créer les cartes
+        const template = document.getElementById('media-card-template');
+
+        moviesInCategory.forEach(movie => {
+          // Cloner le template
+          const mediaCard = template.content.cloneNode(true).querySelector('.media-card');
+
+          // Configurer les données de la carte
+          setupMediaCard(mediaCard, movie);
+
+          // Ajouter la carte au grid
+          grid.appendChild(mediaCard);
+        });
+      }
+    }
+  });
+
+  // Gérer les catégories personnalisées (autres que les 5 principales)
   Object.keys(moviesByCategory).forEach(category => {
-    if (!categoriesTriees.includes(category) && category !== 'unsorted' && moviesByCategory[category].length > 0) {
-      createCategorySection(category, moviesByCategory[category]);
+    if (!categoryMapping[category] && moviesByCategory[category].length > 0) {
+      // Pour les catégories personnalisées, les ajouter dans "Autres"
+      const othersGrid = document.getElementById('others-grid');
+      const othersCount = document.getElementById('others-count');
+
+      if (othersGrid && othersCount) {
+        const existingCount = parseInt(othersCount.textContent) || 0;
+        const newCount = existingCount + moviesByCategory[category].length;
+        othersCount.textContent = newCount.toString();
+
+        if (othersGrid.querySelector('.empty-state')) {
+          othersGrid.innerHTML = '';
+        }
+
+        const template = document.getElementById('media-card-template');
+        moviesByCategory[category].forEach(movie => {
+          const mediaCard = template.content.cloneNode(true).querySelector('.media-card');
+          setupMediaCard(mediaCard, movie);
+          othersGrid.appendChild(mediaCard);
+        });
+      }
     }
   });
-  
-  // ÉTAPE 2 : Ajouter une séparation si il y a des médias triés ET non triés
-  const hasTriedMovies = categoriesTriees.some(cat => moviesByCategory[cat] && moviesByCategory[cat].length > 0) ||
-                        Object.keys(moviesByCategory).some(cat => cat !== 'unsorted' && moviesByCategory[cat] && moviesByCategory[cat].length > 0);
-  
-  if (hasTriedMovies && moviesByCategory['unsorted'] && moviesByCategory['unsorted'].length > 0) {
-    const separator = document.createElement('div');
-    separator.className = 'category-separator';
-    separator.innerHTML = '<hr class="separator-line">';
-    mediaGrid.appendChild(separator);
+}
+
+// Fonction pour configurer une carte de média
+function setupMediaCard(mediaCard, movie) {
+  // Charger les préférences utilisateur
+  let userPrefs = localStorage.getItem('userPrefs_global');
+
+  if (!userPrefs) {
+    userPrefs = {
+      watchedMovies: {},
+      ratings: {}
+    };
+  } else {
+    userPrefs = JSON.parse(userPrefs);
+    if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
+    if (!userPrefs.ratings) userPrefs.ratings = {};
   }
-  
-  // ÉTAPE 3 : Afficher "unsorted" EN DERNIER (en bas)
-  if (moviesByCategory['unsorted'] && moviesByCategory['unsorted'].length > 0) {
-    createCategorySection('📥 Médias non triés', moviesByCategory['unsorted']);
+
+  // Configurer les attributs de la carte
+  mediaCard.dataset.id = movie.id;
+  mediaCard.dataset.title = movie.title.toLowerCase();
+
+  // Configurer l'image de couverture
+  let thumbnailSrc;
+  if (movie.posterUrl) {
+    thumbnailSrc = movie.posterUrl;
+  } else if (movie.thumbnail) {
+    thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
+  } else {
+    thumbnailSrc = '../public/img/default-thumbnail.svg';
   }
+
+  const thumbnailImg = mediaCard.querySelector('.media-thumbnail');
+  thumbnailImg.src = thumbnailSrc;
+  thumbnailImg.alt = movie.title;
+  thumbnailImg.onerror = () => { thumbnailImg.src = '../public/img/default-thumbnail.svg'; };
+
+  // Configurer le titre
+  mediaCard.querySelector('.media-title').textContent = movie.title;
+
+  // Configurer la durée
+  mediaCard.querySelector('.duration-value').textContent = window.formatTime(movie.duration);
+
+  // Configurer l'état "vu/à voir"
+  const isWatched = userPrefs.watchedMovies[movie.id] === true;
+  const watchButtons = mediaCard.querySelectorAll('.btn-watch-toggle');
+
+  watchButtons.forEach(button => {
+    if (isWatched) {
+      button.textContent = 'vu !';
+      button.classList.add('watched');
+    } else {
+      button.textContent = 'à voir';
+      button.classList.remove('watched');
+    }
+
+    // Ajouter l'écouteur pour le changement d'état
+    button.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleWatchStatus(movie.id, button);
+    });
+  });
+
+  // Configurer les étoiles de notation
+  const rating = userPrefs.ratings[movie.id] || 0;
+  window.updateStarsDisplay(mediaCard, rating);
+  window.setupStarsInteraction(mediaCard, (rating) => rateMovie(movie.id, rating));
+
+  // Ajouter un écouteur pour le bouton de lecture
+  const playBtn = mediaCard.querySelector('.play-btn');
+  if (playBtn) {
+    playBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        await window.openVideoPlayer(movie.id, movie.title, movie.path);
+      } catch (error) {
+        console.error('Erreur lors du lancement du lecteur vidéo:', error);
+        alert('Erreur lors du lancement de la vidéo: ' + error.message);
+      }
+    });
+  }
+
+  // Ajouter un écouteur pour la carte entière (clic sur l'image pour ouvrir la modal)
+  mediaCard.addEventListener('click', async (e) => {
+    // Éviter de déclencher si on clique sur un bouton ou les étoiles
+    if (e.target.closest('.btn-watch-toggle') ||
+        e.target.closest('.star') ||
+        e.target.closest('.play-btn') ||
+        e.target.closest('.play-overlay')) {
+      return;
+    }
+
+    try {
+      if (window.openMovieModal) {
+        window.openMovieModal(movie.id);
+      } else {
+        console.error('La fonction openMovieModal n\'est pas disponible');
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture de la modal:', error);
+    }
+  });
 }
 
 // Fonction helper pour obtenir le nom d'affichage des catégories
 function getCategoryDisplayName(category) {
   const displayNames = {
     'film': '🎬 Films',
-    'series': '📺 Séries', 
+    'series': '📺 Séries',
     'short': '🎞️ Courts métrages',
     'other': '📁 Autres'
   };
@@ -932,10 +1221,17 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     }
   };
   
-  // Exposer les fonctions pour la modal
+  // Exposer les fonctions pour la modal et les autres scripts
   window.loadMoviesFromDashboard = window.loadMovies;
   window.refreshDashboard = window.loadMovies;
+  window.loadMoviesFromDatabase = loadMoviesFromDatabase;
   
+  // Écouteur pour les mises à jour de films
+  document.addEventListener('moviesUpdated', () => {
+    console.log('🔄 Événement de mise à jour des films reçu');
+    loadMoviesFromDatabase();
+  });
+
   // Initialiser l'interface
   setupContextMenu();
   window.loadMovies();

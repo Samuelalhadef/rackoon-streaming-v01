@@ -24,7 +24,12 @@
       "Bash(del package-lock.json)",
       "Bash(chmod:*)",
       "Bash(npm install:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(where:*)",
+      "Bash(dir \"C:\\Users\\jamet\\Documents\\ffmpeg\" /s)",
+      "Read(//c//**)",
+      "Bash(del \"data/thumbnails/*\")"
     ],
     "deny": [],
     "ask": []

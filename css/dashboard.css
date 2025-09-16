@@ -1100,6 +1100,103 @@ body {
   color: #3474db;
 }
 
+/* Styles pour les nouvelles catégories */
+.categories-container {
+  width: 100%;
+  max-width: none;
+}
+
+.media-category {
+  margin-bottom: 50px;
+  width: 100%;
+}
+
+.media-category .category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 0 20px;
+}
+
+.media-category .category-title {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.media-category .category-title i {
+  font-size: 26px;
+  color: #3474db;
+}
+
+.media-category .category-count {
+  color: #b0b0b0;
+  font-size: 14px;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.media-category .media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 25px;
+  padding: 0 20px;
+  width: 100%;
+}
+
+/* Style spécial pour la catégorie non triés */
+#unsorted-category {
+  border-top: 2px dashed rgba(255, 168, 0, 0.3);
+  padding-top: 30px;
+  margin-top: 30px;
+}
+
+#unsorted-category .category-title {
+  color: #ffa500;
+}
+
+#unsorted-category .category-title i {
+  color: #ffa500;
+}
+
+.unsorted-grid .empty-state {
+  color: #ffa500;
+}
+
+/* Responsive pour les catégories */
+@media (max-width: 1200px) {
+  .media-category .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .media-category .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 15px;
+    padding: 0 15px;
+  }
+
+  .media-category .category-header {
+    padding: 0 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .media-category .category-title {
+    font-size: 20px;
+  }
+}
+
 /* État vide du dashboard */
 .empty-dashboard-state {
   display: flex;
@@ -1264,4 +1361,101 @@ body {
 .new-category-card:hover .new-category-icon,
 .new-category-card:hover .new-category-text {
   color: #3474db;
+}
+
+/* Styles pour les nouvelles catégories */
+.categories-container {
+  width: 100%;
+  max-width: none;
+}
+
+.media-category {
+  margin-bottom: 50px;
+  width: 100%;
+}
+
+.media-category .category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 0 20px;
+}
+
+.media-category .category-title {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.media-category .category-title i {
+  font-size: 26px;
+  color: #3474db;
+}
+
+.media-category .category-count {
+  color: #b0b0b0;
+  font-size: 14px;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.media-category .media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 25px;
+  padding: 0 20px;
+  width: 100%;
+}
+
+/* Style spécial pour la catégorie non triés */
+#unsorted-category {
+  border-top: 2px dashed rgba(255, 168, 0, 0.3);
+  padding-top: 30px;
+  margin-top: 30px;
+}
+
+#unsorted-category .category-title {
+  color: #ffa500;
+}
+
+#unsorted-category .category-title i {
+  color: #ffa500;
+}
+
+.unsorted-grid .empty-state {
+  color: #ffa500;
+}
+
+/* Responsive pour les catégories */
+@media (max-width: 1200px) {
+  .media-category .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .media-category .media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 15px;
+    padding: 0 15px;
+  }
+
+  .media-category .category-header {
+    padding: 0 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .media-category .category-title {
+    font-size: 20px;
+  }
 }

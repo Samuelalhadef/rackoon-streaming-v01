@@ -95,6 +95,11 @@
           Vue plate
         </button>
         
+        <button id="expand-all-btn" class="btn-secondary">
+          <i class="fas fa-plus-square"></i>
+          Tout déplier
+        </button>
+        
         <button id="refresh-btn" class="btn-primary">
           <i class="fas fa-sync-alt"></i>
           Actualiser
@@ -208,6 +213,127 @@
       </div>
     </div>
   </div>
+
+  <!-- CSS personnalisé pour les checkboxes -->
+  <style>
+    /* Style pour les checkboxes indéterminées */
+    input[type="checkbox"]:indeterminate {
+      background-color: #007acc;
+      border-color: #007acc;
+    }
+    
+    input[type="checkbox"]:indeterminate:after {
+      content: '−';
+      color: white;
+      font-weight: bold;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+    }
+    
+    /* Amélioration visuelle des lignes de dossier */
+    .folder-row {
+      background-color: rgba(255, 255, 255, 0.02);
+      border-left: 3px solid #007acc;
+    }
+    
+    .folder-row:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Style pour les fichiers enfants */
+    .child-file-row {
+      background-color: rgba(255, 255, 255, 0.01);
+      border-left: 2px solid rgba(0, 122, 204, 0.3);
+    }
+    
+    .child-file-row .child-indent {
+      padding-left: 50px;
+      position: relative;
+    }
+    
+    .child-file-row .child-indent:before {
+      content: '├─';
+      position: absolute;
+      left: 25px;
+      color: #007acc;
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    
+    /* Niveaux d'indentation pour les sous-dossiers */
+    .child-file-row[data-depth="2"] .child-indent {
+      padding-left: 70px;
+    }
+    
+    .child-file-row[data-depth="2"] .child-indent:before {
+      left: 45px;
+      content: '├──';
+    }
+    
+    .child-file-row[data-depth="3"] .child-indent {
+      padding-left: 90px;
+    }
+    
+    .child-file-row[data-depth="3"] .child-indent:before {
+      left: 65px;
+      content: '├───';
+    }
+    
+    .child-file-row[data-depth="4"] .child-indent {
+      padding-left: 110px;
+    }
+    
+    .child-file-row[data-depth="4"] .child-indent:before {
+      left: 85px;
+      content: '├────';
+    }
+    
+    /* Style pour le dernier fichier d'un dossier */
+    .child-file-row.last-in-folder .child-indent:before {
+      content: '└─';
+    }
+    
+    .child-file-row[data-depth="2"].last-in-folder .child-indent:before {
+      content: '└──';
+    }
+    
+    .child-file-row[data-depth="3"].last-in-folder .child-indent:before {
+      content: '└───';
+    }
+    
+    .child-file-row[data-depth="4"].last-in-folder .child-indent:before {
+      content: '└────';
+    }
+    
+    /* Animation pour les changements de sélection */
+    input[type="checkbox"] {
+      transition: all 0.2s ease;
+    }
+    
+    .folder-checkbox:checked,
+    .file-checkbox:checked {
+      transform: scale(1.1);
+    }
+    
+    /* Animation pour l'ouverture automatique des dossiers */
+    .folder-row {
+      transition: background-color 0.3s ease;
+    }
+    
+    /* Indicateur pour les dossiers ouverts automatiquement */
+    .folder-row.auto-expanded {
+      animation: expandHighlight 1s ease-out;
+    }
+    
+    @keyframes expandHighlight {
+      0% { background-color: rgba(0, 122, 204, 0.3); }
+      100% { background-color: rgba(255, 255, 255, 0.02); }
+    }
+  </style>
 
   <!-- Scripts -->
   <script src="../js/utils.js"></script>

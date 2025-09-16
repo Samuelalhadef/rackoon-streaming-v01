@@ -13,6 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMoviePath: (moviePath) => ipcRenderer.invoke('movies:getPath', moviePath),
   getMovieDetails: (movieId) => ipcRenderer.invoke('movies:getDetails', movieId),
   updateMovie: (movieId, updates) => ipcRenderer.invoke('movies:update', movieId, updates),
+  deleteMovie: (movieId) => ipcRenderer.invoke('movies:delete', movieId),
+  playMovie: (movieId) => ipcRenderer.invoke('movies:play', movieId),
+  getMovieStats: () => ipcRenderer.invoke('movies:getStats'),
+  saveClassifiedFile: (fileData) => ipcRenderer.invoke('movies:saveClassified', fileData),
+  isFileAlreadyImported: (filePath) => ipcRenderer.invoke('movies:isFileAlreadyImported', filePath),
   openMovieFolder: (moviePath) => ipcRenderer.invoke('movies:openFolder', moviePath),
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
   downloadTMDBImage: (imageUrl, movieTitle) => ipcRenderer.invoke('movies:downloadTMDBImage', imageUrl, movieTitle),
@@ -25,7 +30,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // APIs temporaires pour éviter les erreurs
   getAllCategories: () => Promise.resolve({ success: true, categories: [] }),
-  getAllSeries: () => Promise.resolve({ success: true, series: [] }),
+
+  // APIs pour la gestion des séries
+  createSeries: (seriesData) => ipcRenderer.invoke('series:create', seriesData),
+  getAllSeries: () => ipcRenderer.invoke('series:getAll'),
+  getSeriesById: (seriesId) => ipcRenderer.invoke('series:getById', seriesId),
+  updateSeries: (seriesId, updates) => ipcRenderer.invoke('series:update', seriesId, updates),
+  deleteSeries: (seriesId) => ipcRenderer.invoke('series:delete', seriesId),
   
   // Événements
   onScanStatus: (callback) => {

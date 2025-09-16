@@ -55,6 +55,28 @@ function findFfmpegPaths() {
   console.log('FFprobe trouvé à:', FFPROBE_PATH);
 }
 
+// Utiliser FFmpeg statique préinstallé
+function setupStaticFfmpeg() {
+  try {
+    // Utiliser les binaires statiques du module ffmpeg-static et ffprobe-static
+    const ffmpegPath = require('ffmpeg-static');
+    const ffprobePath = require('ffprobe-static').path;
+    
+    if (ffmpegPath && ffprobePath) {
+      FFMPEG_PATH = ffmpegPath;
+      FFPROBE_PATH = ffprobePath;
+      console.log('✅ FFmpeg statique configuré');
+      console.log('FFmpeg statique à:', FFMPEG_PATH);
+      console.log('FFprobe statique à:', FFPROBE_PATH);
+      return true;
+    }
+  } catch (error) {
+    console.log('⚠️ Modules FFmpeg statiques non disponibles:', error.message);
+  }
+  
+  return false;
+}
+
 // Formats de fichiers vidéo supportés
 const SUPPORTED_FORMATS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpg', '.mpeg', '.3gp', '.ts'];
 
@@ -362,7 +384,7 @@ function setupIPCHandlers() {
             duration: Math.round(duration), // Stocker en secondes, arrondi
             size_bytes: stats.size,
             thumbnail: thumbnailName,
-            category: 'unsorted',
+            category: null, // Ne pas pré-définir la catégorie - sera définie lors du tri
             description: '',
             dateAdded: new Date().toISOString(),
             width: width,
@@ -469,6 +491,166 @@ function setupIPCHandlers() {
       }
     } catch (error) {
       console.error('❌ Erreur mise à jour film:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Handler pour supprimer un film
+  ipcMain.handle('movies:delete', async (event, movieId) => {
+    try {
+      const result = await db.deleteMovie(movieId);
+      if (result.success) {
+        console.log(`🗑️ Film supprimé de la base de données: ID ${movieId}`);
+        return result;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la suppression du film:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Handler pour lire un film
+  ipcMain.handle('movies:play', async (event, movieId) => {
+    try {
+      const movies = await db.getAllMovies();
+      const movie = movies.find(m => m.id === movieId);
+      
+      if (!movie) {
+        return { success: false, message: 'Film introuvable dans la base de données' };
+      }
+
+      // Vérifier si le fichier existe toujours
+      if (!fs.existsSync(movie.path)) {
+        return { success: false, message: 'Fichier vidéo introuvable sur le disque' };
+      }
+
+      // Ouvrir le fichier avec l'application par défaut
+      await shell.openPath(movie.path);
+      
+      return { 
+        success: true, 
+        message: 'Film ouvert avec l\'application par défaut',
+        path: movie.path 
+      };
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture du film:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Handler pour obtenir les statistiques
+  ipcMain.handle('movies:getStats', async (event) => {
+    try {
+      const movies = await db.getAllMovies();
+      
+      // Calculer les statistiques
+      let totalSize = 0;
+      let totalDuration = 0;
+      let filesWithThumbnails = 0;
+      const formats = new Map();
+
+      movies.forEach(movie => {
+        // Taille totale
+        if (movie.size_bytes) {
+          totalSize += movie.size_bytes;
+        }
+
+        // Durée totale
+        if (movie.duration) {
+          totalDuration += movie.duration;
+        }
+
+        // Fichiers avec miniatures
+        if (movie.thumbnail) {
+          filesWithThumbnails++;
+        }
+
+        // Comptage des formats
+        const format = movie.format || 'unknown';
+        if (formats.has(format)) {
+          formats.set(format, formats.get(format) + 1);
+        } else {
+          formats.set(format, 1);
+        }
+      });
+
+      // Convertir les formats en array
+      const formatsArray = Array.from(formats.entries()).map(([format, count]) => ({
+        format,
+        count
+      }));
+
+      const stats = {
+        totalFiles: movies.length,
+        totalSize,
+        totalDuration,
+        filesWithThumbnails,
+        formats: formatsArray
+      };
+
+      return { success: true, stats };
+    } catch (error) {
+      console.error('Erreur lors du calcul des statistiques:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Handler pour sauvegarder un fichier classifié
+  ipcMain.handle('movies:saveClassified', async (event, fileData) => {
+    try {
+      // D'abord, chercher le média existant par son chemin pour récupérer ses métadonnées
+      const allMovies = await db.getAllMovies();
+      let existingMedia = null;
+
+      console.log('🔍 Recherche du média avec le chemin:', fileData.filePath);
+
+      if (allMovies && Array.isArray(allMovies)) {
+        console.log('🗂️ Médias disponibles:', allMovies.map(m => m.path).slice(0, 3));
+        existingMedia = allMovies.find(m => m.path === fileData.filePath);
+      }
+
+      if (!existingMedia) {
+        console.error('❌ Média non trouvé. Chemin recherché:', fileData.filePath);
+        if (allMovies && allMovies.length > 0) {
+          console.error('❌ Premiers chemins en base:', allMovies.slice(0, 2).map(m => m.path));
+        } else {
+          console.error('❌ Aucun média en base de données');
+        }
+        return { success: false, message: 'Média non trouvé dans la base de données' };
+      }
+
+      console.log('✅ Média trouvé:', existingMedia.title);
+
+      // Créer l'objet complet en combinant les nouvelles données avec les métadonnées existantes
+      const movieData = {
+        ...existingMedia, // Reprendre toutes les métadonnées existantes
+        title: fileData.title,
+        category: fileData.category || 'unsorted', // Si toujours null après tri, utiliser 'unsorted' par défaut
+        mediaType: fileData.mediaType || (fileData.category === 'series' ? 'series' : 'unique'),
+        description: fileData.description || '',
+        releaseDate: fileData.releaseDate || null,
+        year: fileData.year || null,
+        // Champs pour les séries
+        seriesId: fileData.seriesId || null,
+        seriesName: fileData.seriesName || null,
+        season_number: fileData.season_number || null,
+        episode_number: fileData.episode_number || null
+      };
+
+      // Toujours utiliser updateMovie - ne plus supprimer puis ajouter à une série
+      const result = await db.updateMovie(movieData);
+
+      if (result.success) {
+        console.log(`💾 Fichier classifié mis à jour: ${movieData.title} (catégorie: ${movieData.category})`);
+        return result;
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du fichier classifié:', error);
       return { success: false, message: error.message };
     }
   });
@@ -608,7 +790,7 @@ function setupIPCHandlers() {
         duration: Math.round(duration), // Stocker en secondes, arrondi
         size_bytes: stats.size,
         thumbnail: thumbnailName,
-        category: 'unsorted',
+        category: null, // Ne pas pré-définir la catégorie - sera définie lors du tri
         description: '',
         dateAdded: new Date().toISOString(),
         width: width,
@@ -1051,6 +1233,64 @@ function setupIPCHandlers() {
       return { success: false, message: 'Erreur de lecture: ' + error.message };
     }
   });
+
+  // Handlers pour la gestion des séries
+
+  // Créer une nouvelle série
+  ipcMain.handle('series:create', async (event, seriesData) => {
+    try {
+      console.log('📺 Création d\'une nouvelle série:', seriesData.name);
+      const result = await db.addSeries(seriesData);
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de la série:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Récupérer toutes les séries
+  ipcMain.handle('series:getAll', async () => {
+    try {
+      const result = await db.getAllSeries();
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des séries:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Récupérer une série par ID
+  ipcMain.handle('series:getById', async (event, seriesId) => {
+    try {
+      const result = await db.getSeriesById(seriesId);
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération de la série:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Mettre à jour une série
+  ipcMain.handle('series:update', async (event, seriesId, updates) => {
+    try {
+      const result = await db.updateSeries(seriesId, updates);
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de la série:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Supprimer une série
+  ipcMain.handle('series:delete', async (event, seriesId) => {
+    try {
+      const result = await db.deleteSeries(seriesId);
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de la série:', error);
+      return { success: false, message: error.message };
+    }
+  });
 }
 
 // Fonction pour essayer de convertir SUP en SRT
@@ -1098,8 +1338,12 @@ Ou convertissez le fichier avec MKVToolNix + OCR
 
 // Quand Electron est prêt
 app.whenReady().then(async () => {
-  // Trouver les chemins de FFmpeg
-  findFfmpegPaths();
+  // D'abord essayer les modules statiques, puis les chemins classiques
+  let ffmpegConfigured = setupStaticFfmpeg();
+  if (!ffmpegConfigured) {
+    console.log('🔍 Recherche de FFmpeg installé manuellement...');
+    findFfmpegPaths();
+  }
   
   // Initialiser la base de données JSON
   const dbPath = path.join(__dirname, 'data', 'movies.json');
