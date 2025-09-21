@@ -331,7 +331,7 @@ class VideoPlayer {
       });
       
       // Obtenir les détails du film
-      const movieDetails = await window.electronAPI.getMovieDetails(movieId);
+      const movieDetails = await window.electronAPI.getMediaDetails(movieId);
       if (movieDetails.success && movieDetails.movie) {
         const movie = movieDetails.movie;
         const details = [];

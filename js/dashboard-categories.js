@@ -31,7 +31,7 @@ class DashboardCategories {
   // Charger tous les médias
   async loadAllMovies() {
     try {
-      const result = await window.electronAPI.getAllMovies();
+      const result = await window.electronAPI.getAllMedias();
       if (result.success) {
         this.allMovies = result.movies || [];
         console.log('Films chargés:', this.allMovies.length);
@@ -228,7 +228,7 @@ class DashboardCategories {
     if (!template) {
       // Fallback si pas de template
       const card = document.createElement('div');
-      card.className = 'media-card';
+      card.className = 'media-card movie-card';
       card.innerHTML = `
         <div class="media-thumbnail-container">
           <img src="${movie.thumbnail || '../public/img/default-thumbnail.svg'}" alt="${movie.title}" class="media-thumbnail">

@@ -69,8 +69,8 @@ window.movieEdits = {
       localStorage.setItem('movieEdits', JSON.stringify(existing));
       
       // Puis sauvegarder dans la base JSON via l'API
-      if (window.electronAPI && window.electronAPI.updateMovie) {
-        const result = await window.electronAPI.updateMovie(movieId, edits);
+      if (window.electronAPI && window.electronAPI.updateMedia) {
+        const result = await window.electronAPI.updateMedia(movieId, edits);
         if (result.success) {
           console.log('✅ Modifications sauvegardées dans la base JSON:', edits);
           
@@ -81,7 +81,7 @@ window.movieEdits = {
           console.error('❌ Erreur sauvegarde base JSON:', result.message);
         }
       } else {
-        console.warn('⚠️ API updateMovie non disponible, sauvegarde en localStorage uniquement');
+        console.warn('⚠️ API updateMedia non disponible, sauvegarde en localStorage uniquement');
       }
     } catch (e) {
       console.error('Erreur lors de la sauvegarde des modifications:', e);

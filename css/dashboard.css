@@ -241,7 +241,7 @@ body {
   width: 100%;
 }
 
-/* Card de film */
+/* Card de base - styles communs */
 .media-card {
   position: relative;
   border-radius: 10px;
@@ -250,7 +250,6 @@ body {
   cursor: pointer;
   background-color: #081029;
   height: auto;
-  min-height: 400px;
   width: 100% !important;
   max-width: none !important;
   display: flex !important;
@@ -263,6 +262,48 @@ body {
   flex-shrink: 0;
 }
 
+/* Cartes spécifiques aux films */
+.media-card.movie-card {
+  min-height: 400px;
+}
+
+/* Cartes spécifiques aux séries - même style que les films pour l'instant */
+.media-card.series-card {
+  min-height: 400px;
+  /* Styles identiques aux films - prêt pour personnalisation future */
+}
+
+/* Container thumbnail pour les séries - même format que films pour l'instant */
+.media-card.series-card .media-thumbnail-container {
+  aspect-ratio: 2/3; /* Même format que les films */
+}
+
+/* Badge pour les séries (intégré dans le style principal) */
+.series-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 107, 53, 0.9);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+.series-badge i {
+  font-size: 10px;
+}
+
+.media-card:hover .series-badge {
+  background: rgba(255, 107, 53, 1);
+}
+
 .media-card:hover {
   transform: translateY(-10px) scale(1.02);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
@@ -273,7 +314,7 @@ body {
 .media-thumbnail-container {
   position: relative;
   width: 100%;
-  aspect-ratio: 2/3;
+  aspect-ratio: 2/3; /* Format affiche de film classique */
   overflow: hidden;
 }
 

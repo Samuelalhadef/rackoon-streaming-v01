@@ -1,6 +1,16 @@
 // movie-modal.js - Gestion de la modal de présentation des films
 
+console.log('📁 Script movie-modal.js CHARGÉ');
+
+// Exposer immédiatement une fonction simple pour tester
+window.testMovieModal = function() {
+  console.log('✅ Test movie-modal fonctionne !');
+  return true;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🎬 Initialisation de movie-modal.js...');
+
   // Références aux éléments de l'interface
   const modalOverlay = document.getElementById('modal-overlay');
   const movieModal = document.getElementById('movie-modal');
@@ -16,6 +26,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const watchToggleModal = document.getElementById('btn-watch-toggle-modal');
   const watchFilmBtn = document.getElementById('btn-watch-film');
   const editButton = document.getElementById('edit-button');
+  const editButtonGroup = document.getElementById('edit-button-group');
+  const editCancelBtn = document.getElementById('edit-cancel-btn');
+  const editSaveBtn = document.getElementById('edit-save-btn');
+
+  // Nouveaux éléments pour le système d'avis
+  const reviewInput = document.getElementById('review-input');
+  const reviewSaveBtn = document.getElementById('review-save-btn');
   
   // Éléments du mode édition
   const viewMode = document.getElementById('view-mode');
@@ -41,6 +58,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
   
   // Plus de système utilisateur - supprimé
+
+  // Exposer la fonction openMovieModal immédiatement pour éviter les problèmes de timing
+  window.openMovieModal = async function(movieId) {
+    console.log('🎬 openMovieModal appelée avec ID:', movieId);
+
+    // Vérifier que les éléments essentiels existent
+    if (!modalOverlay) {
+      console.error('❌ modal-overlay non trouvé dans le DOM');
+      return;
+    }
+
+    if (!viewMode || !editMode) {
+      console.error('❌ Éléments view-mode ou edit-mode manquants');
+      return;
+    }
+
+    try {
+      return await openMovieModalInternal(movieId);
+    } catch (error) {
+      console.error('❌ Erreur dans openMovieModal:', error);
+    }
+  };
+
+  console.log('✅ window.openMovieModal exposée');
   
   // Variables globales pour le film actuel
   let currentMovieId = null;
@@ -49,9 +90,118 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedGenres = [];
   let posterImageFile = null;
   let tmdbGenresCache = null;
+
+  // Variables pour le système de boutons extensibles
+  let isEditMode = false;
+  let hasUnsavedChanges = false;
+  let originalMovieData = {};
   
   // Configuration des clés de stockage (plus de système utilisateur)
   const USER_PREFS_KEY = 'userPrefs_global';
+
+  // ============================================
+  // NOUVELLES FONCTIONS POUR LES TAGS ET MÉTADONNÉES
+  // ============================================
+
+  // Afficher les crédits du film (acteurs, réalisateur, franchise)
+  function displayMovieCredits(movie) {
+    // Réalisateur
+    const directorSection = document.getElementById('director-section');
+    const directorName = document.getElementById('director-name');
+    if (movie.director && movie.director.trim()) {
+      directorName.textContent = movie.director;
+      directorSection.style.display = 'block';
+    } else {
+      directorSection.style.display = 'none';
+    }
+
+    // Acteurs
+    const actorsSection = document.getElementById('actors-section');
+    const actorsList = document.getElementById('actors-list');
+    if (movie.actors && movie.actors.length > 0) {
+      const actorsText = movie.actors.slice(0, 3).join(', '); // Max 3 acteurs principaux
+      actorsList.textContent = actorsText;
+      actorsSection.style.display = 'block';
+    } else {
+      actorsSection.style.display = 'none';
+    }
+
+    // Franchise/Collection
+    const franchiseSection = document.getElementById('franchise-section');
+    const franchiseName = document.getElementById('franchise-name');
+    if (movie.franchise && movie.franchise.trim()) {
+      franchiseName.textContent = movie.franchise;
+      franchiseSection.style.display = 'block';
+    } else {
+      franchiseSection.style.display = 'none';
+    }
+  }
+
+  // Afficher les tags organisés par catégories avec chips colorés
+  function displayOrganizedTags(movie) {
+    // Genres
+    displayTagCategory('genres', movie.genres, 'genre');
+
+    // Ambiance/Mood
+    displayTagCategory('mood', movie.mood, 'mood');
+
+    // Technique
+    displayTagCategory('technical', movie.technical, 'technical');
+
+    // Personnel
+    displayTagCategory('personal', movie.personalTags, 'personal');
+  }
+
+  // Fonction helper pour afficher une catégorie de tags (TOUJOURS VISIBLE)
+  function displayTagCategory(categoryId, tags, chipClass) {
+    const categoryElement = document.getElementById(`${categoryId}-category`);
+    const containerElement = document.getElementById(`${categoryId}-container`);
+
+    if (!categoryElement || !containerElement) return;
+
+    // Vider le conteneur
+    containerElement.innerHTML = '';
+
+    if (tags && tags.length > 0) {
+      // Afficher les tags existants
+      tags.forEach(tag => {
+        if (tag && tag.trim()) {
+          const chip = document.createElement('span');
+          chip.className = `tag-chip ${chipClass}`;
+          chip.textContent = tag;
+          containerElement.appendChild(chip);
+        }
+      });
+    } else {
+      // Afficher un message pour catégorie vide
+      const emptyMessage = document.createElement('span');
+      emptyMessage.className = 'empty-tags-message';
+      emptyMessage.textContent = 'Aucun tag ajouté';
+      containerElement.appendChild(emptyMessage);
+    }
+
+    // TOUJOURS afficher la catégorie
+    categoryElement.style.display = 'block';
+  }
+
+  // Basculer vers le mode édition avec changement visuel
+  function toggleEditMode(isEditMode) {
+    const movieModal = document.getElementById('movie-modal');
+    const viewMode = document.getElementById('view-mode');
+    const editMode = document.getElementById('edit-mode');
+
+    if (isEditMode) {
+      // Passer en mode édition
+      movieModal.classList.add('edit-mode');
+      viewMode.style.display = 'none';
+      editMode.style.display = 'flex';
+    } else {
+      // Revenir au mode visualisation
+      movieModal.classList.remove('edit-mode');
+      viewMode.style.display = 'flex';
+      editMode.style.display = 'none';
+    }
+  }
   
   // Fonctions utilitaires pour les préférences globales
   function loadUserPreferences() {
@@ -76,12 +226,221 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Erreur lors de la sauvegarde des préférences utilisateur:', e);
     }
   }
+
+  // Fonction pour automatiquement marquer comme "Vu"
+  function autoMarkAsWatched() {
+    if (!currentMovieId) return;
+
+    const userPrefs = loadUserPreferences();
+
+    // Si le film n'est pas encore marqué comme vu, le marquer
+    if (!userPrefs.watchedMovies[currentMovieId]) {
+      userPrefs.watchedMovies[currentMovieId] = true;
+      saveUserPreferences(userPrefs);
+
+      // Mettre à jour l'interface
+      watchToggleModal.textContent = 'Vu !';
+      watchToggleModal.classList.add('watched');
+
+      // Mettre à jour la carte dans le dashboard
+      const card = document.querySelector(`.media-card[data-id="${currentMovieId}"]`);
+      if (card) {
+        const buttons = card.querySelectorAll('.btn-watch-toggle');
+        buttons.forEach(btn => {
+          btn.textContent = 'vu !';
+          btn.classList.add('watched');
+        });
+      }
+
+      console.log('Film automatiquement marqué comme "Vu"');
+    }
+  }
+
+  // Système de boutons extensibles - Fonctions de gestion
+  function showExtensionButtons() {
+    editCancelBtn.style.display = 'flex';
+    editSaveBtn.style.display = 'flex';
+    editButtonGroup.classList.add('extended');
+
+    // Animation avec délai pour un effet plus fluide
+    setTimeout(() => {
+      editCancelBtn.classList.add('show');
+      editSaveBtn.classList.add('show');
+    }, 100);
+  }
+
+  function hideExtensionButtons() {
+    editCancelBtn.classList.remove('show');
+    editSaveBtn.classList.remove('show');
+    editButtonGroup.classList.remove('extended');
+
+    // Cacher après l'animation
+    setTimeout(() => {
+      editCancelBtn.style.display = 'none';
+      editSaveBtn.style.display = 'none';
+    }, 400);
+  }
+
+  function updateSaveButtonState() {
+    if (hasUnsavedChanges) {
+      editSaveBtn.classList.add('active');
+    } else {
+      editSaveBtn.classList.remove('active');
+    }
+  }
+
+  function enterEditMode() {
+    isEditMode = true;
+    hasUnsavedChanges = false;
+
+    // Sauvegarder l'état original
+    originalMovieData = { ...currentMovieData };
+
+    // Afficher les boutons d'extension
+    showExtensionButtons();
+
+    // Activer le mode édition visuel
+    toggleEditMode(true);
+
+    console.log('Mode édition activé');
+  }
+
+  function exitEditMode(force = false) {
+    if (hasUnsavedChanges && !force) {
+      // Afficher popup de confirmation
+      showExitConfirmationPopup();
+      return;
+    }
+
+    isEditMode = false;
+    hasUnsavedChanges = false;
+
+    // Cacher les boutons d'extension
+    hideExtensionButtons();
+
+    // Désactiver le mode édition visuel
+    toggleEditMode(false);
+
+    // Restaurer les données originales si pas forcé
+    if (!force) {
+      currentMovieData = { ...originalMovieData };
+      // Recharger l'affichage avec les données originales
+      // TODO: Fonction de rechargement à implémenter
+    }
+
+    console.log('Mode édition désactivé');
+  }
+
+  function saveChanges() {
+    if (!hasUnsavedChanges) {
+      console.log('Aucune modification à sauvegarder');
+      return;
+    }
+
+    // TODO: Implémenter la sauvegarde
+    console.log('Sauvegarde des modifications...');
+
+    // Simuler la sauvegarde
+    hasUnsavedChanges = false;
+    updateSaveButtonState();
+
+    // Mettre à jour les données originales
+    originalMovieData = { ...currentMovieData };
+
+    console.log('Modifications sauvegardées');
+  }
+
+  function cancelChanges() {
+    if (!hasUnsavedChanges) {
+      exitEditMode(true);
+      return;
+    }
+
+    // Afficher popup de confirmation d'annulation
+    showCancelConfirmationPopup();
+  }
+
+  function showExitConfirmationPopup() {
+    const popup = createConfirmationPopup(
+      'Modifications non sauvegardées',
+      'Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?',
+      [
+        { text: 'Annuler', class: 'btn-secondary', action: () => {} },
+        { text: 'Sauvegarder', class: 'btn-success', action: () => { saveChanges(); exitEditMode(true); } },
+        { text: 'Quitter sans sauvegarder', class: 'btn-danger', action: () => exitEditMode(true) }
+      ]
+    );
+    document.body.appendChild(popup);
+  }
+
+  function showCancelConfirmationPopup() {
+    const popup = createConfirmationPopup(
+      'Annuler les modifications',
+      'Êtes-vous sûr de vouloir annuler toutes les modifications ?',
+      [
+        { text: 'Non, continuer l\'édition', class: 'btn-secondary', action: () => {} },
+        { text: 'Oui, annuler', class: 'btn-danger', action: () => exitEditMode(true) }
+      ]
+    );
+    document.body.appendChild(popup);
+  }
+
+  function createConfirmationPopup(title, message, buttons) {
+    const popup = document.createElement('div');
+    popup.className = 'confirmation-popup-overlay';
+
+    const popupContent = document.createElement('div');
+    popupContent.className = 'confirmation-popup-content';
+
+    popupContent.innerHTML = `
+      <h3>${title}</h3>
+      <p>${message}</p>
+      <div class="confirmation-popup-buttons">
+        ${buttons.map(btn =>
+          `<button class="confirmation-btn ${btn.class}">${btn.text}</button>`
+        ).join('')}
+      </div>
+    `;
+
+    popup.appendChild(popupContent);
+
+    // Gérer les clics sur les boutons
+    const btnElements = popupContent.querySelectorAll('.confirmation-btn');
+    btnElements.forEach((btnEl, index) => {
+      btnEl.addEventListener('click', () => {
+        buttons[index].action();
+        document.body.removeChild(popup);
+      });
+    });
+
+    // Gérer la fermeture par clic sur l'overlay
+    popup.addEventListener('click', (e) => {
+      if (e.target === popup) {
+        document.body.removeChild(popup);
+      }
+    });
+
+    return popup;
+  }
+
+  function markAsChanged() {
+    hasUnsavedChanges = true;
+    updateSaveButtonState();
+  }
   
-  // Fonction pour ouvrir la modal avec les données du film
-  window.openMovieModal = async function(movieId) {
+  // Fonction interne pour ouvrir la modal avec les données du film
+  async function openMovieModalInternal(movieId) {
     try {
+      console.log('🎬 Ouverture de la modale pour le film ID:', movieId);
+
+      // Vérifier que les éléments essentiels existent
+      if (!modalOverlay || !viewMode || !editMode) {
+        console.error('❌ Éléments de la modale manquants:', { modalOverlay, viewMode, editMode });
+        return;
+      }
+
       currentMovieId = movieId;
-      
+
       // Réinitialiser le mode d'affichage
       viewMode.style.display = 'flex';
       editMode.style.display = 'none';
@@ -91,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log("Modifications sauvegardées:", savedEdits);
       
       // Récupérer les détails du film
-      const result = await window.electronAPI.getMovieDetails(movieId);
+      const result = await window.electronAPI.getMediaDetails(movieId);
       
       if (!result.success) {
         console.error('Erreur lors de la récupération des détails du film:', result.message);
@@ -99,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Commencer avec les données originales du film
-      let movie = result.movie;
+      let movie = result.media;
       currentMoviePath = movie.path;
       
       // Appliquer les modifications enregistrées si elles existent
@@ -142,29 +501,23 @@ document.addEventListener('DOMContentLoaded', () => {
       // Configurer la date de sortie
       releaseDate.textContent = movie.releaseDate || '';
       
-      // Configurer la durée
-      duration.textContent = window.formatTime(movie.duration);
-      
-      // Configurer les genres
-      genresContainer.innerHTML = '';
-      
-      if (movie.genres && movie.genres.length > 0) {
-        // Utiliser les genres du film s'ils existent
-        movie.genres.forEach(genre => {
-          const genreTag = document.createElement('span');
-          genreTag.className = 'genre-tag';
-          genreTag.textContent = genre;
-          genresContainer.appendChild(genreTag);
-        });
+      // Configurer la durée (utiliser la version formatée si disponible)
+      duration.textContent = movie.durationFormatted || window.formatTime(movie.duration);
+
+      // Afficher la décennie si disponible
+      const decadeElement = document.getElementById('decade');
+      if (movie.decade) {
+        decadeElement.textContent = movie.decade;
+        decadeElement.style.display = 'inline-block';
       } else {
-        // Sinon créer 3 tags de genre vides
-        for (let i = 0; i < 3; i++) {
-          const genreTag = document.createElement('span');
-          genreTag.className = 'genre-tag';
-          genreTag.textContent = '';
-          genresContainer.appendChild(genreTag);
-        }
+        decadeElement.style.display = 'none';
       }
+
+      // Afficher les nouveaux champs enrichis
+      displayMovieCredits(movie);
+
+      // Afficher le système de tags organisé
+      displayOrganizedTags(movie);
       
       // Configurer le synopsis
       synopsisContent.textContent = movie.description || '';
@@ -209,7 +562,29 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Configurer le synopsis
       editSynopsisInput.value = movie.description || '';
-      
+
+      // Charger l'avis existant s'il y en a un
+      if (reviewInput) {
+        const userPrefs = loadUserPreferences();
+        const existingReview = userPrefs.reviews ? userPrefs.reviews[movieId] : '';
+        reviewInput.value = existingReview || '';
+
+        // Mettre à jour l'état du bouton sauvegarder
+        if (reviewSaveBtn) {
+          reviewSaveBtn.disabled = existingReview.trim().length === 0;
+        }
+      }
+
+      // Initialiser le système de tags avancé si pas encore fait
+      if (!window.tagSystem && document.querySelector('.add-tag-btn')) {
+        setupAdvancedTagSystem();
+      }
+
+      // Charger les tags existants dans le système de tags avancé
+      if (window.tagSystem && typeof window.tagSystem.loadMediaTags === 'function') {
+        window.tagSystem.loadMediaTags(movie);
+      }
+
       // Afficher la modal avec animation
       modalOverlay.classList.add('active');
       document.body.style.overflow = 'hidden'; // Empêcher le défilement
@@ -217,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       console.error('Erreur lors de l\'ouverture de la modal:', error);
     }
-  };
+  }
   
   // Fonction pour fermer la modal
   function closeMovieModal() {
@@ -228,6 +603,15 @@ document.addEventListener('DOMContentLoaded', () => {
     currentMovieData = {};
     selectedGenres = [];
     posterImageFile = null;
+
+    // Nettoyer l'éditeur d'avis
+    if (reviewInput) {
+      reviewInput.value = '';
+    }
+    if (reviewSaveBtn) {
+      reviewSaveBtn.textContent = 'Sauvegarder';
+      reviewSaveBtn.disabled = true;
+    }
   }
   
   // Événement de fermeture
@@ -271,15 +655,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clic pour noter
     star.addEventListener('click', () => {
       if (!currentMovieId) return;
-      
+
       const value = parseInt(star.dataset.value);
       const userPrefs = loadUserPreferences();
       userPrefs.ratings[currentMovieId] = value;
       saveUserPreferences(userPrefs);
-      
+
+      // Automatiquement marquer comme "Vu"
+      autoMarkAsWatched();
+
       // Mettre à jour l'affichage des étoiles
       updateModalStarsDisplay(value);
-      
+
       // Mettre également à jour les étoiles dans la carte du film
       const card = document.querySelector(`.media-card[data-id="${currentMovieId}"]`);
       if (card) {
@@ -344,7 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Obtenir le chemin du fichier vidéo via l'API Electron
-      const result = await window.electronAPI.getMoviePath(currentMovieId);
+      const result = await window.electronAPI.getMediaPath(currentMovieId);
       
       if (!result.success) {
         throw new Error(result.message || 'Échec de la récupération du chemin du fichier');
@@ -372,26 +759,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Passer en mode édition
+  // Passer en mode édition avec le nouveau style visuel
   editButton.addEventListener('click', () => {
-    const viewModeElement = document.getElementById('view-mode');
-    const editModeElement = document.getElementById('edit-mode');
-    
-    if (viewModeElement && editModeElement) {
-      viewModeElement.style.display = 'none';
-      editModeElement.style.display = 'block';
-      
-      // Mettre le focus sur l'input du titre
-      setTimeout(() => {
-        if (editTitleInput) {
-          editTitleInput.focus();
-        }
-      }, 100);
-    }
+    toggleEditMode(true);
+
+    // Mettre le focus sur l'input du titre
+    setTimeout(() => {
+      if (editTitleInput) {
+        editTitleInput.focus();
+      }
+    }, 100);
   });
   
-  // Sortir du mode édition
+  // Sortir du mode édition avec le nouveau style visuel
   exitEditModeBtn.addEventListener('click', () => {
+    toggleEditMode(false);
     const viewModeElement = document.getElementById('view-mode');
     const editModeElement = document.getElementById('edit-mode');
     
@@ -580,6 +962,170 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Erreur lors de la conversion des IDs de genre:', error);
       return [];
     }
+  }
+
+  // Fonction pour générer automatiquement des tags basés sur les données TMDB
+  function generateTMDBTags(movieDetails, formattedMovie) {
+    if (!window.tagSystem || typeof window.tagSystem.getMediaTags !== 'function') {
+      console.warn('Système de tags non disponible');
+      return;
+    }
+
+    // Récupérer les tags actuels
+    const currentTags = window.tagSystem.getMediaTags();
+
+    // Tags d'ambiance basés sur les genres
+    const moodTags = [];
+    const genreToMoodMapping = {
+      'Action': ['Dynamique', 'Intense'],
+      'Aventure': ['Épique', 'Aventurier'],
+      'Animation': ['Familial', 'Imaginatif'],
+      'Comédie': ['Léger', 'Divertissant'],
+      'Crime': ['Sombre', 'Tendu'],
+      'Documentaire': ['Éducatif', 'Informatif'],
+      'Drame': ['Émotionnel', 'Profond'],
+      'Famille': ['Familial', 'Bienveillant'],
+      'Fantastique': ['Magique', 'Imaginatif'],
+      'Histoire': ['Historique', 'Épique'],
+      'Horreur': ['Effrayant', 'Sombre'],
+      'Musique': ['Musical', 'Rythmé'],
+      'Mystère': ['Intriguant', 'Mystérieux'],
+      'Romance': ['Romantique', 'Émouvant'],
+      'Science-Fiction': ['Futuriste', 'Innovant'],
+      'Thriller': ['Suspense', 'Tendu'],
+      'Guerre': ['Intense', 'Historique'],
+      'Western': ['Classique', 'Aventurier']
+    };
+
+    formattedMovie.genres.forEach(genre => {
+      if (genreToMoodMapping[genre]) {
+        moodTags.push(...genreToMoodMapping[genre]);
+      }
+    });
+
+    // Tags techniques basés sur les informations du film
+    const technicalTags = [];
+
+    // Tags basés sur l'année de sortie
+    const year = formattedMovie.year;
+    if (year) {
+      if (year < 1970) technicalTags.push('Classique ancien');
+      else if (year < 1990) technicalTags.push('Rétro');
+      else if (year < 2000) technicalTags.push('Années 90');
+      else if (year < 2010) technicalTags.push('Années 2000');
+      else if (year < 2020) technicalTags.push('Années 2010');
+      else technicalTags.push('Récent');
+    }
+
+    // Tags basés sur la popularité (vote_average)
+    if (movieDetails.vote_average) {
+      if (movieDetails.vote_average >= 8) technicalTags.push('Très bien noté');
+      else if (movieDetails.vote_average >= 7) technicalTags.push('Bien noté');
+      else if (movieDetails.vote_average < 5) technicalTags.push('Note faible');
+    }
+
+    // Tags basés sur le nombre de votes (popularité)
+    if (movieDetails.vote_count && movieDetails.vote_count > 1000) {
+      technicalTags.push('Populaire');
+    }
+
+    // Tags personnels basés sur le synopsis
+    const personalTags = [];
+    const overview = movieDetails.overview ? movieDetails.overview.toLowerCase() : '';
+
+    const keywordMapping = {
+      'amour': 'Coup de cœur',
+      'ami': 'Amitié',
+      'famille': 'Valeurs familiales',
+      'guerre': 'Conflit',
+      'voyage': 'Voyage',
+      'aventure': 'Exploration',
+      'magie': 'Fantaisie',
+      'super': 'Super-héros',
+      'héros': 'Héroïque',
+      'vampire': 'Surnaturel',
+      'zombie': 'Horreur',
+      'space': 'Spatial',
+      'robot': 'Robotique',
+      'alien': 'Extraterrestre'
+    };
+
+    Object.keys(keywordMapping).forEach(keyword => {
+      if (overview.includes(keyword)) {
+        personalTags.push(keywordMapping[keyword]);
+      }
+    });
+
+    // Appliquer les tags automatiquement sans doublons
+    const autoTags = {
+      mood: [...new Set([...currentTags.mood, ...moodTags])],
+      technical: [...new Set([...currentTags.technical, ...technicalTags])],
+      personal: [...new Set([...currentTags.personal, ...personalTags])]
+    };
+
+    // Simuler l'ajout des tags dans l'interface
+    Object.keys(autoTags).forEach(category => {
+      const container = document.getElementById(`edit-${category}-tags`);
+      if (container) {
+        // Vider d'abord le conteneur
+        container.innerHTML = '';
+
+        // Ajouter tous les tags (anciens + nouveaux)
+        autoTags[category].forEach(tag => {
+          const tagChip = createAutoTagChip(tag, category);
+          container.appendChild(tagChip);
+        });
+      }
+    });
+
+    // Mettre à jour le système de tags
+    if (window.tagSystem && typeof window.tagSystem.loadMediaTags === 'function') {
+      window.tagSystem.loadMediaTags({ tags: autoTags });
+    }
+
+    console.log('🏷️ Tags automatiques générés:', autoTags);
+  }
+
+  // Fonction helper pour créer un tag chip automatique
+  function createAutoTagChip(tagValue, category) {
+    const tagChip = document.createElement('div');
+    tagChip.className = 'edit-tag-chip adding';
+    tagChip.innerHTML = `
+      <span>${tagValue}</span>
+      <button class="remove-tag" data-tag="${tagValue}" data-category="${category}">
+        <i class="fas fa-times"></i>
+      </button>
+    `;
+
+    // Ajouter l'événement de suppression
+    const removeBtn = tagChip.querySelector('.remove-tag');
+    removeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      removeAutoTag(tagValue, category, tagChip);
+    });
+
+    return tagChip;
+  }
+
+  // Fonction pour supprimer un tag automatique
+  function removeAutoTag(tagValue, category, tagElement) {
+    // Ajouter l'effet de transparence et d'animation
+    tagElement.classList.add('removing');
+
+    setTimeout(() => {
+      // Supprimer l'élément du DOM
+      tagElement.remove();
+
+      // Mettre à jour le système de tags si disponible
+      if (window.tagSystem && typeof window.tagSystem.getMediaTags === 'function') {
+        const currentTags = window.tagSystem.getMediaTags();
+        const index = currentTags[category].indexOf(tagValue);
+        if (index > -1) {
+          currentTags[category].splice(index, 1);
+          window.tagSystem.loadMediaTags({ tags: currentTags });
+        }
+      }
+    }, 300);
   }
   
   // Créer une modal pour afficher les résultats de recherche TMDB
@@ -907,7 +1453,10 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Mettre à jour le synopsis
       editSynopsisInput.value = formattedMovie.overview;
-      
+
+      // Générer et appliquer les tags automatiques basés sur les données TMDB
+      generateTMDBTags(movieDetails, formattedMovie);
+
       // Fermer la modal
       resultsModal.classList.remove('active');
       setTimeout(() => {
@@ -978,7 +1527,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   // Fonction pour mettre à jour immédiatement la carte dans la bibliothèque
-  function updateMovieCardInLibrary(movieId, updates) {
+  function updateMediaCardInLibrary(movieId, updates) {
     try {
       const movieCard = document.querySelector(`.media-card[data-id="${movieId}"]`);
       if (!movieCard) {
@@ -1058,6 +1607,12 @@ document.addEventListener('DOMContentLoaded', () => {
         year = new Date(editReleaseDateInput.value).getFullYear();
       }
       
+      // Récupérer les tags du système de tags avancé
+      let advancedTags = {};
+      if (window.tagSystem && typeof window.tagSystem.getMediaTags === 'function') {
+        advancedTags = window.tagSystem.getMediaTags();
+      }
+
       // Préparer les données à enregistrer
       const movieUpdates = {
         title: title,
@@ -1065,7 +1620,8 @@ document.addEventListener('DOMContentLoaded', () => {
         genres: selectedGenres,
         description: editSynopsisInput.value.trim(),
         posterUrl: finalImageUrl, // Utiliser l'image locale ou l'URL originale
-        year: year
+        year: year,
+        tags: advancedTags // Ajouter les tags avancés
       };
       
       // Enregistrer les modifications localement
@@ -1098,9 +1654,9 @@ document.addEventListener('DOMContentLoaded', () => {
       modalPoster.src = finalImageUrl;
       
       // Tenter d'enregistrer les modifications via l'API Electron si disponible
-      if (window.electronAPI && window.electronAPI.updateMovieDetails) {
+      if (window.electronAPI && window.electronAPI.updateMediaDetails) {
         try {
-          const result = await window.electronAPI.updateMovieDetails(currentMovieId, movieUpdates);
+          const result = await window.electronAPI.updateMediaDetails(currentMovieId, movieUpdates);
           if (result.success) {
             console.log("Modifications enregistrées via electronAPI:", result);
           }
@@ -1111,7 +1667,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       // Mettre à jour immédiatement la carte dans la bibliothèque
-      updateMovieCardInLibrary(currentMovieId, movieUpdates);
+      updateMediaCardInLibrary(currentMovieId, movieUpdates);
       
       alert('Modifications enregistrées avec succès');
       
@@ -1141,6 +1697,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
+  // Gestion de l'éditeur d'avis
+  if (reviewInput) {
+    // Marquer automatiquement comme "Vu" dès que l'utilisateur commence à écrire
+    reviewInput.addEventListener('input', () => {
+      if (reviewInput.value.trim().length > 0) {
+        autoMarkAsWatched();
+      }
+    });
+
+    // Gestion de l'état du bouton sauvegarder
+    reviewInput.addEventListener('input', () => {
+      if (reviewSaveBtn) {
+        reviewSaveBtn.disabled = reviewInput.value.trim().length === 0;
+      }
+    });
+  }
+
+  // Gestion du bouton sauvegarder l'avis
+  if (reviewSaveBtn) {
+    reviewSaveBtn.addEventListener('click', () => {
+      if (!currentMovieId || !reviewInput) return;
+
+      const reviewText = reviewInput.value.trim();
+      if (reviewText.length === 0) return;
+
+      // Sauvegarder l'avis dans localStorage
+      const userPrefs = loadUserPreferences();
+      if (!userPrefs.reviews) userPrefs.reviews = {};
+      userPrefs.reviews[currentMovieId] = reviewText;
+      saveUserPreferences(userPrefs);
+
+      // Marquer automatiquement comme "Vu" si ce n'est pas déjà fait
+      autoMarkAsWatched();
+
+      // Feedback visuel
+      reviewSaveBtn.textContent = 'Sauvegardé !';
+      reviewSaveBtn.disabled = true;
+
+      setTimeout(() => {
+        reviewSaveBtn.textContent = 'Sauvegarder';
+        reviewSaveBtn.disabled = false;
+      }, 2000);
+
+      console.log('Avis sauvegardé pour le film:', currentMovieId);
+    });
+  }
+
   // Initialisation des écouteurs d'événements pour ouvrir la modal depuis les cartes
   function setupModalTriggers() {
     // Cette fonction sera appelée depuis dashboard.js
@@ -1156,15 +1759,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const movieId = card.dataset.id;
         if (movieId) {
-          openMovieModal(movieId);
+          console.log('🎯 Clic sur la carte, ID:', movieId);
+          window.openMovieModal(movieId);
         }
       });
     });
     
     // Ajouter l'event listener pour le bouton play dans la modal
-    const playMovieBtn = document.getElementById('play-movie-btn');
-    if (playMovieBtn) {
-      playMovieBtn.addEventListener('click', async (e) => {
+    const playMediaBtn = document.getElementById('play-movie-btn');
+    if (playMediaBtn) {
+      playMediaBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         
@@ -1180,6 +1784,415 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  // Gestion des boutons extensibles pour le mode édition
+  // Variables déjà déclarées au début du fichier
+
+  // Fonction pour afficher les boutons d'extension
+  function showExtensionButtons() {
+    editCancelBtn.style.display = 'flex';
+    editSaveBtn.style.display = 'flex';
+    editButtonGroup.classList.add('extended');
+
+    setTimeout(() => {
+      editCancelBtn.classList.add('show');
+      editSaveBtn.classList.add('show');
+    }, 100);
+  }
+
+  // Fonction pour masquer les boutons d'extension
+  function hideExtensionButtons() {
+    editCancelBtn.classList.remove('show');
+    editSaveBtn.classList.remove('show');
+
+    setTimeout(() => {
+      editCancelBtn.style.display = 'none';
+      editSaveBtn.style.display = 'none';
+      editButtonGroup.classList.remove('extended');
+    }, 400);
+  }
+
+  // Fonction pour activer le mode édition
+  function activateEditMode() {
+    isEditMode = true;
+    hasUnsavedChanges = false;
+
+    // Changer l'icône du bouton principal
+    const editIcon = editButton.querySelector('i');
+    if (editIcon) {
+      editIcon.className = 'fas fa-edit';
+    }
+
+    // Afficher les boutons d'extension
+    showExtensionButtons();
+
+    // Passer en mode édition visuel
+    const viewModeElement = document.getElementById('view-mode');
+    const editModeElement = document.getElementById('edit-mode');
+
+    if (viewModeElement && editModeElement) {
+      viewModeElement.style.display = 'none';
+      editModeElement.style.display = 'flex';
+
+      // Ajouter la classe pour les couleurs plus sombres
+      document.querySelector('.modal-overlay').classList.add('edit-mode-active');
+    }
+  }
+
+  // Fonction pour désactiver le mode édition
+  function deactivateEditMode() {
+    isEditMode = false;
+    hasUnsavedChanges = false;
+
+    // Remettre l'icône originale
+    const editIcon = editButton.querySelector('i');
+    if (editIcon) {
+      editIcon.className = 'fas fa-pencil-alt';
+    }
+
+    // Masquer les boutons d'extension
+    hideExtensionButtons();
+
+    // Revenir en mode visualisation
+    const viewModeElement = document.getElementById('view-mode');
+    const editModeElement = document.getElementById('edit-mode');
+
+    if (viewModeElement && editModeElement) {
+      viewModeElement.style.display = 'flex';
+      editModeElement.style.display = 'none';
+
+      // Retirer la classe des couleurs plus sombres
+      document.querySelector('.modal-overlay').classList.remove('edit-mode-active');
+    }
+  }
+
+  // Fonction pour créer une popup de confirmation
+  function createConfirmationPopup(message, onConfirm, onCancel) {
+    const popup = document.createElement('div');
+    popup.className = 'edit-confirmation-popup';
+    popup.innerHTML = `
+      <div class="popup-content">
+        <p>${message}</p>
+        <div class="popup-buttons">
+          <button class="popup-btn popup-cancel">Annuler</button>
+          <button class="popup-btn popup-confirm">Confirmer</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Animation d'entrée
+    setTimeout(() => {
+      popup.classList.add('show');
+    }, 10);
+
+    // Événements
+    popup.querySelector('.popup-cancel').addEventListener('click', () => {
+      popup.classList.remove('show');
+      setTimeout(() => {
+        document.body.removeChild(popup);
+        if (onCancel) onCancel();
+      }, 300);
+    });
+
+    popup.querySelector('.popup-confirm').addEventListener('click', () => {
+      popup.classList.remove('show');
+      setTimeout(() => {
+        document.body.removeChild(popup);
+        if (onConfirm) onConfirm();
+      }, 300);
+    });
+  }
+
+  // Événement pour le bouton principal d'édition
+  if (editButton) {
+    editButton.addEventListener('click', () => {
+      if (!isEditMode) {
+        activateEditMode();
+      }
+    });
+  }
+
+  // Événement pour le bouton d'annulation
+  if (editCancelBtn) {
+    editCancelBtn.addEventListener('click', () => {
+      if (hasUnsavedChanges) {
+        createConfirmationPopup(
+          'Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir annuler ?',
+          () => {
+            deactivateEditMode();
+            // Réinitialiser les champs d'édition aux valeurs originales
+            resetEditFields();
+          }
+        );
+      } else {
+        deactivateEditMode();
+      }
+    });
+  }
+
+  // Événement pour le bouton de sauvegarde
+  if (editSaveBtn) {
+    editSaveBtn.addEventListener('click', async () => {
+      // Utiliser la fonction de sauvegarde existante
+      const saveButton = document.getElementById('save-edits-btn');
+      if (saveButton) {
+        saveButton.click();
+        // Désactiver le mode édition après sauvegarde
+        setTimeout(() => {
+          deactivateEditMode();
+        }, 500);
+      }
+    });
+  }
+
+  // Fonction pour détecter les changements dans les champs d'édition
+  function setupChangeDetection() {
+    const editFields = [
+      'edit-title-input',
+      'edit-release-date-input',
+      'edit-synopsis-input'
+    ];
+
+    editFields.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.addEventListener('input', () => {
+          hasUnsavedChanges = true;
+        });
+      }
+    });
+  }
+
+  // Fonction pour réinitialiser les champs d'édition
+  function resetEditFields() {
+    if (currentMovieData) {
+      const titleInput = document.getElementById('edit-title-input');
+      const dateInput = document.getElementById('edit-release-date-input');
+      const synopsisInput = document.getElementById('edit-synopsis-input');
+
+      if (titleInput) titleInput.value = currentMovieData.title || '';
+      if (dateInput && currentMovieData.releaseDate) {
+        // Convertir le format DD/MM/YYYY vers YYYY-MM-DD
+        const dateParts = currentMovieData.releaseDate.split('/');
+        if (dateParts.length === 3) {
+          dateInput.value = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        }
+      }
+      if (synopsisInput) synopsisInput.value = currentMovieData.description || '';
+    }
+  }
+
+  // Initialiser la détection des changements
+  try {
+    setupChangeDetection();
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de la détection des changements:', error);
+  }
+
+  // Initialiser le système de tags avancé seulement si les éléments existent
+  try {
+    if (document.querySelector('.add-tag-btn')) {
+      setupAdvancedTagSystem();
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation du système de tags:', error);
+  }
+
+  // Fonction pour initialiser le système de tags avancé
+  function setupAdvancedTagSystem() {
+    // Variables pour stocker les tags par catégorie
+    let mediaTags = {
+      mood: [],
+      technical: [],
+      personal: []
+    };
+
+    // Récupérer les boutons d'ajout de tags
+    const addTagButtons = document.querySelectorAll('.add-tag-btn');
+
+    addTagButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const category = button.dataset.category;
+        const tagCategory = button.closest('.edit-tag-category');
+        const addForm = tagCategory.querySelector('.add-tag-form');
+        const tagInput = addForm.querySelector('.tag-input');
+
+        // Toggle du formulaire d'ajout
+        if (addForm.style.display === 'none' || !addForm.classList.contains('show')) {
+          // Masquer tous les autres formulaires
+          document.querySelectorAll('.add-tag-form').forEach(form => {
+            form.style.display = 'none';
+            form.classList.remove('show');
+          });
+          document.querySelectorAll('.add-tag-btn').forEach(btn => {
+            btn.classList.remove('active');
+          });
+
+          // Afficher ce formulaire
+          addForm.style.display = 'flex';
+          button.classList.add('active');
+          setTimeout(() => {
+            addForm.classList.add('show');
+            tagInput.focus();
+          }, 10);
+        } else {
+          // Masquer le formulaire
+          hideTagForm(addForm, button);
+        }
+      });
+    });
+
+    // Gestion des boutons de confirmation et annulation
+    document.querySelectorAll('.confirm-tag-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tagCategory = button.closest('.edit-tag-category');
+        const addForm = tagCategory.querySelector('.add-tag-form');
+        const tagInput = addForm.querySelector('.tag-input');
+        const addButton = tagCategory.querySelector('.add-tag-btn');
+        const category = addButton.dataset.category;
+        const tagChipsContainer = tagCategory.querySelector('.edit-tag-chips');
+
+        const tagValue = tagInput.value.trim();
+        if (tagValue && !mediaTags[category].includes(tagValue)) {
+          // Ajouter le tag à la liste
+          mediaTags[category].push(tagValue);
+
+          // Créer l'élément visuel du tag
+          const tagChip = createTagChip(tagValue, category);
+          tagChipsContainer.appendChild(tagChip);
+
+          // Marquer les changements comme non sauvegardés
+          hasUnsavedChanges = true;
+
+          // Réinitialiser le formulaire
+          tagInput.value = '';
+          hideTagForm(addForm, addButton);
+        }
+      });
+    });
+
+    document.querySelectorAll('.cancel-tag-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tagCategory = button.closest('.edit-tag-category');
+        const addForm = tagCategory.querySelector('.add-tag-form');
+        const addButton = tagCategory.querySelector('.add-tag-btn');
+        const tagInput = addForm.querySelector('.tag-input');
+
+        tagInput.value = '';
+        hideTagForm(addForm, addButton);
+      });
+    });
+
+    // Gestion de la touche Entrée dans les champs de saisie
+    document.querySelectorAll('.tag-input').forEach(input => {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const confirmBtn = input.parentElement.querySelector('.confirm-tag-btn');
+          confirmBtn.click();
+        } else if (e.key === 'Escape') {
+          const cancelBtn = input.parentElement.querySelector('.cancel-tag-btn');
+          cancelBtn.click();
+        }
+      });
+    });
+
+    // Fonction pour créer un tag chip
+    function createTagChip(tagValue, category) {
+      const tagChip = document.createElement('div');
+      tagChip.className = 'edit-tag-chip adding';
+      tagChip.innerHTML = `
+        <span>${tagValue}</span>
+        <button class="remove-tag" data-tag="${tagValue}" data-category="${category}">
+          <i class="fas fa-times"></i>
+        </button>
+      `;
+
+      // Ajouter l'événement de suppression
+      const removeBtn = tagChip.querySelector('.remove-tag');
+      removeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        removeTag(tagValue, category, tagChip);
+      });
+
+      return tagChip;
+    }
+
+    // Fonction pour supprimer un tag
+    function removeTag(tagValue, category, tagElement) {
+      // Ajouter l'effet de transparence et d'animation
+      tagElement.classList.add('removing');
+
+      setTimeout(() => {
+        // Retirer de la liste des tags
+        const index = mediaTags[category].indexOf(tagValue);
+        if (index > -1) {
+          mediaTags[category].splice(index, 1);
+        }
+
+        // Supprimer l'élément du DOM
+        tagElement.remove();
+
+        // Marquer les changements comme non sauvegardés
+        hasUnsavedChanges = true;
+      }, 300);
+    }
+
+    // Fonction pour masquer le formulaire d'ajout
+    function hideTagForm(addForm, addButton) {
+      addForm.classList.remove('show');
+      addButton.classList.remove('active');
+      setTimeout(() => {
+        addForm.style.display = 'none';
+      }, 300);
+    }
+
+    // Fonction pour charger les tags existants du média
+    function loadMediaTags(mediaData) {
+      if (mediaData && mediaData.tags) {
+        mediaTags = {
+          mood: mediaData.tags.mood || [],
+          technical: mediaData.tags.technical || [],
+          personal: mediaData.tags.personal || []
+        };
+
+        // Afficher les tags dans l'interface
+        Object.keys(mediaTags).forEach(category => {
+          const container = document.getElementById(`edit-${category}-tags`);
+          if (container) {
+            container.innerHTML = '';
+            mediaTags[category].forEach(tag => {
+              const tagChip = createTagChip(tag, category);
+              container.appendChild(tagChip);
+            });
+          }
+        });
+      }
+    }
+
+    // Fonction pour obtenir tous les tags du média pour la sauvegarde
+    function getMediaTags() {
+      return mediaTags;
+    }
+
+    // Exposer les fonctions pour utilisation dans d'autres parties du code
+    window.tagSystem = {
+      loadMediaTags,
+      getMediaTags
+    };
+  }
+
   // Exposer la fonction pour pouvoir l'appeler depuis dashboard.js
   window.setupModalTriggers = setupModalTriggers;
+
+  // Vérification finale
+  console.log('🔧 Movie modal initialisé. Fonctions exposées:', {
+    openMovieModal: typeof window.openMovieModal,
+    setupModalTriggers: typeof window.setupModalTriggers,
+    tagSystem: typeof window.tagSystem
+  });
 });

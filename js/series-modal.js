@@ -4,6 +4,7 @@
 class SeriesModal {
   constructor() {
     this.modal = document.getElementById('series-modal-overlay');
+    console.log('🔍 Element series-modal-overlay trouvé:', !!this.modal);
     this.currentSeries = null;
     this.attachEventListeners();
   }
@@ -55,7 +56,7 @@ class SeriesModal {
 
       // Animation d'apparition
       requestAnimationFrame(() => {
-        this.modal.style.opacity = '1';
+        this.modal.classList.add('active');
       });
 
     } catch (error) {
@@ -65,10 +66,10 @@ class SeriesModal {
 
   hide() {
     if (this.modal) {
-      this.modal.style.opacity = '0';
+      this.modal.classList.remove('active');
       setTimeout(() => {
         this.modal.style.display = 'none';
-      }, 300);
+      }, 400);
     }
     this.currentSeries = null;
   }
@@ -91,8 +92,13 @@ class SeriesModal {
       descriptionElement.textContent = series.description || 'Aucune description disponible.';
     }
     if (posterElement) {
-      // Pour l'instant, utiliser une image par défaut
-      posterElement.src = '../assets/default-series-poster.jpg';
+      // Utiliser la miniature du premier épisode comme poster de série
+      if (series.seasons && series.seasons[0] && series.seasons[0].episodes && series.seasons[0].episodes[0]) {
+        const firstEpisode = series.seasons[0].episodes[0];
+        if (firstEpisode.thumbnail) {
+          posterElement.src = `../data/thumbnails/${firstEpisode.thumbnail}`;
+        }
+      }
       posterElement.onerror = () => {
         posterElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDIwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTZweCI+UE9TVEVSPC90ZXh0Pgo8L3N2Zz4K';
       };
@@ -261,7 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Fonction globale pour ouvrir une série
 window.openSeries = function(seriesId) {
+  console.log('🔍 openSeries appelée avec ID:', seriesId);
+  console.log('🔍 seriesModal existe:', !!seriesModal);
+
   if (seriesModal) {
     seriesModal.show(seriesId);
+  } else {
+    console.error('❌ seriesModal non initialisé');
   }
 };

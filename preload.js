@@ -6,22 +6,23 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Exposer les fonctions protégées à la fenêtre du navigateur
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Films - APIs avec stockage JSON
-  scanMovies: (options) => ipcRenderer.invoke('movies:scan', options),
-  scanSingleMovie: () => ipcRenderer.invoke('movies:scanSingle'),
-  getAllMovies: () => ipcRenderer.invoke('movies:getAll'),
-  getMoviePath: (moviePath) => ipcRenderer.invoke('movies:getPath', moviePath),
-  getMovieDetails: (movieId) => ipcRenderer.invoke('movies:getDetails', movieId),
-  updateMovie: (movieId, updates) => ipcRenderer.invoke('movies:update', movieId, updates),
-  deleteMovie: (movieId) => ipcRenderer.invoke('movies:delete', movieId),
-  playMovie: (movieId) => ipcRenderer.invoke('movies:play', movieId),
-  getMovieStats: () => ipcRenderer.invoke('movies:getStats'),
-  saveClassifiedFile: (fileData) => ipcRenderer.invoke('movies:saveClassified', fileData),
-  isFileAlreadyImported: (filePath) => ipcRenderer.invoke('movies:isFileAlreadyImported', filePath),
-  openMovieFolder: (moviePath) => ipcRenderer.invoke('movies:openFolder', moviePath),
+  // Médias - APIs avec stockage JSON
+  scanMedias: (options) => ipcRenderer.invoke('medias:scan', options),
+  scanSingleMedia: () => ipcRenderer.invoke('medias:scanSingle'),
+  getAllMedias: () => ipcRenderer.invoke('medias:getAll'),
+  getMediaPath: (mediaPath) => ipcRenderer.invoke('medias:getPath', mediaPath),
+  getMediaDetails: (mediaId) => ipcRenderer.invoke('medias:getDetails', mediaId),
+  updateMedia: (mediaId, updates) => ipcRenderer.invoke('medias:update', mediaId, updates),
+  deleteMedia: (mediaId) => ipcRenderer.invoke('medias:delete', mediaId),
+  clearAllMedias: () => ipcRenderer.invoke('medias:clearAll'),
+  playMedia: (mediaId) => ipcRenderer.invoke('medias:play', mediaId),
+  getMediaStats: () => ipcRenderer.invoke('medias:getStats'),
+  saveClassifiedFile: (fileData) => ipcRenderer.invoke('medias:saveClassified', fileData),
+  isFileAlreadyImported: (filePath) => ipcRenderer.invoke('medias:isFileAlreadyImported', filePath),
+  openMediaFolder: (mediaPath) => ipcRenderer.invoke('medias:openFolder', mediaPath),
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
-  downloadTMDBImage: (imageUrl, movieTitle) => ipcRenderer.invoke('movies:downloadTMDBImage', imageUrl, movieTitle),
-  updateMoviesMetadata: () => ipcRenderer.invoke('movies:updateMetadata'),
+  downloadTMDBImage: (imageUrl, mediaTitle) => ipcRenderer.invoke('medias:downloadTMDBImage', imageUrl, mediaTitle),
+  updateMediasMetadata: () => ipcRenderer.invoke('medias:updateMetadata'),
   
   // APIs pour informations vidéo
   getVideoInfo: (filePath) => ipcRenderer.invoke('video:getInfo', filePath),
@@ -37,6 +38,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSeriesById: (seriesId) => ipcRenderer.invoke('series:getById', seriesId),
   updateSeries: (seriesId, updates) => ipcRenderer.invoke('series:update', seriesId, updates),
   deleteSeries: (seriesId) => ipcRenderer.invoke('series:delete', seriesId),
+  cleanupCorruptedSeries: () => ipcRenderer.invoke('series:cleanupCorrupted'),
+
+  // APIs pour le système de tags
+  migrateTags: () => ipcRenderer.invoke('tags:migrate'),
+  getAllTags: () => ipcRenderer.invoke('tags:getAll'),
+  addCustomTag: (tagName) => ipcRenderer.invoke('tags:addCustom', tagName),
+  removeCustomTag: (tagName) => ipcRenderer.invoke('tags:removeCustom', tagName),
+  addTagsToMedia: (mediaId, tags, tagType) => ipcRenderer.invoke('tags:addToMedia', mediaId, tags, tagType),
+  removeTagsFromMedia: (mediaId, tags, tagType) => ipcRenderer.invoke('tags:removeFromMedia', mediaId, tags, tagType),
+  searchMediasByTags: (searchTags, operator) => ipcRenderer.invoke('tags:searchMedias', searchTags, operator),
+  getTagSuggestions: (query, limit) => ipcRenderer.invoke('tags:getSuggestions', query, limit),
   
   // Événements
   onScanStatus: (callback) => {

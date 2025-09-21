@@ -219,48 +219,132 @@
       
       <!-- Mode visualisation -->
       <div class="view-mode" id="view-mode">
-        <div class="modal-poster">
-          <img src="../public/img/default-thumbnail.svg" alt="Poster du film" id="modal-poster">
-        </div>
-        
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2 class="modal-title" id="modal-title">Le Comte de Monte Cristo</h2>
-            <span class="movie-year" id="movie-year">(2024)</span>
-            <button class="edit-button" id="edit-button">
-              <i class="fas fa-pencil-alt"></i>
-            </button>
+        <!-- Container unifié avec scroll unique -->
+        <div class="unified-content">
+          <!-- Sidebar avec affiche et évaluation -->
+          <div class="modal-sidebar">
+            <!-- Affiche -->
+            <div class="modal-poster">
+              <img src="../public/img/default-thumbnail.svg" alt="Poster du film" id="modal-poster">
+              <div class="poster-overlay">
+                <div class="poster-quick-info">Note : ★★★★☆</div>
+                <div class="poster-quick-info">Durée : <span id="duration-quick">2h 35m</span></div>
+              </div>
+            </div>
+
+            <!-- Système d'évaluation sous l'affiche -->
+            <div class="evaluation-section">
+              <!-- Bouton Vu/À voir -->
+              <button class="btn-watch-toggle-modal" id="btn-watch-toggle-modal">À voir</button>
+
+              <!-- Système d'étoiles -->
+              <div class="rating-compact">
+                <div class="rating-title">Ma Note</div>
+                <div class="modal-stars">
+                  <span class="modal-star" data-value="1"><i class="fas fa-star"></i></span>
+                  <span class="modal-star" data-value="2"><i class="fas fa-star"></i></span>
+                  <span class="modal-star" data-value="3"><i class="fas fa-star"></i></span>
+                  <span class="modal-star" data-value="4"><i class="fas fa-star"></i></span>
+                  <span class="modal-star" data-value="5"><i class="fas fa-star"></i></span>
+                </div>
+              </div>
+
+              <!-- Éditeur d'avis -->
+              <div class="review-section">
+                <div class="review-title">Mon Avis</div>
+                <textarea class="review-input" id="review-input" placeholder="Partage ton avis sur ce film..." rows="3"></textarea>
+                <button class="review-save-btn" id="review-save-btn">Sauvegarder</button>
+              </div>
+            </div>
           </div>
-          
+
+          <!-- Contenu principal -->
+          <div class="modal-content">
+          <div class="modal-header">
+            <div class="title-section">
+              <h2 class="modal-title" id="modal-title">Le Comte de Monte Cristo</h2>
+              <span class="movie-year" id="movie-year">(2024)</span>
+            </div>
+            <div class="action-buttons">
+              <!-- Système de boutons extensibles -->
+              <div class="edit-button-group" id="edit-button-group">
+                <!-- Bouton annuler (gauche) -->
+                <button class="edit-cancel-btn" id="edit-cancel-btn" style="display: none;">
+                  <i class="fas fa-undo"></i>
+                </button>
+
+                <!-- Bouton principal (crayon) -->
+                <button class="edit-button" id="edit-button">
+                  <i class="fas fa-pencil-alt"></i>
+                </button>
+
+                <!-- Bouton sauvegarder (droite) -->
+                <button class="edit-save-btn" id="edit-save-btn" style="display: none;">
+                  <i class="fas fa-check"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="movie-meta">
             <div class="release-date" id="release-date"></div>
             <div class="duration" id="duration">2h 35m</div>
+            <div class="decade" id="decade"></div>
+          </div>
+
+          <!-- Nouveaux champs: Acteurs et Réalisateur -->
+          <div class="movie-credits">
+            <div class="director-section" id="director-section" style="display: none;">
+              <span class="credit-label">Réalisateur :</span>
+              <span class="director-name" id="director-name"></span>
+            </div>
+            <div class="actors-section" id="actors-section" style="display: none;">
+              <span class="credit-label">Acteurs :</span>
+              <span class="actors-list" id="actors-list"></span>
+            </div>
+            <div class="franchise-section" id="franchise-section" style="display: none;">
+              <span class="credit-label">Collection :</span>
+              <span class="franchise-name" id="franchise-name"></span>
+            </div>
           </div>
           
-          <div class="action-buttons">
-            <button class="play-movie-btn" id="play-movie-btn">
-              <i class="fas fa-play"></i>
-              Lecture
-            </button>
-            <button class="watch-toggle-btn" id="watch-toggle-btn">
-              <i class="fas fa-bookmark"></i>
-              À voir
-            </button>
-          </div>
           
-          <div class="genres-container" id="genres-container">
-            <span class="genre-tag"></span>
-            <span class="genre-tag"></span>
-            <span class="genre-tag"></span>
-          </div>
-          
-          <div class="rating-section">
-            <div class="modal-stars">
-              <span class="modal-star" data-value="1"><i class="fas fa-star"></i></span>
-              <span class="modal-star" data-value="2"><i class="fas fa-star"></i></span>
-              <span class="modal-star" data-value="3"><i class="fas fa-star"></i></span>
-              <span class="modal-star" data-value="4"><i class="fas fa-star"></i></span>
-              <span class="modal-star" data-value="5"><i class="fas fa-star"></i></span>
+          <!-- Système de tags organisé par catégories -->
+          <div class="tags-container">
+            <!-- Genres -->
+            <div class="tag-category" id="genres-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-film"></i>
+                <span class="tag-category-title">Genres</span>
+              </div>
+              <div class="tag-chips" id="genres-container"></div>
+            </div>
+
+            <!-- Ambiance/Mood -->
+            <div class="tag-category" id="mood-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-heart"></i>
+                <span class="tag-category-title">Ambiance</span>
+              </div>
+              <div class="tag-chips" id="mood-container"></div>
+            </div>
+
+            <!-- Technique -->
+            <div class="tag-category" id="technical-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-cog"></i>
+                <span class="tag-category-title">Technique</span>
+              </div>
+              <div class="tag-chips" id="technical-container"></div>
+            </div>
+
+            <!-- Personnel -->
+            <div class="tag-category" id="personal-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-user"></i>
+                <span class="tag-category-title">Personnel</span>
+              </div>
+              <div class="tag-chips" id="personal-container"></div>
             </div>
           </div>
           
@@ -268,10 +352,11 @@
             <h3 class="synopsis-title">Synopsis</h3>
             <div class="synopsis-content" id="synopsis-content"></div>
           </div>
-          
+
+
           <div class="modal-actions">
-            <button class="btn-watch-toggle-modal" id="btn-watch-toggle-modal">À voir</button>
             <button class="btn-watch-film" id="btn-watch-film">Regarder le film</button>
+          </div>
           </div>
         </div>
       </div>
@@ -345,7 +430,68 @@
               <button class="add-genre-btn" id="add-custom-genre">Ajouter</button>
             </div>
           </div>
-          
+
+          <!-- Système de tags avancé -->
+          <div class="edit-section">
+            <div class="edit-section-title">
+              <i class="fas fa-tags"></i> Tags personnalisés
+            </div>
+
+            <!-- Tags par catégories -->
+            <div class="edit-tags-container">
+              <!-- Ambiance/Mood Tags -->
+              <div class="edit-tag-category">
+                <div class="edit-tag-category-header">
+                  <i class="fas fa-heart"></i>
+                  <span>Ambiance</span>
+                  <button class="add-tag-btn" data-category="mood">
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </div>
+                <div class="edit-tag-chips" id="edit-mood-tags"></div>
+                <div class="add-tag-form" style="display: none;">
+                  <input type="text" class="tag-input" placeholder="Nouveau tag d'ambiance...">
+                  <button class="confirm-tag-btn"><i class="fas fa-check"></i></button>
+                  <button class="cancel-tag-btn"><i class="fas fa-times"></i></button>
+                </div>
+              </div>
+
+              <!-- Technical Tags -->
+              <div class="edit-tag-category">
+                <div class="edit-tag-category-header">
+                  <i class="fas fa-cog"></i>
+                  <span>Technique</span>
+                  <button class="add-tag-btn" data-category="technical">
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </div>
+                <div class="edit-tag-chips" id="edit-technical-tags"></div>
+                <div class="add-tag-form" style="display: none;">
+                  <input type="text" class="tag-input" placeholder="Nouveau tag technique...">
+                  <button class="confirm-tag-btn"><i class="fas fa-check"></i></button>
+                  <button class="cancel-tag-btn"><i class="fas fa-times"></i></button>
+                </div>
+              </div>
+
+              <!-- Personal Tags -->
+              <div class="edit-tag-category">
+                <div class="edit-tag-category-header">
+                  <i class="fas fa-user"></i>
+                  <span>Personnel</span>
+                  <button class="add-tag-btn" data-category="personal">
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </div>
+                <div class="edit-tag-chips" id="edit-personal-tags"></div>
+                <div class="add-tag-form" style="display: none;">
+                  <input type="text" class="tag-input" placeholder="Nouveau tag personnel...">
+                  <button class="confirm-tag-btn"><i class="fas fa-check"></i></button>
+                  <button class="cancel-tag-btn"><i class="fas fa-times"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Image -->
           <div class="edit-section">
             <div class="edit-section-title">Image</div>
@@ -378,31 +524,38 @@
     <div class="series-modal" id="series-modal">
       <button class="modal-close" id="series-modal-close">×</button>
 
-      <!-- En-tête de la série -->
-      <div class="series-header">
-        <div class="series-poster-container">
-          <img class="series-poster" id="series-poster" src="" alt="Poster de la série">
-        </div>
-        <div class="series-info">
-          <h2 class="series-title" id="series-title"></h2>
-          <div class="series-meta">
-            <span class="series-year" id="series-year"></span>
-            <span class="series-episode-count" id="series-episode-count"></span>
-          </div>
-          <div class="series-description" id="series-description"></div>
-          <div class="series-actions">
-            <button class="btn-play-series" id="btn-play-series">
-              <i class="fas fa-play"></i> Lire la série
-            </button>
-            <button class="btn-edit-series" id="btn-edit-series">
-              <i class="fas fa-edit"></i> Modifier
-            </button>
-          </div>
-        </div>
+      <!-- Section poster (colonne gauche) -->
+      <div class="series-poster-section">
+        <img class="series-poster" id="series-poster" src="" alt="Poster de la série">
       </div>
 
-      <!-- Liste des saisons et épisodes -->
+      <!-- Section contenu (colonne droite) -->
       <div class="series-content">
+        <!-- En-tête avec titre et année -->
+        <div class="series-header">
+          <h2 class="series-title" id="series-title"></h2>
+          <span class="series-year" id="series-year"></span>
+        </div>
+
+        <!-- Métadonnées -->
+        <div class="series-meta">
+          <span class="series-episode-count" id="series-episode-count"></span>
+        </div>
+
+        <!-- Description -->
+        <div class="series-description" id="series-description"></div>
+
+        <!-- Actions -->
+        <div class="series-actions">
+          <button class="btn-play-series" id="btn-play-series">
+            <i class="fas fa-play"></i> Lire la série
+          </button>
+          <button class="btn-edit-series" id="btn-edit-series">
+            <i class="fas fa-edit"></i> Modifier
+          </button>
+        </div>
+
+        <!-- Liste des saisons et épisodes -->
         <div class="seasons-container" id="seasons-container">
           <!-- Les saisons seront ajoutées dynamiquement -->
         </div>
@@ -482,9 +635,14 @@
             <p>Appliquer une série à tous les médias en attente de sélection</p>
           </div>
           <div class="series-batch-controls">
-            <select id="batch-series-selector" class="batch-series-select">
-              <option value="">Sélectionner une série existante...</option>
-            </select>
+            <div class="series-selector-group">
+              <select id="batch-series-selector" class="batch-series-select">
+                <option value="">Sélectionner une série existante...</option>
+              </select>
+              <button type="button" class="btn-small btn-secondary new-series-batch-btn" id="new-series-batch-btn" title="Créer une nouvelle série">
+                <i class="fas fa-plus"></i> Nouvelle série
+              </button>
+            </div>
             <button type="button" class="btn-primary batch-apply-btn" id="batch-apply-series">
               Appliquer à <span id="pending-series-count">0</span> médias
             </button>
@@ -1177,6 +1335,31 @@
     white-space: nowrap;
   }
 
+  .series-selector-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex: 1;
+  }
+
+  .batch-series-select {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .new-series-batch-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    background-color: #6c757d;
+    border: 1px solid #5a6268;
+  }
+
+  .new-series-batch-btn:hover {
+    background-color: #5a6268;
+    border-color: #4e555b;
+  }
+
   .validation-error {
     display: flex;
     align-items: center;
@@ -1741,11 +1924,11 @@
   <!-- Scripts -->
   <script src="../js/utils.js"></script>
   <script src="../js/video-player.js"></script>
+  <script src="../js/movie-modal.js"></script>
+  <script src="../js/series-modal.js"></script>
   <script src="../js/import-triage.js"></script>
   <script src="../js/import-classification.js"></script>
   <script src="../js/dashboard.js"></script>
-  <script src="../js/movie-modal.js"></script>
-  <script src="../js/series-modal.js"></script>
   <script src="../js/dashboard-categories.js"></script>
   <script src="../js/import-simple.js"></script>
 </body>

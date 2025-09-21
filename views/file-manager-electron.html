@@ -6,6 +6,7 @@
   <title>Gestion des Fichiers - Rackoon Streaming</title>
   <link rel="stylesheet" href="../css/dashboard.css">
   <link rel="stylesheet" href="../css/file-manager.css">
+  <link rel="stylesheet" href="../css/file-manager-new.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -103,6 +104,11 @@
         <button id="refresh-btn" class="btn-primary">
           <i class="fas fa-sync-alt"></i>
           Actualiser
+        </button>
+
+        <button id="clear-all-btn" class="btn-danger">
+          <i class="fas fa-trash-alt"></i>
+          Clear All
         </button>
       </div>
     </div>
@@ -210,6 +216,35 @@
       </div>
       <div class="modal-footer">
         <button id="close-details-btn" class="btn-primary">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmation Clear All -->
+  <div class="modal-overlay" id="clear-all-modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚠️ Supprimer TOUS les médias</h3>
+        <button class="modal-close" id="close-clear-all-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>ATTENTION : Cette action est irréversible !</strong></p>
+        <p>Vous êtes sur le point de supprimer <strong>TOUS</strong> les médias de la base de données :</p>
+        <ul>
+          <li>📺 Tous les films et séries</li>
+          <li>🖼️ Toutes les miniatures</li>
+          <li>📊 Toutes les métadonnées</li>
+          <li>⭐ Toutes les notes et statuts</li>
+        </ul>
+        <p class="warning-text">⚠️ Cette action ne supprimera que les données de l'application, pas les fichiers physiques sur votre disque.</p>
+        <div class="confirmation-input" style="margin: 20px 0;">
+          <label for="clear-confirmation">Tapez "CLEAR ALL" pour confirmer :</label>
+          <input type="text" id="clear-confirmation" placeholder="CLEAR ALL" style="margin-top: 10px; padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-clear-all-btn" class="btn-secondary">Annuler</button>
+        <button id="confirm-clear-all-btn" class="btn-danger" disabled>Supprimer TOUT</button>
       </div>
     </div>
   </div>
@@ -337,6 +372,6 @@
 
   <!-- Scripts -->
   <script src="../js/utils.js"></script>
-  <script src="../js/file-manager-electron.js"></script>
+  <script src="../js/file-manager-new.js"></script>
 </body>
 </html>

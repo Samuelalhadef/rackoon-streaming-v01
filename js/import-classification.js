@@ -1073,7 +1073,7 @@ class ImportClassificationSystem {
         // Supprimer chaque fichier nouvellement scanné de la base de données
         for (const movieId of this.newlyScannedIds) {
           console.log(`🗑️ Suppression du média ${movieId}`);
-          const result = await window.electronAPI.deleteMovie(movieId);
+          const result = await window.electronAPI.deleteMedia(movieId);
           if (result.success) {
             console.log(`✅ Média ${movieId} supprimé avec succès`);
           } else {
@@ -1111,11 +1111,11 @@ class ImportClassificationSystem {
       });
 
       if (result.success) {
-        console.log('✅ Série créée avec succès, ID:', result.id);
-        
+        console.log('✅ Série créée avec succès, ID:', result.series.id);
+
         // Ajouter la série à la liste locale
         const newSeries = {
-          id: result.id,
+          id: result.series.id,
           name: name,
           description: description
         };
@@ -1127,6 +1127,12 @@ class ImportClassificationSystem {
 
         // Mettre à jour aussi tous les selects des cartes galerie
         const allSeriesSelects = document.querySelectorAll('.gallery-card .series-select');
+
+        // Notifier le système de triage de la nouvelle série (si disponible)
+        if (window.importTriageSystem) {
+          window.importTriageSystem.series.push(newSeries);
+          window.importTriageSystem.updateAllSeriesSelectors();
+        }
         allSeriesSelects.forEach(select => {
           this.populateSeriesSelect(select);
         });

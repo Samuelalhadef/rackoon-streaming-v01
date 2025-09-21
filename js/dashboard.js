@@ -3,6 +3,33 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Plus de système de connexion - application directe
   console.log('Application Rackoon Streaming démarrée');
+
+  // Fonction helper pour ouvrir une modale de film de manière robuste
+  function safeOpenMovieModal(movieId) {
+    if (window.openMovieModal) {
+      window.openMovieModal(movieId);
+    } else {
+      console.log('⏳ Attente de openMovieModal...');
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      const waitForModal = () => {
+        attempts++;
+        if (window.openMovieModal) {
+          console.log('✅ openMovieModal trouvée, ouverture de la modale');
+          window.openMovieModal(movieId);
+        } else if (attempts < maxAttempts) {
+          setTimeout(waitForModal, 100);
+        } else {
+          console.error('❌ La fonction openMovieModal n\'est pas disponible après ' + maxAttempts + ' tentatives');
+          console.log('🔍 Scripts chargés:', Object.keys(window).filter(key => key.includes('open') || key.includes('Modal')));
+          console.log('🔍 Toutes les propriétés window:', Object.keys(window).sort());
+        }
+      };
+
+      waitForModal();
+    }
+  }
   
   // Éléments de l'interface
   const addBtn = document.getElementById('add-btn');
@@ -43,22 +70,22 @@ document.addEventListener('DOMContentLoaded', () => {
       progressBar.style.width = '0%';
       
       // Lancer le scan direct
-      const result = await window.electronAPI.scanMovies();
+      const result = await window.electronAPI.scanMedias();
       
       if (result.success) {
-        statusMessage.textContent = `${result.movies.length} fichiers vidéo trouvés`;
+        statusMessage.textContent = `${result.medias.length} fichiers vidéo trouvés`;
         progressBar.style.width = '100%';
         
         // Si des fichiers ont été trouvés, lancer la modale de tri
-        if (result.movies && result.movies.length > 0) {
-          console.log('🎯 Lancement de la modale de tri pour', result.movies.length, 'fichiers');
+        if (result.medias && result.medias.length > 0) {
+          console.log('🎯 Lancement de la modale de tri pour', result.medias.length, 'fichiers');
           
           // Lancer la modale de tri au lieu d'afficher directement les films
           if (window.startTriage) {
-            window.startTriage(result.movies, 'folder');
+            window.startTriage(result.medias, 'folder');
           } else {
             console.error('❌ Système de tri non disponible, affichage direct');
-            displayMovies(result.movies);
+            displayMedias(result.medias);
           }
         } else {
           statusMessage.textContent = 'Aucun fichier vidéo trouvé';
@@ -88,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
       progressBar.style.width = '0%';
       
       // Lancer la sélection de fichier unique
-      const result = await window.electronAPI.scanSingleMovie();
+      const result = await window.electronAPI.scanSingleMedia();
       
       if (result.success) {
         if (result.movie) {
@@ -102,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.startTriage([result.movie], 'file');
           } else {
             console.error('❌ Système de tri non disponible, ajout direct');
-            await loadMoviesFromDatabase();
+            await loadMediasFromDatabase();
           }
         } else {
           statusMessage.textContent = result.message || 'Fichier non sélectionné';
@@ -127,11 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Recherche dans la section films
   filterSearch.addEventListener('input', () => {
     const searchTerm = filterSearch.value.toLowerCase().trim();
-    filterMovies(searchTerm);
+    filterMedias(searchTerm);
   });
   
   // Fonction pour afficher les films avec miniatures
-  function displayMovies(movies) {
+  function displayMedias(movies) {
     const mediaGrid = document.getElementById('media-grid');
     mediaGrid.innerHTML = '';
     
@@ -142,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     movies.forEach(movie => {
       const movieCard = document.createElement('div');
-      movieCard.className = 'media-card';
+      movieCard.className = 'media-card movie-card';
       
       // Gérer l'affichage des miniatures
       let thumbnailSrc = '../public/img/default-thumbnail.svg';
@@ -152,10 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       movieCard.innerHTML = `
-        <div class="media-poster">
-          <img src="${thumbnailSrc}" alt="${movie.title}" onerror="this.src='../public/img/default-thumbnail.svg'">
-          <div class="play-overlay">
-            <div class="play-button" onclick="playMovie('${movie.path.replace(/'/g, "\\'")}')">▶</div>
+        <div class="media-thumbnail-container">
+          <img src="${thumbnailSrc}" alt="${movie.title}" class="media-thumbnail" onerror="this.src='../public/img/default-thumbnail.svg'">
+          <div class="media-overlay">
+            <button class="play-btn" onclick="playMedia('${movie.path.replace(/'/g, "\\'")}')">
+              <i class="fas fa-play"></i>
+            </button>
           </div>
         </div>
         <div class="media-info">
@@ -172,9 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Fonction pour jouer un film
-  window.playMovie = async function(moviePath) {
+  window.playMedia = async function(moviePath) {
     try {
-      const result = await window.electronAPI.getMoviePath(moviePath);
+      const result = await window.electronAPI.getMediaPath(moviePath);
       if (result.success) {
         window.openVideoPlayer(result.path);
       } else {
@@ -186,23 +215,40 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   // Charger les films au démarrage depuis la base JSON
-  async function loadMoviesFromDatabase() {
+  async function loadMediasFromDatabase() {
     try {
       // Charger tous les médias
-      const moviesResult = await window.electronAPI.getAllMovies();
+      const mediasResult = await window.electronAPI.getAllMedias();
 
       let totalCount = 0;
       let allMovies = [];
 
-      if (moviesResult.success) {
-        allMovies = moviesResult.movies;
-        totalCount = moviesResult.count;
-        console.log(`📚 ${moviesResult.count} médias chargés depuis la base`);
+      if (mediasResult.success && mediasResult.medias) {
+        allMovies = mediasResult.medias;
+        totalCount = mediasResult.count;
+        console.log(`📚 ${mediasResult.count} médias chargés depuis la base`);
       } else {
-        console.error('Erreur chargement médias:', moviesResult.message);
+        console.error('Erreur chargement médias:', mediasResult.message);
+        allMovies = []; // Initialiser avec un tableau vide
       }
 
-      // Séparer les films des séries
+      // Détecter les médias non triés (category: null)
+      const untriagedMedias = allMovies.filter(movie => movie.category === null);
+
+      if (untriagedMedias.length > 0) {
+        console.log(`🔍 ${untriagedMedias.length} média(s) non trié(s) détecté(s), lancement du système de tri...`);
+
+        // Lancer le système de tri automatiquement
+        if (window.startTriage) {
+          setTimeout(() => {
+            window.startTriage(untriagedMedias, 'auto');
+          }, 1000); // Délai pour s'assurer que l'interface est prête
+        } else {
+          console.error('❌ Système de tri non disponible (window.startTriage non défini)');
+        }
+      }
+
+      // Séparer les films des séries (exclure les non triés)
       const films = allMovies.filter(movie =>
         movie.category !== null && movie.category !== 'series'
       );
@@ -213,8 +259,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Grouper les épisodes par série
       const seriesGroups = {};
+      const orphanedEpisodes = []; // Épisodes sans série
+
       seriesEpisodes.forEach(episode => {
-        if (!episode.seriesId || !episode.seriesName) return;
+        console.log('🔍 Analyse épisode:', {
+          title: episode.title,
+          seriesId: episode.seriesId,
+          seriesName: episode.seriesName,
+          hasSeriesId: !!episode.seriesId,
+          hasSeriesName: !!episode.seriesName
+        });
+
+        if (!episode.seriesId || !episode.seriesName) {
+          console.warn('⚠️ Épisode orphelin trouvé (sans seriesId/seriesName):', episode.title, {
+            seriesId: episode.seriesId,
+            seriesName: episode.seriesName,
+            path: episode.path
+          });
+          orphanedEpisodes.push(episode);
+          return;
+        }
 
         if (!seriesGroups[episode.seriesId]) {
           seriesGroups[episode.seriesId] = {
@@ -231,10 +295,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const series = Object.values(seriesGroups);
 
       console.log(`📺 ${series.length} séries reconstituées depuis les épisodes`);
+
+      if (orphanedEpisodes.length > 0) {
+        console.warn(`⚠️ ${orphanedEpisodes.length} épisode(s) orphelin(s) détecté(s)`);
+
+        // TEMPORAIREMENT DÉSACTIVÉ pour diagnostic
+        // await window.repairOrphanedEpisodes(orphanedEpisodes);
+        console.log('🚫 Réparation automatique désactivée pour diagnostic');
+      }
       console.log('🔍 Séries créées:', series);
 
+      // Debug pour voir ce qui est passé à displayMedias
+      console.log('🎬 Variable films avant displayMedias:', films.length, 'éléments');
+      console.log('🎬 Détail films:', films.map(f => ({title: f.title, category: f.category})));
+
       // Afficher les films et séries
-      displayMovies(films);
+      displayMedias(films);
       displaySeries(series);
 
       if (totalCount > 0) {
@@ -243,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (error) {
       console.error('Erreur lors du chargement:', error);
-      displayMovies([]);
+      displayMedias([]);
       displaySeries([]);
     }
   }
@@ -302,8 +378,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     card.innerHTML = `
-      <div class="media-thumbnail">
-        <img src="${thumbnailSrc}" alt="${serie.name}" loading="lazy"
+      <div class="media-thumbnail-container">
+        <img src="${thumbnailSrc}" alt="${serie.name}" class="media-thumbnail" loading="lazy"
              onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjUwJSIgeT0iNDAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjBweCI+U8OJUKLPQT4KPC90ZXh0Pgo8L3N2Zz4K'">
         <div class="media-overlay">
           <button class="play-btn" onclick="openSeries('${serie.id}')">
@@ -336,10 +412,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Charger les films au démarrage
-  loadMoviesFromDatabase();
+  loadMediasFromDatabase();
   
   // Fonction pour filtrer les médias affichés
-  function filterMovies(searchTerm) {
+  function filterMedias(searchTerm) {
     // Si pas de terme de recherche, afficher tout
     if (!searchTerm || searchTerm === '') {
       showAllCards();
@@ -452,9 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       try {
-        if (window.openMovieModal) {
-          window.openMovieModal(movieId);
-        }
+        safeOpenMovieModal(movieId);
       } catch (error) {
         console.error('Erreur lors de l\'ouverture de la modal:', error);
       }
@@ -470,7 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Événements sur les étoiles
-    window.setupStarsInteraction(card, (rating) => rateMovie(movieId, rating));
+    window.setupStarsInteraction(card, (rating) => rateMedia(movieId, rating));
   }
   
   
@@ -520,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Noter un film (1-5 étoiles)
-  function rateMovie(movieId, rating) {
+  function rateMedia(movieId, rating) {
     let userPrefs = localStorage.getItem('userPrefs_global');
     
     if (!userPrefs) {
@@ -547,30 +621,23 @@ document.addEventListener('DOMContentLoaded', () => {
   
   
   
-  // Chargement des films
+  // Chargement des films - REDIRECTION vers loadMediasFromDatabase
   window.loadMovies = async function() {
-    try {
-      const data = await window.electronAPI.getAllMovies();
-      
-      if (data.success) {
-        // Avant d'afficher les films, appliquer les modifications enregistrées localement
-        const modifiedMovies = applyLocalEdits(data.movies);
-        
-        // Afficher les films avec les modifications appliquées
-        displayMovies(modifiedMovies);
-      } else {
-        console.error('Erreur lors du chargement des films:', data.message);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des films:', error);
-    }
+    console.log('⚠️ loadMovies() appelée - redirection vers loadMediasFromDatabase()');
+    await loadMediasFromDatabase();
   }
   
   // Fonction pour appliquer les modifications locales aux films
   function applyLocalEdits(movies) {
+    // Vérifier que movies est un tableau
+    if (!Array.isArray(movies)) {
+      console.warn('applyLocalEdits: movies n\'est pas un tableau, retour d\'un tableau vide');
+      return [];
+    }
+
     const storageKey = 'movieEdits'; // Utiliser la même clé que window.movieEdits
     let movieEdits = localStorage.getItem(storageKey);
-    
+
     if (!movieEdits) {
       movieEdits = {};
     } else {
@@ -581,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         movieEdits = {};
       }
     }
-    
+
     return movies.map(movie => {
       const edits = movieEdits[movie.id];
       if (edits) {
@@ -676,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Affichage des films dans la grille - VERSION CATÉGORIES FIXES
-function displayMovies(movies) {
+function displayMedias(movies) {
   // Debug : voir les catégories des films
   console.log('Films et leurs catégories:', movies.map(m => ({title: m.title, category: m.category})));
 
@@ -837,7 +904,7 @@ function setupMediaCard(mediaCard, movie) {
   // Configurer les étoiles de notation
   const rating = userPrefs.ratings[movie.id] || 0;
   window.updateStarsDisplay(mediaCard, rating);
-  window.setupStarsInteraction(mediaCard, (rating) => rateMovie(movie.id, rating));
+  window.setupStarsInteraction(mediaCard, (rating) => rateMedia(movie.id, rating));
 
   // Ajouter un écouteur pour le bouton de lecture
   const playBtn = mediaCard.querySelector('.play-btn');
@@ -864,11 +931,7 @@ function setupMediaCard(mediaCard, movie) {
     }
 
     try {
-      if (window.openMovieModal) {
-        window.openMovieModal(movie.id);
-      } else {
-        console.error('La fonction openMovieModal n\'est pas disponible');
-      }
+      safeOpenMovieModal(movie.id);
     } catch (error) {
       console.error('Erreur lors de l\'ouverture de la modal:', error);
     }
@@ -973,7 +1036,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     // Configurer les étoiles de notation
     const rating = userPrefs.ratings[movie.id] || 0;
     window.updateStarsDisplay(mediaCard, rating);
-    window.setupStarsInteraction(mediaCard, (rating) => rateMovie(movie.id, rating));
+    window.setupStarsInteraction(mediaCard, (rating) => rateMedia(movie.id, rating));
     
     // Ajouter un écouteur pour le bouton de lecture
     const playBtn = mediaCard.querySelector('.play-btn');
@@ -1001,11 +1064,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
       
       try {
         // Ouvrir la modal au lieu de lire directement la vidéo
-        if (window.openMovieModal) {
-          window.openMovieModal(movie.id);
-        } else {
-          console.error('La fonction openMovieModal n\'est pas disponible');
-        }
+        safeOpenMovieModal(movie.id);
       } catch (error) {
         console.error('Erreur lors de l\'ouverture de la modal:', error);
       }
@@ -1042,7 +1101,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     // Configurer les étoiles de notation
     document.querySelectorAll('.media-card').forEach(card => {
       const movieId = card.getAttribute('data-id');
-      window.setupStarsInteraction(card, (rating) => rateMovie(movieId, rating));
+      window.setupStarsInteraction(card, (rating) => rateMedia(movieId, rating));
       
       // Ajouter l'écouteur pour la carte entière (clic pour ouvrir la modal)
       card.addEventListener('click', async (e) => {
@@ -1054,11 +1113,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
         try {
           const movieId = card.getAttribute('data-id');
           // Ouvrir la modal au lieu de lire directement la vidéo
-          if (window.openMovieModal) {
-            window.openMovieModal(movieId);
-          } else {
-            console.error('La fonction openMovieModal n\'est pas disponible');
-          }
+          safeOpenMovieModal(movieId);
         } catch (error) {
           console.error('Erreur lors de l\'ouverture de la modal:', error);
         }
@@ -1119,12 +1174,12 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   }
   
   // Extension pour l'API Electron
-  window.electronAPI.getMovieDetails = async function(movieId) {
+  window.electronAPI.getMediaDetails = async function(movieId) {
     try {
-      const result = await window.electronAPI.getMoviePath(movieId);
+      const result = await window.electronAPI.getMediaPath(movieId);
       
       if (result.success) {
-        const data = await window.electronAPI.getAllMovies();
+        const data = await window.electronAPI.getAllMedias();
         const movie = data.movies.find(m => m.id === movieId);
         
         if (movie) {
@@ -1150,10 +1205,10 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   };
   
   // Jouer un film avec le lecteur intégré
-  window.electronAPI.playMovie = async function(movieId) {
+  window.electronAPI.playMedia = async function(movieId) {
     try {
       // Obtenir les détails du film
-      const movieDetails = await window.electronAPI.getMovieDetails(movieId);
+      const movieDetails = await window.electronAPI.getMediaDetails(movieId);
       if (!movieDetails.success) {
         throw new Error(movieDetails.message || 'Impossible de charger les détails du film');
       }
@@ -1224,12 +1279,57 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   // Exposer les fonctions pour la modal et les autres scripts
   window.loadMoviesFromDashboard = window.loadMovies;
   window.refreshDashboard = window.loadMovies;
-  window.loadMoviesFromDatabase = loadMoviesFromDatabase;
+  window.loadMediasFromDatabase = loadMediasFromDatabase;
+
+  // Méthode pour réparer les épisodes orphelins
+  window.repairOrphanedEpisodes = async function(orphanedEpisodes) {
+    console.log('🔧 Tentative de réparation des épisodes orphelins...');
+
+    for (const episode of orphanedEpisodes) {
+      try {
+        // Tenter de trouver une série correspondante dans la base
+        const allSeriesResult = await window.electronAPI.getAllSeries();
+        if (allSeriesResult.success && allSeriesResult.series.length > 0) {
+          // Chercher une série potentielle par nom (extraire le nom depuis le titre de l'épisode)
+          const episodeTitle = episode.title.toLowerCase();
+          const potentialSeries = allSeriesResult.series.find(s => {
+            const seriesName = s.name.toLowerCase();
+            return episodeTitle.includes(seriesName) || seriesName.includes(episodeTitle.substring(0, 10));
+          });
+
+          if (potentialSeries) {
+            console.log(`🔧 Réparation: Associer "${episode.title}" à la série "${potentialSeries.name}"`);
+
+            // Mettre à jour l'épisode avec les bonnes métadonnées
+            const updateResult = await window.electronAPI.updateMedia(episode.id, {
+              seriesId: potentialSeries.id,
+              seriesName: potentialSeries.name,
+              category: 'series'
+            });
+
+            if (updateResult.success) {
+              console.log('✅ Épisode réparé avec succès');
+            } else {
+              console.error('❌ Échec de la réparation:', updateResult.message);
+            }
+          } else {
+            console.warn(`⚠️ Aucune série correspondante trouvée pour "${episode.title}"`);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors de la réparation de l\'épisode:', episode.title, error);
+      }
+    }
+
+    // Recharger les données après réparation
+    console.log('🔄 Rechargement des données après réparation...');
+    await loadMediasFromDatabase();
+  };
   
   // Écouteur pour les mises à jour de films
   document.addEventListener('moviesUpdated', () => {
     console.log('🔄 Événement de mise à jour des films reçu');
-    loadMoviesFromDatabase();
+    loadMediasFromDatabase();
   });
 
   // Initialiser l'interface

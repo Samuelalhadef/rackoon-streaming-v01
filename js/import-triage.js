@@ -49,6 +49,12 @@ class ImportTriageSystem {
       batchApplySeriesBtn.addEventListener('click', () => this.applyBatchSeries());
     }
 
+    // Bouton nouvelle série dans la section groupée
+    const newSeriesBatchBtn = document.getElementById('new-series-batch-btn');
+    if (newSeriesBatchBtn) {
+      newSeriesBatchBtn.addEventListener('click', () => this.showNewSeriesModal());
+    }
+
     // Fermer la modale en cliquant à l'extérieur
     if (this.triageModal) {
       this.triageModal.addEventListener('click', (e) => {
@@ -122,19 +128,10 @@ class ImportTriageSystem {
     console.log('🔍 Vérification des fichiers déjà importés...');
     console.log('📂 Fichiers à vérifier:', files.map(f => ({ name: f.name, path: f.path })));
 
-    // MODE DEBUG TEMPORAIRE: forcer tous les fichiers comme nouveaux
-    console.log('🚨 MODE DEBUG: FILTRAGE DÉSACTIVÉ TEMPORAIREMENT');
-    console.log('📋 Tous les fichiers seront considérés comme nouveaux pour le test');
-
-    // Retourner tous les fichiers comme nouveaux pour tester
-    return [...files];
-
-    // CODE ORIGINAL COMMENTÉ POUR DEBUG
-    /*
     // Récupérer la liste des films déjà importés (TOUS les médias, y compris non triés)
     let existingMovies = [];
     try {
-      const result = await window.electronAPI.getAllMovies();
+      const result = await window.electronAPI.getAllMedias();
       if (result.success) {
         existingMovies = result.movies || [];
         console.log(`📚 ${existingMovies.length} médias existants trouvés dans la base`);
@@ -210,7 +207,6 @@ class ImportTriageSystem {
     console.log(`📋 Résultat final: ${newFiles.length} nouveaux fichiers sur ${files.length} total`);
     console.log('📂 Nouveaux fichiers:', newFiles.map(f => f.name));
     return newFiles;
-    */
   }
 
   populateTriageModal() {
@@ -658,13 +654,32 @@ class ImportTriageSystem {
 
   async loadSeries() {
     try {
+      console.log('🔄 Chargement des séries...');
+
+      // Nettoyer d'abord les séries corrompues
+      try {
+        await window.electronAPI.cleanupCorruptedSeries();
+      } catch (error) {
+        console.warn('⚠️ Impossible de nettoyer les séries corrompues:', error);
+      }
+
       const result = await window.electronAPI.getAllSeries();
+      console.log('📡 Résultat API getAllSeries:', result);
+
       if (result && result.success && result.series) {
-        this.series = result.series;
+        // Filtrer les séries invalides (sans ID)
+        this.series = result.series.filter(serie => {
+          if (!serie.id) {
+            console.warn('⚠️ Série avec ID manquant ignorée:', serie.name);
+            return false;
+          }
+          return true;
+        });
         console.log('📺 Séries chargées:', this.series.length);
+        console.log('📺 Détail des séries:', this.series);
       } else {
         this.series = [];
-        console.log('📺 Aucune série trouvée');
+        console.log('📺 Aucune série trouvée ou erreur dans la réponse');
       }
     } catch (error) {
       console.error('❌ Erreur lors du chargement des séries:', error);
@@ -825,23 +840,23 @@ class ImportTriageSystem {
       });
 
       if (result.success) {
-        console.log('✅ Série créée avec succès, ID:', result.id);
+        console.log('✅ Série créée avec succès, ID:', result.series.id);
 
         // Ajouter la série à la liste locale
         const newSeries = {
-          id: result.id,
+          id: result.series.id,
           name: seriesName,
           description: ''
         };
         this.series.push(newSeries);
 
-        // Mettre à jour le sélecteur
-        const seriesSelector = row.querySelector('.series-name-selector');
-        this.populateSeriesSelector(seriesSelector);
+        // Mettre à jour TOUS les sélecteurs de série
+        this.updateAllSeriesSelectors();
 
-        // Sélectionner automatiquement la nouvelle série
-        seriesSelector.value = result.id;
-        this.currentFiles[fileIndex].seriesId = result.id;
+        // Sélectionner automatiquement la nouvelle série dans ce sélecteur
+        const seriesSelector = row.querySelector('.series-name-selector');
+        seriesSelector.value = result.series.id;
+        this.currentFiles[fileIndex].seriesId = result.series.id;
         this.currentFiles[fileIndex].seriesName = seriesName;
 
         this.hideValidationError(row);
@@ -934,7 +949,11 @@ class ImportTriageSystem {
 
   loadSeriesInBatchSelector() {
     const selector = document.getElementById('batch-series-selector');
-    if (!selector) return;
+    if (!selector) {
+      console.warn('⚠️ Sélecteur batch-series-selector non trouvé');
+      return;
+    }
+
 
     // Sauvegarder la sélection actuelle
     const currentValue = selector.value;
@@ -942,8 +961,12 @@ class ImportTriageSystem {
     // Vider et recréer les options
     selector.innerHTML = '<option value="">Sélectionner une série existante...</option>';
 
-    // Ajouter les séries
+    // Ajouter les séries (seulement celles avec un ID valide)
     this.series.forEach(serie => {
+      if (!serie.id) {
+        console.warn('⚠️ Série sans ID ignorée dans le sélecteur:', serie.name);
+        return;
+      }
       const option = document.createElement('option');
       option.value = serie.id;
       option.textContent = serie.name;
@@ -974,6 +997,7 @@ class ImportTriageSystem {
   async applyBatchSeries() {
     const selector = document.getElementById('batch-series-selector');
     const selectedSeriesId = selector?.value;
+
 
     if (!selectedSeriesId) {
       console.warn('⚠️ Aucune série sélectionnée pour l\'application groupée');
@@ -1031,6 +1055,34 @@ class ImportTriageSystem {
         applyBtn.innerHTML = originalText;
         applyBtn.style.background = '';
       }, 2000);
+    }
+  }
+
+  // Nouvelle méthode pour mettre à jour tous les sélecteurs de série
+  updateAllSeriesSelectors() {
+    // Mettre à jour tous les sélecteurs individuels dans le tableau
+    const allSeriesSelectors = document.querySelectorAll('.series-name-selector');
+    allSeriesSelectors.forEach(selector => {
+      this.populateSeriesSelector(selector);
+    });
+
+    // Mettre à jour le sélecteur de la section groupée
+    this.loadSeriesInBatchSelector();
+
+    console.log('🔄 Tous les sélecteurs de série mis à jour');
+  }
+
+  // Méthode pour afficher la modale de création de série
+  showNewSeriesModal() {
+    const modal = document.getElementById('new-series-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+
+      // Focus sur le champ nom
+      const nameInput = document.getElementById('new-series-name');
+      if (nameInput) {
+        setTimeout(() => nameInput.focus(), 100);
+      }
     }
   }
 }

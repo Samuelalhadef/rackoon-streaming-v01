@@ -268,11 +268,11 @@ function downloadTMDBImage(imageUrl, outputPath) {
 }
 
 // Générer un nom de fichier unique pour une image TMDB
-function generateTMDBImageName(movieTitle, tmdbImageUrl) {
+function generateTMDBImageName(mediaTitle, tmdbImageUrl) {
   const timestamp = Date.now();
   const extension = path.extname(tmdbImageUrl) || '.jpg';
   // Nettoyer le titre pour le nom de fichier
-  const cleanTitle = movieTitle
+  const cleanTitle = mediaTitle
     .replace(/[<>:"/\\|?*]/g, '') // Supprimer les caractères non valides
     .replace(/\s+/g, '_') // Remplacer les espaces par des underscores
     .substring(0, 50); // Limiter la longueur
@@ -283,8 +283,8 @@ function generateTMDBImageName(movieTitle, tmdbImageUrl) {
 // Configuration des gestionnaires de messages IPC avec stockage JSON
 function setupIPCHandlers() {
   
-  // Recherche et ajout de films dans la base JSON
-  ipcMain.handle('movies:scan', async (event, options) => {
+  // Recherche et ajout de médias dans la base JSON
+  ipcMain.handle('medias:scan', async (event, options) => {
     try {
       let videoFiles = [];
       
@@ -339,8 +339,8 @@ function setupIPCHandlers() {
           const fileName = path.basename(filePath, fileExtension);
           
           // Vérifier si le film existe déjà
-          const existingMovies = await db.getAllMovies();
-          const exists = existingMovies.find(m => m.path === filePath);
+          const existingMedias = await db.getAllMedias();
+          const exists = existingMedias.find(m => m.path === filePath);
           if (exists) {
             skippedCount++;
             continue;
@@ -377,7 +377,7 @@ function setupIPCHandlers() {
           }
           
           // Créer l'objet film
-          const movieData = {
+          const mediaData = {
             title: fileName,
             path: filePath,
             format: fileExtension.substring(1),
@@ -392,7 +392,7 @@ function setupIPCHandlers() {
           };
           
           // Ajouter à la base JSON
-          const result = await db.addMovie(movieData);
+          const result = await db.addMedia(mediaData);
           if (result.success) {
             addedCount++;
             console.log(`✅ Ajouté: ${fileName}`);
@@ -419,11 +419,11 @@ function setupIPCHandlers() {
       });
       
       // Retourner tous les films de la base
-      const allMovies = await db.getAllMovies();
+      const allMedias = await db.getAllMedias();
       return {
         success: true,
         message: finalMessage,
-        movies: allMovies,
+        medias: allMedias,
         stats: { added: addedCount, skipped: skippedCount, total: videoFiles.length }
       };
       
@@ -434,13 +434,13 @@ function setupIPCHandlers() {
   });
   
   // Obtenir tous les films depuis la base JSON
-  ipcMain.handle('movies:getAll', async () => {
+  ipcMain.handle('medias:getAll', async () => {
     try {
-      const movies = await db.getAllMovies();
+      const medias = await db.getAllMedias();
       return {
         success: true,
-        count: movies.length,
-        movies: movies
+        count: medias.length,
+        medias: medias
       };
     } catch (error) {
       console.error('❌ Erreur récupération films:', error);
@@ -449,28 +449,28 @@ function setupIPCHandlers() {
   });
 
   // Obtenir les détails d'un film spécifique
-  ipcMain.handle('movies:getDetails', async (event, movieId) => {
+  ipcMain.handle('medias:getDetails', async (event, mediaId) => {
     try {
-      const movies = await db.getAllMovies();
-      const movie = movies.find(m => m.id === movieId);
+      const medias = await db.getAllMedias();
+      const media = medias.find(m => m.id === mediaId);
       
-      if (!movie) {
+      if (!media) {
         return { success: false, message: 'Film introuvable' };
       }
 
       // Vérifier si le fichier existe toujours
-      if (!fs.existsSync(movie.path)) {
+      if (!fs.existsSync(media.path)) {
         return { success: false, message: 'Fichier vidéo introuvable sur le disque' };
       }
 
       return {
         success: true,
-        movie: {
-          ...movie,
-          description: movie.description || '',
-          genres: movie.genres || [],
-          releaseDate: movie.releaseDate || '',
-          year: movie.year || (new Date()).getFullYear()
+        media: {
+          ...media,
+          description: media.description || '',
+          genres: media.genres || [],
+          releaseDate: media.releaseDate || '',
+          year: media.year || (new Date()).getFullYear()
         }
       };
     } catch (error) {
@@ -480,11 +480,11 @@ function setupIPCHandlers() {
   });
 
   // Mettre à jour un film
-  ipcMain.handle('movies:update', async (event, movieId, updates) => {
+  ipcMain.handle('medias:update', async (event, mediaId, updates) => {
     try {
-      const result = await db.updateMovie(movieId, updates);
+      const result = await db.updateMedia(mediaId, updates);
       if (result.success) {
-        console.log(`✅ Film mis à jour: ${result.movie.title}`);
+        console.log(`✅ Film mis à jour: ${result.media.title}`);
         return result;
       } else {
         return { success: false, message: result.message };
@@ -496,11 +496,11 @@ function setupIPCHandlers() {
   });
 
   // Handler pour supprimer un film
-  ipcMain.handle('movies:delete', async (event, movieId) => {
+  ipcMain.handle('medias:delete', async (event, mediaId) => {
     try {
-      const result = await db.deleteMovie(movieId);
+      const result = await db.deleteMedia(mediaId);
       if (result.success) {
-        console.log(`🗑️ Film supprimé de la base de données: ID ${movieId}`);
+        console.log(`🗑️ Film supprimé de la base de données: ID ${mediaId}`);
         return result;
       }
       
@@ -511,28 +511,44 @@ function setupIPCHandlers() {
     }
   });
 
-  // Handler pour lire un film
-  ipcMain.handle('movies:play', async (event, movieId) => {
+  // Handler pour supprimer tous les médias
+  ipcMain.handle('medias:clearAll', async (event) => {
     try {
-      const movies = await db.getAllMovies();
-      const movie = movies.find(m => m.id === movieId);
+      const result = await db.clearAllMedias();
+      if (result.success) {
+        console.log('🗑️ Tous les médias supprimés de la base de données');
+        return result;
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la suppression de tous les médias:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Handler pour lire un film
+  ipcMain.handle('medias:play', async (event, mediaId) => {
+    try {
+      const medias = await db.getAllMedias();
+      const media = medias.find(m => m.id === mediaId);
       
-      if (!movie) {
+      if (!media) {
         return { success: false, message: 'Film introuvable dans la base de données' };
       }
 
       // Vérifier si le fichier existe toujours
-      if (!fs.existsSync(movie.path)) {
+      if (!fs.existsSync(media.path)) {
         return { success: false, message: 'Fichier vidéo introuvable sur le disque' };
       }
 
       // Ouvrir le fichier avec l'application par défaut
-      await shell.openPath(movie.path);
+      await shell.openPath(media.path);
       
       return { 
         success: true, 
         message: 'Film ouvert avec l\'application par défaut',
-        path: movie.path 
+        path: media.path 
       };
     } catch (error) {
       console.error('Erreur lors de l\'ouverture du film:', error);
@@ -541,9 +557,9 @@ function setupIPCHandlers() {
   });
 
   // Handler pour obtenir les statistiques
-  ipcMain.handle('movies:getStats', async (event) => {
+  ipcMain.handle('medias:getStats', async (event) => {
     try {
-      const movies = await db.getAllMovies();
+      const medias = await db.getAllMedias();
       
       // Calculer les statistiques
       let totalSize = 0;
@@ -551,24 +567,24 @@ function setupIPCHandlers() {
       let filesWithThumbnails = 0;
       const formats = new Map();
 
-      movies.forEach(movie => {
+      medias.forEach(media => {
         // Taille totale
-        if (movie.size_bytes) {
-          totalSize += movie.size_bytes;
+        if (media.size_bytes) {
+          totalSize += media.size_bytes;
         }
 
         // Durée totale
-        if (movie.duration) {
-          totalDuration += movie.duration;
+        if (media.duration) {
+          totalDuration += media.duration;
         }
 
         // Fichiers avec miniatures
-        if (movie.thumbnail) {
+        if (media.thumbnail) {
           filesWithThumbnails++;
         }
 
         // Comptage des formats
-        const format = movie.format || 'unknown';
+        const format = media.format || 'unknown';
         if (formats.has(format)) {
           formats.set(format, formats.get(format) + 1);
         } else {
@@ -583,7 +599,7 @@ function setupIPCHandlers() {
       }));
 
       const stats = {
-        totalFiles: movies.length,
+        totalFiles: medias.length,
         totalSize,
         totalDuration,
         filesWithThumbnails,
@@ -598,23 +614,23 @@ function setupIPCHandlers() {
   });
 
   // Handler pour sauvegarder un fichier classifié
-  ipcMain.handle('movies:saveClassified', async (event, fileData) => {
+  ipcMain.handle('medias:saveClassified', async (event, fileData) => {
     try {
       // D'abord, chercher le média existant par son chemin pour récupérer ses métadonnées
-      const allMovies = await db.getAllMovies();
+      const allMedias = await db.getAllMedias();
       let existingMedia = null;
 
       console.log('🔍 Recherche du média avec le chemin:', fileData.filePath);
 
-      if (allMovies && Array.isArray(allMovies)) {
-        console.log('🗂️ Médias disponibles:', allMovies.map(m => m.path).slice(0, 3));
-        existingMedia = allMovies.find(m => m.path === fileData.filePath);
+      if (allMedias && Array.isArray(allMedias)) {
+        console.log('🗂️ Médias disponibles:', allMedias.map(m => m.path).slice(0, 3));
+        existingMedia = allMedias.find(m => m.path === fileData.filePath);
       }
 
       if (!existingMedia) {
         console.error('❌ Média non trouvé. Chemin recherché:', fileData.filePath);
-        if (allMovies && allMovies.length > 0) {
-          console.error('❌ Premiers chemins en base:', allMovies.slice(0, 2).map(m => m.path));
+        if (allMedias && allMedias.length > 0) {
+          console.error('❌ Premiers chemins en base:', allMedias.slice(0, 2).map(m => m.path));
         } else {
           console.error('❌ Aucun média en base de données');
         }
@@ -624,7 +640,7 @@ function setupIPCHandlers() {
       console.log('✅ Média trouvé:', existingMedia.title);
 
       // Créer l'objet complet en combinant les nouvelles données avec les métadonnées existantes
-      const movieData = {
+      const mediaData = {
         ...existingMedia, // Reprendre toutes les métadonnées existantes
         title: fileData.title,
         category: fileData.category || 'unsorted', // Si toujours null après tri, utiliser 'unsorted' par défaut
@@ -639,11 +655,11 @@ function setupIPCHandlers() {
         episode_number: fileData.episode_number || null
       };
 
-      // Toujours utiliser updateMovie - ne plus supprimer puis ajouter à une série
-      const result = await db.updateMovie(movieData);
+      // Toujours utiliser updateMedia - ne plus supprimer puis ajouter à une série
+      const result = await db.updateMedia(mediaData);
 
       if (result.success) {
-        console.log(`💾 Fichier classifié mis à jour: ${movieData.title} (catégorie: ${movieData.category})`);
+        console.log(`💾 Fichier classifié mis à jour: ${mediaData.title} (catégorie: ${mediaData.category})`);
         return result;
       }
 
@@ -656,19 +672,19 @@ function setupIPCHandlers() {
   });
   
   // Récupérer le chemin d'un film pour la lecture
-  ipcMain.handle('movies:getPath', async (event, moviePath) => {
+  ipcMain.handle('medias:getPath', async (event, mediaPath) => {
     try {
       // Vérifier si le fichier existe toujours
-      if (!fs.existsSync(moviePath)) {
+      if (!fs.existsSync(mediaPath)) {
         return { success: false, message: 'Fichier vidéo introuvable sur le disque' };
       }
       
-      console.log(`Lecture de la vidéo: ${moviePath}`);
+      console.log(`Lecture de la vidéo: ${mediaPath}`);
       
       // Retourner le chemin pour le lecteur intégré
       return {
         success: true,
-        path: moviePath,
+        path: mediaPath,
         message: "Vidéo prête à être lue"
       };
     } catch (error) {
@@ -678,17 +694,17 @@ function setupIPCHandlers() {
   });
   
   // Ouvrir le dossier contenant le film
-  ipcMain.handle('movies:openFolder', async (event, moviePath) => {
+  ipcMain.handle('medias:openFolder', async (event, mediaPath) => {
     try {
       // Vérifier si le fichier existe
-      if (!fs.existsSync(moviePath)) {
+      if (!fs.existsSync(mediaPath)) {
         return { success: false, message: 'Fichier vidéo introuvable sur le disque' };
       }
       
       // Ouvrir le dossier contenant le fichier
-      shell.showItemInFolder(moviePath);
+      shell.showItemInFolder(mediaPath);
       
-      console.log(`Dossier ouvert pour la vidéo: ${moviePath}`);
+      console.log(`Dossier ouvert pour la vidéo: ${mediaPath}`);
       
       return {
         success: true,
@@ -712,7 +728,7 @@ function setupIPCHandlers() {
   });
 
   // Ajouter un seul fichier vidéo
-  ipcMain.handle('movies:scanSingle', async (event) => {
+  ipcMain.handle('medias:scanSingle', async (event) => {
     try {
       // Sélection de fichier unique
       const result = await dialog.showOpenDialog(mainWindow, {
@@ -742,8 +758,8 @@ function setupIPCHandlers() {
       console.log(`🎬 Ajout du fichier: ${filePath}`);
       
       // Vérifier si le film existe déjà
-      const existingMovies = await db.getAllMovies();
-      const exists = existingMovies.find(m => m.path === filePath);
+      const existingMedias = await db.getAllMedias();
+      const exists = existingMedias.find(m => m.path === filePath);
       if (exists) {
         return { success: false, message: 'Ce fichier est déjà dans la bibliothèque' };
       }
@@ -783,7 +799,7 @@ function setupIPCHandlers() {
       }
       
       // Créer l'objet film
-      const movieData = {
+      const mediaData = {
         title: fileName,
         path: filePath,
         format: fileExtension.substring(1),
@@ -798,13 +814,13 @@ function setupIPCHandlers() {
       };
       
       // Ajouter à la base JSON
-      const addResult = await db.addMovie(movieData);
+      const addResult = await db.addMedia(mediaData);
       if (addResult.success) {
         console.log(`✅ Fichier ajouté: ${fileName}`);
         return {
           success: true,
           message: `Fichier "${fileName}" ajouté avec succès`,
-          movie: addResult.movie
+          media: addResult.media
         };
       } else {
         return { success: false, message: 'Erreur lors de l\'ajout du fichier' };
@@ -817,7 +833,7 @@ function setupIPCHandlers() {
   });
 
   // Télécharger une image TMDB et la stocker localement
-  ipcMain.handle('movies:downloadTMDBImage', async (event, imageUrl, movieTitle) => {
+  ipcMain.handle('medias:downloadTMDBImage', async (event, imageUrl, mediaTitle) => {
     try {
       if (!imageUrl) {
         return { success: false, message: 'URL d\'image manquante' };
@@ -828,7 +844,7 @@ function setupIPCHandlers() {
       fs.ensureDirSync(imagesDir);
 
       // Générer un nom de fichier unique
-      const filename = generateTMDBImageName(movieTitle, imageUrl);
+      const filename = generateTMDBImageName(mediaTitle, imageUrl);
       const outputPath = path.join(imagesDir, filename);
 
       // Télécharger l'image
@@ -851,49 +867,49 @@ function setupIPCHandlers() {
   });
 
   // Mettre à jour les métadonnées de tous les films existants
-  ipcMain.handle('movies:updateMetadata', async (event) => {
+  ipcMain.handle('medias:updateMetadata', async (event) => {
     try {
       const ffmpegInstalled = checkFfmpegInstalled();
       if (!ffmpegInstalled) {
         return { success: false, message: 'FFmpeg/FFprobe non disponible' };
       }
 
-      const allMovies = await db.getAllMovies();
+      const allMedias = await db.getAllMedias();
       let updatedCount = 0;
       let errorCount = 0;
 
-      console.log(`🔄 Mise à jour des métadonnées pour ${allMovies.length} films...`);
+      console.log(`🔄 Mise à jour des métadonnées pour ${allMedias.length} films...`);
 
-      for (const movie of allMovies) {
+      for (const media of allMedias) {
         try {
           // Vérifier si le fichier existe toujours
-          if (!fs.existsSync(movie.path)) {
-            console.log(`⚠️ Fichier non trouvé, ignoré: ${movie.title}`);
+          if (!fs.existsSync(media.path)) {
+            console.log(`⚠️ Fichier non trouvé, ignoré: ${media.title}`);
             continue;
           }
 
           // Extraire les nouvelles métadonnées
-          const metadata = await getVideoMetadata(movie.path);
+          const metadata = await getVideoMetadata(media.path);
           
           if (metadata.duration > 0) {
             // Mettre à jour uniquement si on a une durée valide
             const updates = {
               duration: Math.round(metadata.duration),
-              width: metadata.width || movie.width || 0,
-              height: metadata.height || movie.height || 0
+              width: metadata.width || media.width || 0,
+              height: metadata.height || media.height || 0
             };
 
-            const updateResult = await db.updateMovie(movie.id, updates);
+            const updateResult = await db.updateMedia(media.id, updates);
             if (updateResult.success) {
               updatedCount++;
-              console.log(`✅ Métadonnées mises à jour: ${movie.title} - ${Math.floor(metadata.duration/60)}min ${Math.floor(metadata.duration%60)}s`);
+              console.log(`✅ Métadonnées mises à jour: ${media.title} - ${Math.floor(metadata.duration/60)}min ${Math.floor(metadata.duration%60)}s`);
             }
           } else {
-            console.log(`⚠️ Pas de métadonnées extraites pour: ${movie.title}`);
+            console.log(`⚠️ Pas de métadonnées extraites pour: ${media.title}`);
           }
         } catch (error) {
           errorCount++;
-          console.error(`❌ Erreur pour ${movie.title}:`, error.message);
+          console.error(`❌ Erreur pour ${media.title}:`, error.message);
         }
       }
 
@@ -1291,6 +1307,109 @@ function setupIPCHandlers() {
       return { success: false, message: error.message };
     }
   });
+
+  // Handler pour nettoyer les séries corrompues
+  ipcMain.handle('series:cleanupCorrupted', async (event) => {
+    try {
+      const result = await db.cleanupCorruptedSeries();
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors du nettoyage des séries corrompues:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // ============================================
+  // API SYSTÈME DE TAGS
+  // ============================================
+
+  // Migrer vers le système de tags
+  ipcMain.handle('tags:migrate', async (event) => {
+    try {
+      const result = await db.migrateToTagSystem();
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la migration des tags:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Obtenir tous les tags disponibles
+  ipcMain.handle('tags:getAll', async (event) => {
+    try {
+      const result = await db.getAllTags();
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des tags:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Ajouter un tag personnalisé
+  ipcMain.handle('tags:addCustom', async (event, tagName) => {
+    try {
+      const result = await db.addCustomTag(tagName);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du tag:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Supprimer un tag personnalisé
+  ipcMain.handle('tags:removeCustom', async (event, tagName) => {
+    try {
+      const result = await db.removeCustomTag(tagName);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la suppression du tag:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Ajouter des tags à un média
+  ipcMain.handle('tags:addToMedia', async (event, mediaId, tags, tagType = 'personalTags') => {
+    try {
+      const result = await db.addTagsToMedia(mediaId, tags, tagType);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de tags au média:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Supprimer des tags d'un média
+  ipcMain.handle('tags:removeFromMedia', async (event, mediaId, tags, tagType = 'personalTags') => {
+    try {
+      const result = await db.removeTagsFromMedia(mediaId, tags, tagType);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la suppression de tags du média:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Rechercher des médias par tags
+  ipcMain.handle('tags:searchMedias', async (event, searchTags, operator = 'AND') => {
+    try {
+      const result = await db.searchByTags(searchTags, operator);
+      return { success: true, medias: result };
+    } catch (error) {
+      console.error('Erreur lors de la recherche par tags:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Obtenir des suggestions de tags
+  ipcMain.handle('tags:getSuggestions', async (event, query, limit = 10) => {
+    try {
+      const result = await db.getTagSuggestions(query, limit);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des suggestions:', error);
+      return { success: false, message: error.message };
+    }
+  });
 }
 
 // Fonction pour essayer de convertir SUP en SRT
@@ -1346,7 +1465,7 @@ app.whenReady().then(async () => {
   }
   
   // Initialiser la base de données JSON
-  const dbPath = path.join(__dirname, 'data', 'movies.json');
+  const dbPath = path.join(__dirname, 'data', 'medias.json');
   db = new JSONDatabase(dbPath);
   await db.load();
   console.log('📊 Base de données JSON initialisée');

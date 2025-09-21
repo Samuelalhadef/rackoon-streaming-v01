@@ -29,7 +29,10 @@
       "Bash(where:*)",
       "Bash(dir \"C:\\Users\\jamet\\Documents\\ffmpeg\" /s)",
       "Read(//c//**)",
-      "Bash(del \"data/thumbnails/*\")"
+      "Bash(del \"data/thumbnails/*\")",
+      "Bash(sed:*)",
+      "Bash(del test-tags.js)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

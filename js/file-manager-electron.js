@@ -119,7 +119,7 @@ class FileManagerElectron {
   // Charger les statistiques
   async loadStats() {
     try {
-      const result = await window.electronAPI.getMovieStats();
+      const result = await window.electronAPI.getMediaStats();
       
       if (result.success) {
         this.updateStatsDisplay(result.stats);
@@ -160,10 +160,10 @@ class FileManagerElectron {
   // Charger la liste des fichiers
   async loadFiles() {
     try {
-      const result = await window.electronAPI.getAllMovies();
+      const result = await window.electronAPI.getAllMedias();
       
       if (result.success) {
-        this.files = result.movies;
+        this.files = result.medias;
         
         // Vérifier l'existence de tous les fichiers
         await this.checkAllFilesExistence();
@@ -842,7 +842,7 @@ class FileManagerElectron {
   // Jouer un fichier
   async playFile(fileId) {
     try {
-      const result = await window.electronAPI.playMovie(fileId);
+      const result = await window.electronAPI.playMedia(fileId);
       if (!result.success) {
         console.error('Erreur:', result.message);
       }
@@ -854,7 +854,7 @@ class FileManagerElectron {
   // Afficher les détails d'un fichier
   async showFileDetails(fileId) {
     try {
-      const result = await window.electronAPI.getMovieDetails(fileId);
+      const result = await window.electronAPI.getMediaDetails(fileId);
       if (result.success) {
         const file = result.movie;
         
@@ -956,7 +956,7 @@ class FileManagerElectron {
   async openFolderInExplorer(folderPath) {
     try {
       // Utiliser l'IPC pour ouvrir le dossier
-      await window.electronAPI.openMovieFolder(1); // On utilise l'API existante
+      await window.electronAPI.openMediaFolder(1); // On utilise l'API existante
     } catch (error) {
       console.error('Erreur lors de l\'ouverture du dossier:', error);
     }

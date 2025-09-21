@@ -31,25 +31,51 @@ class JSONDatabase {
       } else {
         // Créer le fichier initial
         this.data = {
-          movies: [],
+          medias: [],
           series: [],
           settings: {
             version: "1.0.0",
             lastScan: null,
-            totalMovies: 0
+            totalMedias: 0
           },
           categories: [
             { id: "films", name: "Films", icon: "🎬", count: 0 },
             { id: "series", name: "Séries", icon: "📺", count: 0 },
             { id: "documentaires", name: "Documentaires", icon: "📚", count: 0 },
             { id: "unsorted", name: "Non classé", icon: "📁", count: 0 }
-          ]
+          ],
+          tagManager: {
+            predefinedTags: {
+              genres: [
+                "Action", "Aventure", "Comédie", "Drame", "Horreur", "Thriller",
+                "Romance", "Science-fiction", "Fantasy", "Documentaire", "Animation",
+                "Guerre", "Western", "Musical", "Crime", "Mystère", "Biographie"
+              ],
+              moods: [
+                "Détente", "Soirée entre amis", "Famille", "Date night", "Nostalgie",
+                "Frissons", "Réflexion", "Motivation", "Escapisme", "Tension", "Feel-good"
+              ],
+              technical: [
+                "4K", "HD", "SD", "HDR", "Dolby", "IMAX", "Blu-ray", "DVD"
+              ],
+              personal: [
+                "Coup de cœur", "À revoir", "Overrated", "Underrated", "Comfort food",
+                "Guilty pleasure", "Chef-d'œuvre", "Déçu", "Surprise"
+              ],
+              collections: [
+                "Marvel", "DC", "Star Wars", "Bond", "Fast & Furious", "Pixar",
+                "Studio Ghibli", "Disney", "Christopher Nolan", "Tarantino"
+              ]
+            },
+            customTags: [],
+            tagStats: {}
+          }
         };
         await this.save();
       }
     } catch (error) {
       console.error('Erreur lors du chargement de la base JSON:', error);
-      this.data = { movies: [], settings: {}, categories: [] };
+      this.data = { medias: [], settings: {}, categories: [] };
     }
   }
 
@@ -68,9 +94,9 @@ class JSONDatabase {
   }
 
   // Générer un nom de fichier pour les miniatures
-  generateThumbnailName(moviePath) {
-    const hash = crypto.createHash('md5').update(moviePath).digest('hex').substring(0, 8);
-    const baseName = path.basename(moviePath, path.extname(moviePath));
+  generateThumbnailName(mediaPath) {
+    const hash = crypto.createHash('md5').update(mediaPath).digest('hex').substring(0, 8);
+    const baseName = path.basename(mediaPath, path.extname(mediaPath));
     return `thumb_${hash}_${Date.now()}.jpg`;
   }
 
@@ -79,113 +105,210 @@ class JSONDatabase {
     return path.join(this.thumbnailsPath, thumbnailName);
   }
 
-  // Ajouter un film
-  async addMovie(movieData) {
+  // Ajouter un média
+  async addMedia(mediaData) {
     if (!this.data) await this.load();
 
     // Si c'est un épisode de série, le rediriger vers addEpisodeToSeries
-    if (movieData.category === 'series' && movieData.seriesId) {
-      console.log('📺 Redirection vers addEpisodeToSeries pour:', movieData.title);
-      return await this.addEpisodeToSeries(movieData);
+    if (mediaData.category === 'series' && mediaData.seriesId) {
+      console.log('📺 Redirection vers addEpisodeToSeries pour:', mediaData.title);
+      return await this.addEpisodeToSeries(mediaData);
     }
 
-    // Vérifier si le film existe déjà
-    const existingMovie = this.data.movies.find(m => m.path === movieData.path);
-    if (existingMovie) {
-      return { success: false, message: 'Film déjà existant' };
+    // Vérifier si le média existe déjà
+    const existingMedia = this.data.medias.find(m => m.path === mediaData.path);
+    if (existingMedia) {
+      return { success: false, message: 'Média déjà existant' };
     }
 
-    // Créer le film avec un ID unique
-    const movie = {
+    // Enrichir les données avec les calculs automatiques
+    const enrichedData = this.enrichMediaData(mediaData);
+
+    // Créer le média avec un ID unique
+    const media = {
       id: this.generateId(),
-      ...movieData,
+      ...enrichedData,
       dateAdded: new Date().toISOString(),
       lastWatched: null,
       rating: 0
     };
 
-    this.data.movies.push(movie);
-    this.data.settings.totalMovies = this.data.movies.length;
+    this.data.medias.push(media);
+    this.data.settings.totalMedias = this.data.medias.length;
     this.data.settings.lastScan = new Date().toISOString();
 
     await this.save();
-    return { success: true, movie };
+    return { success: true, media };
   }
 
-  // Mettre à jour un film existant
-  async updateMovie(movieData) {
+  // Mettre à jour un média existant
+  async updateMedia(mediaData) {
     if (!this.data) await this.load();
 
-    const existingIndex = this.data.movies.findIndex(m => m.path === movieData.path);
+    const existingIndex = this.data.medias.findIndex(m => m.path === mediaData.path);
     if (existingIndex === -1) {
-      return { success: false, message: 'Film non trouvé pour mise à jour' };
+      return { success: false, message: 'Média non trouvé pour mise à jour' };
     }
 
-    // Mettre à jour le film en conservant l'ID et la date d'ajout
-    const existingMovie = this.data.movies[existingIndex];
-    this.data.movies[existingIndex] = {
-      ...existingMovie,
-      ...movieData,
-      id: existingMovie.id, // Conserver l'ID original
-      dateAdded: existingMovie.dateAdded // Conserver la date d'ajout originale
+    // Mettre à jour le média en conservant l'ID et la date d'ajout
+    const existingMedia = this.data.medias[existingIndex];
+    this.data.medias[existingIndex] = {
+      ...existingMedia,
+      ...mediaData,
+      id: existingMedia.id, // Conserver l'ID original
+      dateAdded: existingMedia.dateAdded // Conserver la date d'ajout originale
     };
 
     await this.save();
-    return { success: true, movie: this.data.movies[existingIndex] };
+    return { success: true, media: this.data.medias[existingIndex] };
   }
 
-  // Obtenir tous les films
-  async getAllMovies() {
+  // Obtenir tous les médias
+  async getAllMedias() {
     if (!this.data) await this.load();
-    return this.data.movies;
+    return this.data.medias;
   }
 
-  // Obtenir un film par ID
-  async getMovieById(id) {
+  // Obtenir un média par ID
+  async getMediaById(id) {
     if (!this.data) await this.load();
-    return this.data.movies.find(m => m.id === id);
+    return this.data.medias.find(m => m.id === id);
   }
 
-  // Obtenir les films par catégorie
-  async getMoviesByCategory(category) {
+  // Obtenir les médias par catégorie
+  async getMediasByCategory(category) {
     if (!this.data) await this.load();
-    if (category === 'all') return this.data.movies;
-    return this.data.movies.filter(m => m.category === category);
+    if (category === 'all') return this.data.medias;
+    return this.data.medias.filter(m => m.category === category);
   }
 
 
-  // Supprimer un film
-  async deleteMovie(id) {
+  // Supprimer un média
+  async deleteMedia(id) {
+    console.log('🔍 deleteMedia appelée avec ID:', id);
     if (!this.data) await this.load();
-    
-    const movieIndex = this.data.movies.findIndex(m => m.id === id);
-    if (movieIndex === -1) {
-      return { success: false, message: 'Film non trouvé' };
+
+    const mediaIndex = this.data.medias.findIndex(m => m.id === id);
+    if (mediaIndex === -1) {
+      return { success: false, message: 'Média non trouvé' };
     }
 
     // Supprimer la miniature si elle existe
-    const movie = this.data.movies[movieIndex];
-    if (movie.thumbnail) {
+    const media = this.data.medias[mediaIndex];
+    if (media.thumbnail) {
       try {
-        await fs.unlink(this.getThumbnailPath(movie.thumbnail));
+        await fs.unlink(this.getThumbnailPath(media.thumbnail));
       } catch (error) {
         console.log('Miniature non trouvée ou déjà supprimée');
       }
     }
 
-    this.data.movies.splice(movieIndex, 1);
-    this.data.settings.totalMovies = this.data.movies.length;
+    this.data.medias.splice(mediaIndex, 1);
+    this.data.settings.totalMedias = this.data.medias.length;
     await this.save();
     return { success: true };
   }
 
-  // Rechercher des films
-  async searchMovies(query) {
+  // Supprimer tous les médias
+  async clearAllMedias() {
+    if (!this.data) await this.load();
+
+    try {
+      const totalMedias = this.data.medias.length;
+      const totalSeries = this.data.series.length;
+
+      // Supprimer toutes les miniatures
+      const thumbnailsDeleted = await this.deleteAllThumbnails();
+
+      // Vider les données
+      this.data.medias = [];
+      this.data.series = [];
+      this.data.settings.totalMedias = 0;
+      this.data.categories = [
+        { id: "films", name: "Films", icon: "🎬", count: 0 },
+        { id: "series", name: "Séries", icon: "📺", count: 0 },
+        { id: "documentaires", name: "Documentaires", icon: "📚", count: 0 },
+        { id: "concerts", name: "Concerts", icon: "🎵", count: 0 },
+        { id: "unsorted", name: "Non triés", icon: "📁", count: 0 }
+      ];
+
+      await this.save();
+
+      console.log(`🗑️ Suppression terminée: ${totalMedias} médias, ${totalSeries} séries, ${thumbnailsDeleted} miniatures`);
+
+      return {
+        success: true,
+        deleted: {
+          medias: totalMedias,
+          series: totalSeries,
+          thumbnails: thumbnailsDeleted
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de tous les médias:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // Nettoyer les séries corrompues (sans ID)
+  async cleanupCorruptedSeries() {
+    if (!this.data) await this.load();
+
+    const initialCount = this.data.series.length;
+    this.data.series = this.data.series.filter(serie => {
+      if (!serie.id) {
+        console.warn(`🧹 Suppression de la série corrompue sans ID: "${serie.name}"`);
+        return false;
+      }
+      return true;
+    });
+
+    const cleanedCount = initialCount - this.data.series.length;
+    if (cleanedCount > 0) {
+      await this.save();
+      console.log(`🧹 ${cleanedCount} série(s) corrompue(s) supprimée(s)`);
+    }
+
+    return { success: true, cleaned: cleanedCount };
+  }
+
+  // Supprimer toutes les miniatures
+  async deleteAllThumbnails() {
+    let deletedCount = 0;
+
+    try {
+      const thumbnailsDir = path.join(this.dataDir, 'thumbnails');
+
+      if (await fs.pathExists(thumbnailsDir)) {
+        const files = await fs.readdir(thumbnailsDir);
+
+        for (const file of files) {
+          if (file.endsWith('.jpg') || file.endsWith('.png') || file.endsWith('.jpeg')) {
+            try {
+              await fs.unlink(path.join(thumbnailsDir, file));
+              deletedCount++;
+            } catch (error) {
+              console.warn(`⚠️ Impossible de supprimer la miniature ${file}:`, error.message);
+            }
+          }
+        }
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression des miniatures:', error);
+      return 0;
+    }
+  }
+
+  // Rechercher des médias
+  async searchMedias(query) {
     if (!this.data) await this.load();
     const lowerQuery = query.toLowerCase();
-    return this.data.movies.filter(movie => 
-      movie.title.toLowerCase().includes(lowerQuery) ||
-      (movie.description && movie.description.toLowerCase().includes(lowerQuery))
+    return this.data.medias.filter(media =>
+      media.title.toLowerCase().includes(lowerQuery) ||
+      (media.description && media.description.toLowerCase().includes(lowerQuery))
     );
   }
 
@@ -193,21 +316,21 @@ class JSONDatabase {
   async getStats() {
     if (!this.data) await this.load();
     
-    const totalSize = this.data.movies.reduce((sum, movie) => sum + (movie.size_bytes || 0), 0);
-    const totalDuration = this.data.movies.reduce((sum, movie) => sum + (movie.duration || 0), 0);
+    const totalSize = this.data.medias.reduce((sum, media) => sum + (media.size_bytes || 0), 0);
+    const totalDuration = this.data.medias.reduce((sum, media) => sum + (media.duration || 0), 0);
     
     const formatCounts = {};
-    this.data.movies.forEach(movie => {
-      const format = movie.format || 'unknown';
+    this.data.medias.forEach(media => {
+      const format = media.format || 'unknown';
       formatCounts[format] = (formatCounts[format] || 0) + 1;
     });
 
     return {
-      totalMovies: this.data.movies.length,
+      totalMedias: this.data.medias.length,
       totalSize,
       totalDuration,
       formatCounts,
-      withThumbnails: this.data.movies.filter(m => m.thumbnail).length
+      withThumbnails: this.data.medias.filter(m => m.thumbnail).length
     };
   }
 
@@ -217,7 +340,7 @@ class JSONDatabase {
     
     try {
       const thumbnailFiles = await fs.readdir(this.thumbnailsPath);
-      const usedThumbnails = this.data.movies
+      const usedThumbnails = this.data.medias
         .map(m => m.thumbnail)
         .filter(t => t);
 
@@ -237,9 +360,9 @@ class JSONDatabase {
   }
 
   // Sauvegarder une miniature et retourner son nom
-  async saveThumbnail(sourceImagePath, moviePath) {
+  async saveThumbnail(sourceImagePath, mediaPath) {
     try {
-      const thumbnailName = this.generateThumbnailName(moviePath);
+      const thumbnailName = this.generateThumbnailName(mediaPath);
       const destPath = this.getThumbnailPath(thumbnailName);
       
       await fs.copy(sourceImagePath, destPath);
@@ -267,11 +390,13 @@ class JSONDatabase {
       return { success: false, message: 'Série déjà existante' };
     }
 
+    // Enrichir les données de la série
+    const enrichedData = this.enrichSeriesData(seriesData);
+
     // Créer la série avec un ID unique
     const series = {
       id: this.generateId(),
-      name: seriesData.name,
-      description: seriesData.description || '',
+      ...enrichedData,
       dateAdded: new Date().toISOString(),
       episodeCount: 0
     };
@@ -295,17 +420,78 @@ class JSONDatabase {
     return { success: true, series: this.data.series };
   }
 
-  // Récupérer une série par ID
+  // Récupérer une série par ID avec ses épisodes
   async getSeriesById(seriesId) {
     if (!this.data) await this.load();
-    const series = this.data.series.find(s => s.id === seriesId);
-    if (!series) {
-      return { success: false, message: 'Série non trouvée' };
+
+    // Trouver la série dans les métadonnées
+    const seriesMetadata = this.data.series.find(s => s.id === seriesId);
+    if (!seriesMetadata) {
+      return { success: false, message: 'Série non trouvée dans les métadonnées' };
     }
+
+    // Trouver tous les épisodes de cette série
+    const episodes = this.data.medias.filter(media =>
+      media.category === 'series' && media.seriesId === seriesId
+    );
+
+    // Organiser les épisodes par saisons
+    const seasonsMap = new Map();
+
+    episodes.forEach(episode => {
+      const seasonNumber = episode.season_number || 1;
+      if (!seasonsMap.has(seasonNumber)) {
+        seasonsMap.set(seasonNumber, {
+          number: seasonNumber,
+          episodes: []
+        });
+      }
+
+      seasonsMap.get(seasonNumber).episodes.push({
+        id: episode.id,
+        title: episode.title,
+        path: episode.path,
+        format: episode.format,
+        duration: episode.duration,
+        size_bytes: episode.size_bytes,
+        thumbnail: episode.thumbnail,
+        width: episode.width,
+        height: episode.height,
+        season_number: episode.season_number || 1,
+        episode_number: episode.episode_number,
+        description: episode.description || '',
+        dateAdded: episode.dateAdded,
+        lastWatched: episode.lastWatched,
+        rating: episode.rating || 0
+      });
+    });
+
+    // Convertir en tableau et trier
+    const seasons = Array.from(seasonsMap.values())
+      .sort((a, b) => a.number - b.number)
+      .map(season => ({
+        ...season,
+        episodes: season.episodes.sort((a, b) => {
+          if (a.episode_number && b.episode_number) {
+            return a.episode_number - b.episode_number;
+          }
+          if (a.episode_number && !b.episode_number) return -1;
+          if (!a.episode_number && b.episode_number) return 1;
+          return 0;
+        })
+      }));
+
+    // Reconstituer la série complète
+    const series = {
+      ...seriesMetadata,
+      episodeCount: episodes.length,
+      seasons: seasons
+    };
+
     return { success: true, series };
   }
 
-  // Ajouter un épisode à une série
+  // Ajouter un épisode à une série (ajouté dans medias avec référence à la série)
   async addEpisodeToSeries(episodeData) {
     if (!this.data) await this.load();
 
@@ -314,13 +500,19 @@ class JSONDatabase {
       this.data.series = [];
     }
 
-    // Trouver la série
+    // Trouver la série dans les métadonnées
     const series = this.data.series.find(s => s.id === episodeData.seriesId);
     if (!series) {
-      return { success: false, message: 'Série non trouvée' };
+      return { success: false, message: 'Série non trouvée dans les métadonnées' };
     }
 
-    // Créer l'épisode
+    // Vérifier si l'épisode existe déjà dans les médias
+    const existingEpisode = this.data.medias.find(m => m.path === episodeData.path);
+    if (existingEpisode) {
+      return { success: false, message: 'Épisode déjà existant' };
+    }
+
+    // Créer l'épisode comme média
     const episode = {
       id: this.generateId(),
       title: episodeData.title,
@@ -331,53 +523,33 @@ class JSONDatabase {
       thumbnail: episodeData.thumbnail,
       width: episodeData.width,
       height: episodeData.height,
+      category: 'series',
+      seriesId: episodeData.seriesId,
+      seriesName: series.name,
       season_number: episodeData.season_number || 1,
       episode_number: episodeData.episode_number || null,
       description: episodeData.description || '',
       dateAdded: new Date().toISOString(),
       lastWatched: null,
-      rating: 0
+      rating: 0,
+      mediaType: 'series',
+      releaseDate: null,
+      year: null
     };
 
-    // Initialiser la structure des saisons si nécessaire
-    if (!series.seasons) {
-      series.seasons = [];
-    }
+    // Ajouter l'épisode dans les médias
+    this.data.medias.push(episode);
 
-    // Trouver ou créer la saison
-    let season = series.seasons.find(s => s.number === episode.season_number);
-    if (!season) {
-      season = {
-        number: episode.season_number,
-        episodes: []
-      };
-      series.seasons.push(season);
-      // Trier les saisons par numéro
-      series.seasons.sort((a, b) => a.number - b.number);
-    }
+    // Mettre à jour le compteur d'épisodes dans les métadonnées de la série
+    const totalEpisodes = this.data.medias.filter(m =>
+      m.category === 'series' && m.seriesId === episodeData.seriesId
+    ).length;
 
-    // Vérifier si l'épisode existe déjà
-    const existingEpisode = season.episodes.find(e => e.path === episode.path);
-    if (existingEpisode) {
-      return { success: false, message: 'Épisode déjà existant dans cette série' };
-    }
-
-    // Ajouter l'épisode
-    season.episodes.push(episode);
-
-    // Trier les épisodes par numéro (les épisodes sans numéro à la fin)
-    season.episodes.sort((a, b) => {
-      if (a.episode_number && b.episode_number) {
-        return a.episode_number - b.episode_number;
-      }
-      if (a.episode_number && !b.episode_number) return -1;
-      if (!a.episode_number && b.episode_number) return 1;
-      return 0;
-    });
-
-    // Mettre à jour le compteur d'épisodes de la série
-    const totalEpisodes = series.seasons.reduce((total, season) => total + season.episodes.length, 0);
     series.episodeCount = totalEpisodes;
+
+    // Mettre à jour les statistiques générales
+    this.data.settings.totalMedias = this.data.medias.length;
+    this.data.settings.lastScan = new Date().toISOString();
 
     await this.save();
 
@@ -410,7 +582,7 @@ class JSONDatabase {
     }
 
     // Vérifier si des épisodes sont associés à cette série
-    const relatedEpisodes = this.data.movies.filter(m => m.seriesId === seriesId);
+    const relatedEpisodes = this.data.medias.filter(m => m.seriesId === seriesId);
     if (relatedEpisodes.length > 0) {
       return { success: false, message: `Impossible de supprimer la série: ${relatedEpisodes.length} épisode(s) associé(s)` };
     }
@@ -419,6 +591,390 @@ class JSONDatabase {
     await this.save();
 
     return { success: true };
+  }
+
+  // ============================================
+  // SYSTÈME DE TAGS ET ENRICHISSEMENT DES DONNÉES
+  // ============================================
+
+  // Enrichir les données d'un média avec calculs automatiques
+  enrichMediaData(mediaData) {
+    const enriched = { ...mediaData };
+
+    // Calculer la décennie depuis l'année
+    if (enriched.year) {
+      enriched.decade = this.calculateDecade(enriched.year);
+    }
+
+    // Formater la durée
+    if (enriched.duration) {
+      enriched.durationFormatted = this.formatDuration(enriched.duration);
+      enriched.durationCategory = this.categorizeDuration(enriched.duration);
+    }
+
+    // Initialiser les tags s'ils n'existent pas
+    enriched.genres = enriched.genres || [];
+    enriched.actors = enriched.actors || [];
+    enriched.director = enriched.director || '';
+    enriched.mood = enriched.mood || [];
+    enriched.technical = enriched.technical || [];
+    enriched.personalTags = enriched.personalTags || [];
+    enriched.franchise = enriched.franchise || '';
+
+    return enriched;
+  }
+
+  // Enrichir les données d'une série
+  enrichSeriesData(seriesData) {
+    const enriched = { ...seriesData };
+
+    // Calculer la décennie depuis startYear
+    if (enriched.startYear || enriched.year) {
+      const year = enriched.startYear || enriched.year;
+      enriched.decade = this.calculateDecade(year);
+      if (!enriched.startYear && enriched.year) {
+        enriched.startYear = enriched.year;
+      }
+    }
+
+    // Initialiser les tags s'ils n'existent pas
+    enriched.genres = enriched.genres || [];
+    enriched.mainActors = enriched.mainActors || [];
+    enriched.creators = enriched.creators || [];
+    enriched.mood = enriched.mood || [];
+    enriched.personalTags = enriched.personalTags || [];
+    enriched.franchise = enriched.franchise || '';
+    enriched.networks = enriched.networks || [];
+    enriched.country = enriched.country || '';
+    enriched.status = enriched.status || 'unknown';
+
+    return enriched;
+  }
+
+  // Calculer la décennie à partir d'une année
+  calculateDecade(year) {
+    if (!year) return null;
+    const decade = Math.floor(year / 10) * 10;
+    return `${decade}s`;
+  }
+
+  // Formater la durée en format lisible
+  formatDuration(minutes) {
+    if (!minutes) return '0min';
+
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    if (hours > 0) {
+      return mins > 0 ? `${hours}h${mins.toString().padStart(2, '0')}` : `${hours}h`;
+    }
+    return `${mins}min`;
+  }
+
+  // Catégoriser la durée
+  categorizeDuration(minutes) {
+    if (!minutes) return 'unknown';
+
+    if (minutes < 90) return 'court';
+    if (minutes <= 150) return 'moyen';
+    return 'long';
+  }
+
+  // Catégoriser une série selon le nombre de saisons
+  categorizeSeriesLength(totalSeasons) {
+    if (!totalSeasons || totalSeasons === 0) return 'unknown';
+
+    if (totalSeasons === 1) return 'mini-série';
+    if (totalSeasons <= 3) return 'série-courte';
+    if (totalSeasons <= 6) return 'série-moyenne';
+    return 'série-longue';
+  }
+
+  // ============================================
+  // GESTION DES TAGS
+  // ============================================
+
+  // Ajouter un tag personnalisé
+  async addCustomTag(tagName) {
+    if (!this.data) await this.load();
+
+    if (!this.data.tagManager) {
+      this.data.tagManager = { predefinedTags: {}, customTags: [], tagStats: {} };
+    }
+
+    const normalizedTag = tagName.toLowerCase().trim();
+
+    if (!this.data.tagManager.customTags.includes(normalizedTag)) {
+      this.data.tagManager.customTags.push(normalizedTag);
+      this.data.tagManager.tagStats[normalizedTag] = 0;
+      await this.save();
+      return { success: true, tag: normalizedTag };
+    }
+
+    return { success: false, message: 'Tag déjà existant' };
+  }
+
+  // Supprimer un tag personnalisé
+  async removeCustomTag(tagName) {
+    if (!this.data) await this.load();
+
+    const normalizedTag = tagName.toLowerCase().trim();
+    const index = this.data.tagManager.customTags.indexOf(normalizedTag);
+
+    if (index > -1) {
+      this.data.tagManager.customTags.splice(index, 1);
+      delete this.data.tagManager.tagStats[normalizedTag];
+
+      // Supprimer le tag de tous les médias
+      this.data.medias.forEach(media => {
+        if (media.personalTags) {
+          media.personalTags = media.personalTags.filter(tag => tag !== normalizedTag);
+        }
+      });
+
+      // Supprimer le tag de toutes les séries
+      this.data.series.forEach(series => {
+        if (series.personalTags) {
+          series.personalTags = series.personalTags.filter(tag => tag !== normalizedTag);
+        }
+      });
+
+      await this.save();
+      return { success: true };
+    }
+
+    return { success: false, message: 'Tag non trouvé' };
+  }
+
+  // Ajouter des tags à un média
+  async addTagsToMedia(mediaId, tags, tagType = 'personalTags') {
+    if (!this.data) await this.load();
+
+    const media = this.data.medias.find(m => m.id === mediaId);
+    if (!media) {
+      return { success: false, message: 'Média non trouvé' };
+    }
+
+    if (!media[tagType]) {
+      media[tagType] = [];
+    }
+
+    const addedTags = [];
+    tags.forEach(tag => {
+      const normalizedTag = tag.toLowerCase().trim();
+      if (!media[tagType].includes(normalizedTag)) {
+        media[tagType].push(normalizedTag);
+        addedTags.push(normalizedTag);
+
+        // Mettre à jour les statistiques
+        if (!this.data.tagManager.tagStats[normalizedTag]) {
+          this.data.tagManager.tagStats[normalizedTag] = 0;
+        }
+        this.data.tagManager.tagStats[normalizedTag]++;
+      }
+    });
+
+    await this.save();
+    return { success: true, addedTags };
+  }
+
+  // Supprimer des tags d'un média
+  async removeTagsFromMedia(mediaId, tags, tagType = 'personalTags') {
+    if (!this.data) await this.load();
+
+    const media = this.data.medias.find(m => m.id === mediaId);
+    if (!media) {
+      return { success: false, message: 'Média non trouvé' };
+    }
+
+    if (!media[tagType]) {
+      return { success: true, removedTags: [] };
+    }
+
+    const removedTags = [];
+    tags.forEach(tag => {
+      const normalizedTag = tag.toLowerCase().trim();
+      const index = media[tagType].indexOf(normalizedTag);
+      if (index > -1) {
+        media[tagType].splice(index, 1);
+        removedTags.push(normalizedTag);
+
+        // Mettre à jour les statistiques
+        if (this.data.tagManager.tagStats[normalizedTag]) {
+          this.data.tagManager.tagStats[normalizedTag]--;
+          if (this.data.tagManager.tagStats[normalizedTag] <= 0) {
+            delete this.data.tagManager.tagStats[normalizedTag];
+          }
+        }
+      }
+    });
+
+    await this.save();
+    return { success: true, removedTags };
+  }
+
+  // Rechercher des médias par tags
+  async searchByTags(searchTags, operator = 'AND') {
+    if (!this.data) await this.load();
+
+    const normalizedSearchTags = searchTags.map(tag => tag.toLowerCase().trim());
+
+    return this.data.medias.filter(media => {
+      // Collecter tous les tags du média
+      const allMediaTags = [
+        ...(media.genres || []),
+        ...(media.mood || []),
+        ...(media.technical || []),
+        ...(media.personalTags || []),
+        media.franchise,
+        media.durationCategory,
+        media.decade
+      ].filter(Boolean).map(tag => tag.toLowerCase());
+
+      if (operator === 'AND') {
+        // Tous les tags recherchés doivent être présents
+        return normalizedSearchTags.every(searchTag =>
+          allMediaTags.some(mediaTag => mediaTag.includes(searchTag))
+        );
+      } else {
+        // Au moins un tag recherché doit être présent
+        return normalizedSearchTags.some(searchTag =>
+          allMediaTags.some(mediaTag => mediaTag.includes(searchTag))
+        );
+      }
+    });
+  }
+
+  // Obtenir tous les tags disponibles
+  async getAllTags() {
+    if (!this.data) await this.load();
+
+    if (!this.data.tagManager) {
+      return { success: true, tags: { predefined: {}, custom: [], stats: {} } };
+    }
+
+    return {
+      success: true,
+      tags: {
+        predefined: this.data.tagManager.predefinedTags,
+        custom: this.data.tagManager.customTags,
+        stats: this.data.tagManager.tagStats
+      }
+    };
+  }
+
+  // Obtenir des suggestions de tags basées sur une requête
+  async getTagSuggestions(query, limit = 10) {
+    if (!this.data) await this.load();
+
+    const normalizedQuery = query.toLowerCase().trim();
+    const suggestions = [];
+
+    // Rechercher dans les tags prédéfinis
+    Object.values(this.data.tagManager.predefinedTags || {}).forEach(tagGroup => {
+      tagGroup.forEach(tag => {
+        if (tag.toLowerCase().includes(normalizedQuery)) {
+          suggestions.push({ tag, type: 'predefined' });
+        }
+      });
+    });
+
+    // Rechercher dans les tags personnalisés
+    (this.data.tagManager.customTags || []).forEach(tag => {
+      if (tag.includes(normalizedQuery)) {
+        suggestions.push({ tag, type: 'custom' });
+      }
+    });
+
+    // Trier par pertinence et popularité
+    suggestions.sort((a, b) => {
+      const aStats = this.data.tagManager.tagStats[a.tag] || 0;
+      const bStats = this.data.tagManager.tagStats[b.tag] || 0;
+      return bStats - aStats;
+    });
+
+    return { success: true, suggestions: suggestions.slice(0, limit) };
+  }
+
+  // ============================================
+  // MIGRATION DES DONNÉES EXISTANTES
+  // ============================================
+
+  // Migrer les données existantes vers le nouveau format avec tags
+  async migrateToTagSystem() {
+    if (!this.data) await this.load();
+
+    console.log('🔄 Migration vers le système de tags...');
+
+    let migrationCount = 0;
+
+    // Migrer les médias
+    this.data.medias.forEach(media => {
+      const originalData = { ...media };
+      const enrichedData = this.enrichMediaData(media);
+
+      // Vérifier si des changements ont été effectués
+      if (JSON.stringify(originalData) !== JSON.stringify(enrichedData)) {
+        Object.assign(media, enrichedData);
+        migrationCount++;
+      }
+    });
+
+    // Migrer les séries
+    this.data.series.forEach(series => {
+      const originalData = { ...series };
+      const enrichedData = this.enrichSeriesData(series);
+
+      // Calculer la catégorie de longueur de série
+      if (series.totalSeasons) {
+        enrichedData.seriesLength = this.categorizeSeriesLength(series.totalSeasons);
+      }
+
+      if (JSON.stringify(originalData) !== JSON.stringify(enrichedData)) {
+        Object.assign(series, enrichedData);
+        migrationCount++;
+      }
+    });
+
+    // Initialiser le tagManager s'il n'existe pas
+    if (!this.data.tagManager) {
+      this.data.tagManager = {
+        predefinedTags: {
+          genres: [
+            "Action", "Aventure", "Comédie", "Drame", "Horreur", "Thriller",
+            "Romance", "Science-fiction", "Fantasy", "Documentaire", "Animation",
+            "Guerre", "Western", "Musical", "Crime", "Mystère", "Biographie"
+          ],
+          moods: [
+            "Détente", "Soirée entre amis", "Famille", "Date night", "Nostalgie",
+            "Frissons", "Réflexion", "Motivation", "Escapisme", "Tension", "Feel-good"
+          ],
+          technical: [
+            "4K", "HD", "SD", "HDR", "Dolby", "IMAX", "Blu-ray", "DVD"
+          ],
+          personal: [
+            "Coup de cœur", "À revoir", "Overrated", "Underrated", "Comfort food",
+            "Guilty pleasure", "Chef-d'œuvre", "Déçu", "Surprise"
+          ],
+          collections: [
+            "Marvel", "DC", "Star Wars", "Bond", "Fast & Furious", "Pixar",
+            "Studio Ghibli", "Disney", "Christopher Nolan", "Tarantino"
+          ]
+        },
+        customTags: [],
+        tagStats: {}
+      };
+      migrationCount++;
+    }
+
+    if (migrationCount > 0) {
+      await this.save();
+      console.log(`✅ Migration terminée: ${migrationCount} éléments mis à jour`);
+    } else {
+      console.log('ℹ️ Aucune migration nécessaire');
+    }
+
+    return { success: true, migrationCount };
   }
 }
 
