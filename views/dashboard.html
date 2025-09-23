@@ -361,8 +361,8 @@
         </div>
       </div>
       
-      <!-- Mode édition (initialement caché) -->
-      <div class="edit-mode" id="edit-mode" style="display: none;">
+      <!-- ANCIEN SYSTÈME SUPPRIMÉ - Le mode édition se fait maintenant directement dans view-mode -->
+      <!-- <div class="edit-mode" id="edit-mode" style="display: none;">
         <div class="modal-content">
           <!-- Titre du mode édition -->
           <div class="edit-header">
@@ -444,15 +444,23 @@
                 <div class="edit-tag-category-header">
                   <i class="fas fa-heart"></i>
                   <span>Ambiance</span>
-                  <button class="add-tag-btn" data-category="mood">
+                  <button class="add-tag-btn smart-add-btn" data-category="mood">
                     <i class="fas fa-plus"></i>
                   </button>
                 </div>
                 <div class="edit-tag-chips" id="edit-mood-tags"></div>
-                <div class="add-tag-form" style="display: none;">
-                  <input type="text" class="tag-input" placeholder="Nouveau tag d'ambiance...">
-                  <button class="confirm-tag-btn"><i class="fas fa-check"></i></button>
-                  <button class="cancel-tag-btn"><i class="fas fa-times"></i></button>
+
+                <!-- Nouveau système de dropdown intelligent -->
+                <div class="smart-tag-dropdown" id="mood-dropdown" style="display: none;">
+                  <div class="dropdown-search-container">
+                    <input type="text" class="dropdown-search" placeholder="Rechercher ou créer un tag...">
+                    <button class="dropdown-create-btn" style="display: block;">
+                      <i class="fas fa-plus"></i> Créer nouveau tag
+                    </button>
+                  </div>
+                  <div class="dropdown-tags-list">
+                    <!-- Les tags existants apparaîtront ici -->
+                  </div>
                 </div>
               </div>
 
@@ -461,15 +469,23 @@
                 <div class="edit-tag-category-header">
                   <i class="fas fa-cog"></i>
                   <span>Technique</span>
-                  <button class="add-tag-btn" data-category="technical">
+                  <button class="add-tag-btn smart-add-btn" data-category="technical">
                     <i class="fas fa-plus"></i>
                   </button>
                 </div>
                 <div class="edit-tag-chips" id="edit-technical-tags"></div>
-                <div class="add-tag-form" style="display: none;">
-                  <input type="text" class="tag-input" placeholder="Nouveau tag technique...">
-                  <button class="confirm-tag-btn"><i class="fas fa-check"></i></button>
-                  <button class="cancel-tag-btn"><i class="fas fa-times"></i></button>
+
+                <!-- Nouveau système de dropdown intelligent -->
+                <div class="smart-tag-dropdown" id="technical-dropdown" style="display: none;">
+                  <div class="dropdown-search-container">
+                    <input type="text" class="dropdown-search" placeholder="Rechercher ou créer un tag...">
+                    <button class="dropdown-create-btn" style="display: block;">
+                      <i class="fas fa-plus"></i> Créer nouveau tag
+                    </button>
+                  </div>
+                  <div class="dropdown-tags-list">
+                    <!-- Les tags existants apparaîtront ici -->
+                  </div>
                 </div>
               </div>
 
@@ -478,15 +494,23 @@
                 <div class="edit-tag-category-header">
                   <i class="fas fa-user"></i>
                   <span>Personnel</span>
-                  <button class="add-tag-btn" data-category="personal">
+                  <button class="add-tag-btn smart-add-btn" data-category="personal">
                     <i class="fas fa-plus"></i>
                   </button>
                 </div>
                 <div class="edit-tag-chips" id="edit-personal-tags"></div>
-                <div class="add-tag-form" style="display: none;">
-                  <input type="text" class="tag-input" placeholder="Nouveau tag personnel...">
-                  <button class="confirm-tag-btn"><i class="fas fa-check"></i></button>
-                  <button class="cancel-tag-btn"><i class="fas fa-times"></i></button>
+
+                <!-- Nouveau système de dropdown intelligent -->
+                <div class="smart-tag-dropdown" id="personal-dropdown" style="display: none;">
+                  <div class="dropdown-search-container">
+                    <input type="text" class="dropdown-search" placeholder="Rechercher ou créer un tag...">
+                    <button class="dropdown-create-btn" style="display: block;">
+                      <i class="fas fa-plus"></i> Créer nouveau tag
+                    </button>
+                  </div>
+                  <div class="dropdown-tags-list">
+                    <!-- Les tags existants apparaîtront ici -->
+                  </div>
                 </div>
               </div>
             </div>
@@ -515,7 +539,7 @@
           <button class="save-changes-btn" id="save-changes-btn">Enregistrer les modifications</button>
           <button class="exit-edit-mode" id="exit-edit-mode">Sortir du mode édition</button>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 

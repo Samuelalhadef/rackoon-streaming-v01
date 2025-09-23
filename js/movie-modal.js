@@ -30,13 +30,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const editCancelBtn = document.getElementById('edit-cancel-btn');
   const editSaveBtn = document.getElementById('edit-save-btn');
 
+  // Debug: Vérifier que tous les éléments sont trouvés
+  console.log('🔍 Éléments de boutons extensibles:');
+  console.log('  - editButton:', !!editButton);
+  console.log('  - editButtonGroup:', !!editButtonGroup);
+  console.log('  - editCancelBtn:', !!editCancelBtn);
+  console.log('  - editSaveBtn:', !!editSaveBtn);
+
   // Nouveaux éléments pour le système d'avis
   const reviewInput = document.getElementById('review-input');
   const reviewSaveBtn = document.getElementById('review-save-btn');
   
   // Éléments du mode édition
   const viewMode = document.getElementById('view-mode');
-  const editMode = document.getElementById('edit-mode');
+  // const editMode = document.getElementById('edit-mode'); // SUPPRIMÉ - plus utilisé
   const editTitleInput = document.getElementById('edit-title-input');
   const editReleaseDateInput = document.getElementById('edit-release-date');
   const editGenresContainer = document.getElementById('edit-genres-container');
@@ -69,8 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (!viewMode || !editMode) {
-      console.error('❌ Éléments view-mode ou edit-mode manquants');
+    if (!viewMode) {
+      console.error('❌ Élément view-mode manquant');
       return;
     }
 
@@ -185,23 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Basculer vers le mode édition avec changement visuel
-  function toggleEditMode(isEditMode) {
-    const movieModal = document.getElementById('movie-modal');
-    const viewMode = document.getElementById('view-mode');
-    const editMode = document.getElementById('edit-mode');
-
-    if (isEditMode) {
-      // Passer en mode édition
-      movieModal.classList.add('edit-mode');
-      viewMode.style.display = 'none';
-      editMode.style.display = 'flex';
-    } else {
-      // Revenir au mode visualisation
-      movieModal.classList.remove('edit-mode');
-      viewMode.style.display = 'flex';
-      editMode.style.display = 'none';
-    }
-  }
+  // FONCTION SUPPRIMÉE - toggleEditMode obsolète avec le nouveau système
   
   // Fonctions utilitaires pour les préférences globales
   function loadUserPreferences() {
@@ -426,6 +417,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function markAsChanged() {
     hasUnsavedChanges = true;
     updateSaveButtonState();
+
+    // Mettre à jour l'état des boutons extensibles
+    if (isEditMode) {
+      // Le bouton save devient vert (actif) s'il y a des modifications
+      if (editSaveBtn) {
+        editSaveBtn.classList.add('active');
+      }
+    }
   }
   
   // Fonction interne pour ouvrir la modal avec les données du film
@@ -434,8 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('🎬 Ouverture de la modale pour le film ID:', movieId);
 
       // Vérifier que les éléments essentiels existent
-      if (!modalOverlay || !viewMode || !editMode) {
-        console.error('❌ Éléments de la modale manquants:', { modalOverlay, viewMode, editMode });
+      if (!modalOverlay || !viewMode) {
+        console.error('❌ Éléments de la modale manquants:', { modalOverlay, viewMode });
         return;
       }
 
@@ -443,7 +442,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Réinitialiser le mode d'affichage
       viewMode.style.display = 'flex';
-      editMode.style.display = 'none';
       
       // Récupérer les modifications précédentes du film
       const savedEdits = window.movieEdits.get(movieId);
@@ -576,7 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Initialiser le système de tags avancé si pas encore fait
-      if (!window.tagSystem && document.querySelector('.add-tag-btn')) {
+      if (!window.tagSystem && document.querySelector('.smart-add-btn')) {
         setupAdvancedTagSystem();
       }
 
@@ -759,7 +757,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Passer en mode édition avec le nouveau style visuel
+  // ANCIEN SYSTÈME DÉSACTIVÉ - Remplacé par le nouveau système de boutons extensibles
+  /*
   editButton.addEventListener('click', () => {
     toggleEditMode(true);
 
@@ -770,18 +769,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 100);
   });
+  */
   
-  // Sortir du mode édition avec le nouveau style visuel
+  // ANCIEN CODE COMMENTÉ - exitEditModeBtn obsolète avec le nouveau système
+  /*
   exitEditModeBtn.addEventListener('click', () => {
     toggleEditMode(false);
     const viewModeElement = document.getElementById('view-mode');
     const editModeElement = document.getElementById('edit-mode');
-    
+
     if (viewModeElement && editModeElement) {
       viewModeElement.style.display = 'flex';
       editModeElement.style.display = 'none';
     }
   });
+  */
   
   // Fonction pour mettre à jour l'affichage des genres en mode édition
   function updateEditGenresDisplay() {
@@ -1671,14 +1673,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       alert('Modifications enregistrées avec succès');
       
-      // Revenir au mode visualisation
-      const viewModeElement = document.getElementById('view-mode');
-      const editModeElement = document.getElementById('edit-mode');
-      
-      if (viewModeElement && editModeElement) {
-        viewModeElement.style.display = 'flex';
-        editModeElement.style.display = 'none';
-      }
+      // ANCIEN CODE SUPPRIMÉ - Plus besoin avec le nouveau système
       
       // Rafraîchir le dashboard pour refléter les modifications
       if (typeof window.refreshDashboard === 'function') {
@@ -1825,17 +1820,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Afficher les boutons d'extension
     showExtensionButtons();
 
-    // Passer en mode édition visuel
+    // Passer en mode édition visuel (nouveau système - switch dans view-mode)
     const viewModeElement = document.getElementById('view-mode');
-    const editModeElement = document.getElementById('edit-mode');
 
-    if (viewModeElement && editModeElement) {
-      viewModeElement.style.display = 'none';
-      editModeElement.style.display = 'flex';
-
-      // Ajouter la classe pour les couleurs plus sombres
+    if (viewModeElement) {
+      // Ne plus changer l'affichage - rester en view-mode
+      // Juste changer les couleurs avec la classe edit-mode-active
       document.querySelector('.modal-overlay').classList.add('edit-mode-active');
+      console.log('🎨 Mode édition activé - couleurs changées');
     }
+
+    // NOUVEAU: Verrouiller les éléments interactifs du mode normal
+    lockNormalModeElements();
   }
 
   // Fonction pour désactiver le mode édition
@@ -1852,20 +1848,163 @@ document.addEventListener('DOMContentLoaded', () => {
     // Masquer les boutons d'extension
     hideExtensionButtons();
 
-    // Revenir en mode visualisation
+    // Revenir en mode visualisation (nouveau système - rester en view-mode)
     const viewModeElement = document.getElementById('view-mode');
-    const editModeElement = document.getElementById('edit-mode');
 
-    if (viewModeElement && editModeElement) {
-      viewModeElement.style.display = 'flex';
-      editModeElement.style.display = 'none';
-
-      // Retirer la classe des couleurs plus sombres
+    if (viewModeElement) {
+      // Ne plus changer l'affichage - déjà en view-mode
+      // Juste retirer la classe des couleurs d'édition
       document.querySelector('.modal-overlay').classList.remove('edit-mode-active');
+      console.log('🎨 Mode normal restauré - couleurs originales');
+    }
+
+    // NOUVEAU: Déverrouiller les éléments interactifs du mode normal
+    unlockNormalModeElements();
+  }
+
+  // NOUVELLES FONCTIONS pour gérer le verrouillage des éléments
+  function lockNormalModeElements() {
+    // Verrouiller les étoiles de notation
+    const modalStars = document.querySelectorAll('.modal-star');
+    modalStars.forEach(star => {
+      star.classList.add('locked');
+      star.style.pointerEvents = 'none';
+      star.style.opacity = '0.5';
+    });
+
+    // Verrouiller le bouton vu/à voir
+    const watchToggle = document.getElementById('btn-watch-toggle-modal');
+    if (watchToggle) {
+      watchToggle.classList.add('locked');
+      watchToggle.style.pointerEvents = 'none';
+      watchToggle.style.opacity = '0.5';
+    }
+
+    // Verrouiller la section d'avis
+    const reviewInput = document.getElementById('review-input');
+    const reviewSaveBtn = document.getElementById('review-save-btn');
+    if (reviewInput) {
+      reviewInput.disabled = true;
+      reviewInput.style.opacity = '0.5';
+    }
+    if (reviewSaveBtn) {
+      reviewSaveBtn.disabled = true;
+      reviewSaveBtn.style.opacity = '0.5';
+    }
+
+    // Ajouter un overlay explicatif
+    addLockOverlay();
+  }
+
+  function unlockNormalModeElements() {
+    // Déverrouiller les étoiles de notation
+    const modalStars = document.querySelectorAll('.modal-star');
+    modalStars.forEach(star => {
+      star.classList.remove('locked');
+      star.style.pointerEvents = '';
+      star.style.opacity = '';
+    });
+
+    // Déverrouiller le bouton vu/à voir
+    const watchToggle = document.getElementById('btn-watch-toggle-modal');
+    if (watchToggle) {
+      watchToggle.classList.remove('locked');
+      watchToggle.style.pointerEvents = '';
+      watchToggle.style.opacity = '';
+    }
+
+    // Déverrouiller la section d'avis
+    const reviewInput = document.getElementById('review-input');
+    const reviewSaveBtn = document.getElementById('review-save-btn');
+    if (reviewInput) {
+      reviewInput.disabled = false;
+      reviewInput.style.opacity = '';
+    }
+    if (reviewSaveBtn) {
+      reviewSaveBtn.disabled = false;
+      reviewSaveBtn.style.opacity = '';
+    }
+
+    // Retirer l'overlay
+    removeLockOverlay();
+  }
+
+  function addLockOverlay() {
+    // Créer un overlay subtil sur les éléments verrouillés
+    const sidebar = document.querySelector('.modal-sidebar .evaluation-section');
+    if (sidebar && !sidebar.querySelector('.lock-overlay')) {
+      const overlay = document.createElement('div');
+      overlay.className = 'lock-overlay';
+      overlay.innerHTML = `
+        <div class="lock-message">
+          <i class="fas fa-lock"></i>
+          <span>Disponible en mode normal</span>
+        </div>
+      `;
+      sidebar.appendChild(overlay);
     }
   }
 
-  // Fonction pour créer une popup de confirmation
+  function removeLockOverlay() {
+    const overlay = document.querySelector('.lock-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
+  }
+
+  // Nouvelle fonction pour créer une popup de confirmation avec 3 boutons
+  function createAdvancedConfirmationPopup(title, message, buttons) {
+    const popup = document.createElement('div');
+    popup.className = 'advanced-confirmation-popup';
+
+    const buttonsHtml = buttons.map(btn =>
+      `<button class="popup-btn ${btn.class}" data-action="${btn.action}">${btn.text}</button>`
+    ).join('');
+
+    popup.innerHTML = `
+      <div class="popup-content">
+        <h3>${title}</h3>
+        <p>${message}</p>
+        <div class="popup-buttons">
+          ${buttonsHtml}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Animation d'entrée
+    setTimeout(() => {
+      popup.classList.add('show');
+    }, 10);
+
+    return new Promise((resolve) => {
+      // Gestion des clics sur les boutons
+      popup.querySelectorAll('.popup-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.action;
+          popup.classList.remove('show');
+          setTimeout(() => {
+            document.body.removeChild(popup);
+            resolve(action);
+          }, 300);
+        });
+      });
+
+      // Fermer en cliquant sur l'overlay
+      popup.addEventListener('click', (e) => {
+        if (e.target === popup) {
+          popup.classList.remove('show');
+          setTimeout(() => {
+            document.body.removeChild(popup);
+            resolve('cancel');
+          }, 300);
+        }
+      });
+    });
+  }
+
+  // Fonction simple pour créer une popup de confirmation à 2 boutons
   function createConfirmationPopup(message, onConfirm, onCancel) {
     const popup = document.createElement('div');
     popup.className = 'edit-confirmation-popup';
@@ -1904,46 +2043,98 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Événement pour le bouton principal d'édition
+  // NOUVEAU SYSTÈME DE BOUTONS EXTENSIBLES selon vos spécifications
   if (editButton) {
-    editButton.addEventListener('click', () => {
+    editButton.addEventListener('click', async () => {
       if (!isEditMode) {
+        // Activer le mode édition
         activateEditMode();
-      }
-    });
-  }
-
-  // Événement pour le bouton d'annulation
-  if (editCancelBtn) {
-    editCancelBtn.addEventListener('click', () => {
-      if (hasUnsavedChanges) {
-        createConfirmationPopup(
-          'Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir annuler ?',
-          () => {
-            deactivateEditMode();
-            // Réinitialiser les champs d'édition aux valeurs originales
-            resetEditFields();
-          }
-        );
       } else {
-        deactivateEditMode();
+        // Mode édition déjà actif, clic sur bouton central
+        if (hasUnsavedChanges) {
+          // Il y a des modifications → popup 3 boutons
+          const result = await createAdvancedConfirmationPopup(
+            'Modifications en cours',
+            'Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?',
+            [
+              { text: 'Retour', class: 'popup-secondary', action: 'return' },
+              { text: 'Sauvegarder', class: 'popup-success', action: 'save' },
+              { text: 'Annuler les modifs', class: 'popup-danger', action: 'discard' }
+            ]
+          );
+
+          switch (result) {
+            case 'save':
+              await saveChangesAndExit();
+              break;
+            case 'discard':
+              discardChangesAndExit();
+              break;
+            case 'return':
+            default:
+              // Ne rien faire, rester en mode édition
+              break;
+          }
+        } else {
+          // Pas de modifications → retour direct au mode normal
+          deactivateEditMode();
+        }
       }
     });
   }
 
-  // Événement pour le bouton de sauvegarde
+  // Événement pour le bouton d'annulation (rouge, gauche)
+  if (editCancelBtn) {
+    editCancelBtn.addEventListener('click', async () => {
+      const result = await createAdvancedConfirmationPopup(
+        'Annuler les modifications',
+        'Êtes-vous sûr de vouloir annuler toutes les modifications ?',
+        [
+          { text: 'Non, continuer', class: 'popup-secondary', action: 'continue' },
+          { text: 'Oui, annuler', class: 'popup-danger', action: 'discard' }
+        ]
+      );
+
+      if (result === 'discard') {
+        discardChangesAndExit();
+      }
+    });
+  }
+
+  // Événement pour le bouton de sauvegarde (vert, droite)
   if (editSaveBtn) {
     editSaveBtn.addEventListener('click', async () => {
-      // Utiliser la fonction de sauvegarde existante
-      const saveButton = document.getElementById('save-edits-btn');
-      if (saveButton) {
-        saveButton.click();
-        // Désactiver le mode édition après sauvegarde
-        setTimeout(() => {
-          deactivateEditMode();
-        }, 500);
+      if (hasUnsavedChanges) {
+        await saveChanges();
+        // IMPORTANT: Rester en mode édition après sauvegarde selon vos specs
+        updateSaveButtonState(); // Le bouton redevient gris
+        console.log('Modifications sauvegardées, mode édition maintenu');
       }
     });
+  }
+
+  // Fonctions helper pour le nouveau système
+  async function saveChangesAndExit() {
+    await saveChanges();
+    deactivateEditMode();
+  }
+
+  function discardChangesAndExit() {
+    // Restaurer les données originales
+    resetEditFields();
+    hasUnsavedChanges = false;
+    deactivateEditMode();
+  }
+
+  // Fonction pour mettre à jour l'état du bouton save
+  function updateSaveButtonState() {
+    if (editSaveBtn) {
+      if (hasUnsavedChanges) {
+        editSaveBtn.classList.add('active');
+      } else {
+        editSaveBtn.classList.remove('active');
+      }
+    }
   }
 
   // Fonction pour détecter les changements dans les champs d'édition
@@ -1992,14 +2183,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialiser le système de tags avancé seulement si les éléments existent
   try {
-    if (document.querySelector('.add-tag-btn')) {
+    const smartBtns = document.querySelectorAll('.smart-add-btn');
+    console.log('🔍 Smart add buttons trouvés:', smartBtns.length);
+
+    if (smartBtns.length > 0) {
+      console.log('🚀 Initialisation du nouveau système de tags');
       setupAdvancedTagSystem();
+    } else {
+      console.warn('⚠️ Aucun bouton smart-add-btn trouvé');
     }
   } catch (error) {
     console.error('Erreur lors de l\'initialisation du système de tags:', error);
   }
 
-  // Fonction pour initialiser le système de tags avancé
+  // NOUVEAU SYSTÈME DE TAGS INTELLIGENT
   function setupAdvancedTagSystem() {
     // Variables pour stocker les tags par catégorie
     let mediaTags = {
@@ -2008,103 +2205,236 @@ document.addEventListener('DOMContentLoaded', () => {
       personal: []
     };
 
-    // Récupérer les boutons d'ajout de tags
-    const addTagButtons = document.querySelectorAll('.add-tag-btn');
+    // Base de données des tags existants par catégorie (simulée)
+    const existingTags = {
+      mood: [
+        'Dynamique', 'Intense', 'Épique', 'Aventurier', 'Familial', 'Imaginatif', 'Léger', 'Divertissant',
+        'Sombre', 'Tendu', 'Éducatif', 'Informatif', 'Émotionnel', 'Profond', 'Bienveillant', 'Magique',
+        'Historique', 'Effrayant', 'Musical', 'Rythmé', 'Intriguant', 'Mystérieux', 'Romantique', 'Émouvant',
+        'Futuriste', 'Innovant', 'Suspense', 'Classique'
+      ],
+      technical: [
+        'HD', '4K', 'HDR', 'Dolby Atmos', 'IMAX', 'Director\'s Cut', 'Remastered', 'Restauré',
+        'Version longue', 'Version originale', 'Sous-titré', 'VF', 'VOSTFR', 'Bonus inclus',
+        'Making-of', 'Commentaires', 'Scènes coupées', 'Multi-angles', 'DTS', 'Surround'
+      ],
+      personal: [
+        'Coup de cœur', 'À revoir', 'Culte', 'Nostalgie', 'Découverte', 'Recommandé',
+        'Oscar', 'Cannes', 'Festival', 'Indie', 'Blockbuster', 'Art et essai',
+        'Collection', 'Saga', 'Trilogie', 'Univers partagé', 'Adaptation', 'Original'
+      ]
+    };
 
-    addTagButtons.forEach(button => {
+    // Récupérer les boutons d'ajout de tags intelligents
+    const smartAddButtons = document.querySelectorAll('.smart-add-btn');
+
+    smartAddButtons.forEach(button => {
+      const category = button.dataset.category;
+      const dropdown = document.getElementById(`${category}-dropdown`);
+      const searchInput = dropdown.querySelector('.dropdown-search');
+      const createBtn = dropdown.querySelector('.dropdown-create-btn');
+      const tagsList = dropdown.querySelector('.dropdown-tags-list');
+
+      // Gestion du clic sur le bouton +
       button.addEventListener('click', (e) => {
         e.preventDefault();
-        const category = button.dataset.category;
-        const tagCategory = button.closest('.edit-tag-category');
-        const addForm = tagCategory.querySelector('.add-tag-form');
-        const tagInput = addForm.querySelector('.tag-input');
 
-        // Toggle du formulaire d'ajout
-        if (addForm.style.display === 'none' || !addForm.classList.contains('show')) {
-          // Masquer tous les autres formulaires
-          document.querySelectorAll('.add-tag-form').forEach(form => {
-            form.style.display = 'none';
-            form.classList.remove('show');
-          });
-          document.querySelectorAll('.add-tag-btn').forEach(btn => {
-            btn.classList.remove('active');
-          });
+        // Fermer tous les autres dropdowns
+        document.querySelectorAll('.smart-tag-dropdown').forEach(dd => {
+          if (dd !== dropdown) {
+            dd.classList.remove('active');
+            dd.style.display = 'none';
+          }
+        });
+        document.querySelectorAll('.smart-add-btn').forEach(btn => {
+          if (btn !== button) {
+            btn.classList.remove('extended');
+          }
+        });
 
-          // Afficher ce formulaire
-          addForm.style.display = 'flex';
-          button.classList.add('active');
-          setTimeout(() => {
-            addForm.classList.add('show');
-            tagInput.focus();
-          }, 10);
+        // Toggle ce dropdown
+        if (dropdown.classList.contains('active')) {
+          // Fermer
+          closeDropdown(button, dropdown);
         } else {
-          // Masquer le formulaire
-          hideTagForm(addForm, button);
+          // Ouvrir
+          openDropdown(button, dropdown, category);
         }
       });
-    });
 
-    // Gestion des boutons de confirmation et annulation
-    document.querySelectorAll('.confirm-tag-btn').forEach(button => {
-      button.addEventListener('click', (e) => {
+      // Gestion de la recherche
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        filterTags(category, searchTerm, tagsList, createBtn);
+      });
+
+      // Gestion du bouton "Créer nouveau tag"
+      createBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        const tagCategory = button.closest('.edit-tag-category');
-        const addForm = tagCategory.querySelector('.add-tag-form');
-        const tagInput = addForm.querySelector('.tag-input');
-        const addButton = tagCategory.querySelector('.add-tag-btn');
-        const category = addButton.dataset.category;
-        const tagChipsContainer = tagCategory.querySelector('.edit-tag-chips');
+        const newTagName = searchInput.value.trim();
+        if (newTagName) {
+          addNewTag(category, newTagName);
+          searchInput.value = '';
+          closeDropdown(button, dropdown);
+        }
+      });
 
-        const tagValue = tagInput.value.trim();
-        if (tagValue && !mediaTags[category].includes(tagValue)) {
-          // Ajouter le tag à la liste
-          mediaTags[category].push(tagValue);
-
-          // Créer l'élément visuel du tag
-          const tagChip = createTagChip(tagValue, category);
-          tagChipsContainer.appendChild(tagChip);
-
-          // Marquer les changements comme non sauvegardés
-          hasUnsavedChanges = true;
-
-          // Réinitialiser le formulaire
-          tagInput.value = '';
-          hideTagForm(addForm, addButton);
+      // Fermer dropdown en cliquant ailleurs
+      document.addEventListener('click', (e) => {
+        if (!button.contains(e.target) && !dropdown.contains(e.target)) {
+          closeDropdown(button, dropdown);
         }
       });
     });
 
-    document.querySelectorAll('.cancel-tag-btn').forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.preventDefault();
-        const tagCategory = button.closest('.edit-tag-category');
-        const addForm = tagCategory.querySelector('.add-tag-form');
-        const addButton = tagCategory.querySelector('.add-tag-btn');
-        const tagInput = addForm.querySelector('.tag-input');
+    // Fonctions helper pour le nouveau système
+    function openDropdown(button, dropdown, category) {
+      // Animation d'extension du bouton
+      button.classList.add('extended');
 
-        tagInput.value = '';
-        hideTagForm(addForm, addButton);
+      // Afficher le dropdown
+      dropdown.style.display = 'block';
+
+      // Délai pour l'animation
+      setTimeout(() => {
+        dropdown.classList.add('active');
+
+        // Peupler la liste des tags
+        populateTagsList(category, dropdown);
+
+        // Focus sur la recherche
+        const searchInput = dropdown.querySelector('.dropdown-search');
+        searchInput.focus();
+      }, 100);
+    }
+
+    function closeDropdown(button, dropdown) {
+      button.classList.remove('extended');
+      dropdown.classList.remove('active');
+
+      setTimeout(() => {
+        dropdown.style.display = 'none';
+
+        // Réinitialiser la recherche
+        const searchInput = dropdown.querySelector('.dropdown-search');
+        searchInput.value = '';
+
+        const createBtn = dropdown.querySelector('.dropdown-create-btn');
+        createBtn.style.display = 'block';
+        createBtn.classList.remove('hidden');
+      }, 400);
+    }
+
+    function populateTagsList(category, dropdown) {
+      const tagsList = dropdown.querySelector('.dropdown-tags-list');
+      tagsList.innerHTML = '';
+
+      // Récupérer les tags existants pour cette catégorie
+      const availableTags = existingTags[category] || [];
+
+      if (availableTags.length === 0) {
+        tagsList.innerHTML = '<div class="dropdown-no-results">Aucun tag prédéfini pour cette catégorie</div>';
+        return;
+      }
+
+      // Trier alphabétiquement
+      const sortedTags = [...availableTags].sort((a, b) => a.localeCompare(b));
+
+      sortedTags.forEach(tagName => {
+        const tagItem = document.createElement('div');
+        tagItem.className = 'dropdown-tag-item';
+        tagItem.textContent = tagName;
+
+        // Vérifier si le tag est déjà ajouté
+        if (mediaTags[category].includes(tagName)) {
+          tagItem.classList.add('already-added');
+        }
+
+        // Gestion du clic
+        tagItem.addEventListener('click', () => {
+          if (!tagItem.classList.contains('already-added')) {
+            addExistingTag(category, tagName);
+            closeDropdown(dropdown.closest('.edit-tag-category').querySelector('.smart-add-btn'), dropdown);
+          }
+        });
+
+        tagsList.appendChild(tagItem);
       });
-    });
+    }
 
-    // Gestion de la touche Entrée dans les champs de saisie
-    document.querySelectorAll('.tag-input').forEach(input => {
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const confirmBtn = input.parentElement.querySelector('.confirm-tag-btn');
-          confirmBtn.click();
-        } else if (e.key === 'Escape') {
-          const cancelBtn = input.parentElement.querySelector('.cancel-tag-btn');
-          cancelBtn.click();
+    function filterTags(category, searchTerm, tagsList, createBtn) {
+      const tagItems = tagsList.querySelectorAll('.dropdown-tag-item');
+      let hasVisibleItems = false;
+
+      tagItems.forEach(item => {
+        const tagName = item.textContent.toLowerCase();
+        if (tagName.includes(searchTerm)) {
+          item.classList.remove('filtered-out');
+          hasVisibleItems = true;
+        } else {
+          item.classList.add('filtered-out');
         }
       });
-    });
 
-    // Fonction pour créer un tag chip
-    function createTagChip(tagValue, category) {
+      // Gestion du bouton "Créer nouveau"
+      if (searchTerm.length > 0) {
+        createBtn.style.display = 'none';
+        createBtn.classList.add('hidden');
+      } else {
+        createBtn.style.display = 'block';
+        createBtn.classList.remove('hidden');
+      }
+
+      // Message si aucun résultat
+      const noResults = tagsList.querySelector('.dropdown-no-results');
+      if (!hasVisibleItems && searchTerm.length > 0) {
+        if (!noResults) {
+          const noResultsDiv = document.createElement('div');
+          noResultsDiv.className = 'dropdown-no-results';
+          noResultsDiv.textContent = `Aucun tag trouvé pour "${searchTerm}"`;
+          tagsList.appendChild(noResultsDiv);
+        }
+      } else if (noResults) {
+        noResults.remove();
+      }
+    }
+
+    function addExistingTag(category, tagName) {
+      if (!mediaTags[category].includes(tagName)) {
+        mediaTags[category].push(tagName);
+
+        const container = document.getElementById(`edit-${category}-tags`);
+        const tagChip = createSmartTagChip(tagName, category);
+        container.appendChild(tagChip);
+
+        // Marquer comme modifié
+        markAsChanged();
+      }
+    }
+
+    function addNewTag(category, tagName) {
+      if (!mediaTags[category].includes(tagName)) {
+        // Ajouter à la liste locale
+        mediaTags[category].push(tagName);
+
+        // Ajouter à la base de tags existants (pour les futures utilisations)
+        if (!existingTags[category].includes(tagName)) {
+          existingTags[category].push(tagName);
+        }
+
+        const container = document.getElementById(`edit-${category}-tags`);
+        const tagChip = createSmartTagChip(tagName, category, true); // true = nouveau tag
+        container.appendChild(tagChip);
+
+        // Marquer comme modifié
+        markAsChanged();
+      }
+    }
+
+    // Nouvelle fonction pour créer un smart tag chip avec état transparent
+    function createSmartTagChip(tagValue, category, isNew = false) {
       const tagChip = document.createElement('div');
-      tagChip.className = 'edit-tag-chip adding';
+      tagChip.className = `edit-tag-chip ${isNew ? 'newly-added' : 'adding'}`;
       tagChip.innerHTML = `
         <span>${tagValue}</span>
         <button class="remove-tag" data-tag="${tagValue}" data-category="${category}">
@@ -2112,43 +2442,56 @@ document.addEventListener('DOMContentLoaded', () => {
         </button>
       `;
 
-      // Ajouter l'événement de suppression
+      // Ajouter l'événement de suppression/restauration
       const removeBtn = tagChip.querySelector('.remove-tag');
       removeBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        removeTag(tagValue, category, tagChip);
+        toggleTagTransparency(tagValue, category, tagChip);
       });
 
       return tagChip;
     }
 
-    // Fonction pour supprimer un tag
-    function removeTag(tagValue, category, tagElement) {
-      // Ajouter l'effet de transparence et d'animation
-      tagElement.classList.add('removing');
+    // Nouvelle fonction pour gérer l'état transparent des tags
+    function toggleTagTransparency(tagValue, category, tagElement) {
+      if (tagElement.classList.contains('transparent')) {
+        // Restaurer le tag
+        tagElement.classList.remove('transparent');
+        console.log(`Tag "${tagValue}" restauré`);
+      } else {
+        // Marquer comme transparent (suppression en attente)
+        tagElement.classList.add('transparent');
+        console.log(`Tag "${tagValue}" marqué pour suppression`);
+      }
 
-      setTimeout(() => {
-        // Retirer de la liste des tags
-        const index = mediaTags[category].indexOf(tagValue);
-        if (index > -1) {
-          mediaTags[category].splice(index, 1);
-        }
-
-        // Supprimer l'élément du DOM
-        tagElement.remove();
-
-        // Marquer les changements comme non sauvegardés
-        hasUnsavedChanges = true;
-      }, 300);
+      // Marquer comme modifié
+      markAsChanged();
     }
 
-    // Fonction pour masquer le formulaire d'ajout
-    function hideTagForm(addForm, addButton) {
-      addForm.classList.remove('show');
-      addButton.classList.remove('active');
-      setTimeout(() => {
-        addForm.style.display = 'none';
-      }, 300);
+    // Fonction pour supprimer définitivement les tags transparents lors de la sauvegarde
+    function applyTagChanges() {
+      ['mood', 'technical', 'personal'].forEach(category => {
+        const container = document.getElementById(`edit-${category}-tags`);
+        const transparentTags = container.querySelectorAll('.edit-tag-chip.transparent');
+
+        transparentTags.forEach(tagElement => {
+          const tagValue = tagElement.querySelector('span').textContent;
+
+          // Retirer de la liste des tags
+          const index = mediaTags[category].indexOf(tagValue);
+          if (index > -1) {
+            mediaTags[category].splice(index, 1);
+          }
+
+          // Supprimer l'élément avec animation
+          tagElement.classList.add('removing');
+          setTimeout(() => {
+            if (tagElement.parentNode) {
+              tagElement.remove();
+            }
+          }, 300);
+        });
+      });
     }
 
     // Fonction pour charger les tags existants du média
@@ -2160,13 +2503,13 @@ document.addEventListener('DOMContentLoaded', () => {
           personal: mediaData.tags.personal || []
         };
 
-        // Afficher les tags dans l'interface
+        // Afficher les tags dans l'interface avec le nouveau système
         Object.keys(mediaTags).forEach(category => {
           const container = document.getElementById(`edit-${category}-tags`);
           if (container) {
             container.innerHTML = '';
             mediaTags[category].forEach(tag => {
-              const tagChip = createTagChip(tag, category);
+              const tagChip = createSmartTagChip(tag, category);
               container.appendChild(tagChip);
             });
           }
@@ -2176,13 +2519,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fonction pour obtenir tous les tags du média pour la sauvegarde
     function getMediaTags() {
+      // Appliquer les changements de transparence avant de retourner
+      applyTagChanges();
       return mediaTags;
     }
 
     // Exposer les fonctions pour utilisation dans d'autres parties du code
     window.tagSystem = {
       loadMediaTags,
-      getMediaTags
+      getMediaTags,
+      applyTagChanges,
+      // Exposer aussi les autres fonctions utiles
+      addExistingTag,
+      addNewTag,
+      toggleTagTransparency
     };
   }
 
