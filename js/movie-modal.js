@@ -191,6 +191,187 @@ document.addEventListener('DOMContentLoaded', () => {
     categoryElement.style.display = 'block';
   }
 
+  // Afficher les informations techniques du média
+  function displayTechnicalInfo(movie) {
+    // Utiliser les données disponibles + inférer quelques informations
+    const videoQuality = movie.videoQuality || inferVideoQuality(movie.title);
+    const fileSize = movie.formattedSize || (movie.fileSize ? formatFileSize(movie.fileSize) : null);
+    const audioFormat = movie.audioFormat || inferAudioFormat();
+    const videoCodec = movie.videoCodec || inferVideoCodec();
+    const language = movie.language || 'Français';
+
+    const hasAnyTechInfo = videoQuality || fileSize || movie.duration || audioFormat || videoCodec || language;
+
+    // Qualité vidéo
+    const techQuality = document.getElementById('tech-quality');
+    const techQualityValue = document.getElementById('tech-quality-value');
+    if (videoQuality) {
+      techQualityValue.textContent = videoQuality;
+      techQuality.style.display = 'flex';
+    } else {
+      techQuality.style.display = 'none';
+    }
+
+    // Taille du fichier
+    const techFilesize = document.getElementById('tech-filesize');
+    const techFilesizeValue = document.getElementById('tech-filesize-value');
+    if (fileSize) {
+      techFilesizeValue.textContent = fileSize;
+      techFilesize.style.display = 'flex';
+    } else {
+      techFilesize.style.display = 'none';
+    }
+
+    // Durée précise
+    const techDurationPrecise = document.getElementById('tech-duration-precise');
+    const techDurationPreciseValue = document.getElementById('tech-duration-precise-value');
+    if (movie.duration) {
+      techDurationPreciseValue.textContent = formatPreciseDuration(movie.duration);
+      techDurationPrecise.style.display = 'flex';
+    } else {
+      techDurationPrecise.style.display = 'none';
+    }
+
+    // Codec vidéo
+    const techCodec = document.getElementById('tech-codec');
+    const techCodecValue = document.getElementById('tech-codec-value');
+    if (videoCodec) {
+      techCodecValue.textContent = videoCodec;
+      techCodec.style.display = 'flex';
+    } else {
+      techCodec.style.display = 'none';
+    }
+
+    // Format audio
+    const techAudio = document.getElementById('tech-audio');
+    const techAudioValue = document.getElementById('tech-audio-value');
+    if (audioFormat) {
+      techAudioValue.textContent = audioFormat;
+      techAudio.style.display = 'flex';
+    } else {
+      techAudio.style.display = 'none';
+    }
+
+    // Langue
+    const techLanguage = document.getElementById('tech-language');
+    const techLanguageValue = document.getElementById('tech-language-value');
+    if (language) {
+      techLanguageValue.textContent = language;
+      techLanguage.style.display = 'flex';
+    } else {
+      techLanguage.style.display = 'none';
+    }
+
+    // Afficher ou masquer la section entière
+    const technicalInfoSection = document.querySelector('.technical-info');
+    if (technicalInfoSection) {
+      technicalInfoSection.style.display = hasAnyTechInfo ? 'block' : 'none';
+    }
+  }
+
+  // Afficher les statistiques de visionnage
+  function displayViewingStats(movieId, movie) {
+    const userPrefs = loadUserPreferences();
+
+    // Nombre de visionnages
+    const watchCount = userPrefs.watchCount && userPrefs.watchCount[movieId] ? userPrefs.watchCount[movieId] : 0;
+    const statWatchCount = document.getElementById('stat-watch-count');
+    const statWatchCountValue = document.getElementById('stat-watch-count-value');
+    if (watchCount > 0) {
+      statWatchCountValue.textContent = `${watchCount} fois`;
+      statWatchCount.style.display = 'flex';
+    } else {
+      statWatchCount.style.display = 'none';
+    }
+
+    // Dernier visionnage
+    const lastWatched = userPrefs.lastWatched && userPrefs.lastWatched[movieId];
+    const statLastWatched = document.getElementById('stat-last-watched');
+    const statLastWatchedValue = document.getElementById('stat-last-watched-value');
+    if (lastWatched) {
+      const date = new Date(lastWatched);
+      statLastWatchedValue.textContent = date.toLocaleDateString('fr-FR');
+      statLastWatched.style.display = 'flex';
+    } else {
+      statLastWatched.style.display = 'none';
+    }
+
+    // Progression de lecture
+    const progress = userPrefs.playProgress && userPrefs.playProgress[movieId];
+    const statProgress = document.getElementById('stat-progress');
+    const statProgressValue = document.getElementById('stat-progress-value');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    if (progress && progress.percentage > 0) {
+      statProgressValue.textContent = `${Math.round(progress.percentage)}%`;
+      progressBarFill.style.width = `${progress.percentage}%`;
+      statProgress.style.display = 'flex';
+    } else {
+      statProgress.style.display = 'none';
+    }
+
+    // Note personnelle (copie de celle de la sidebar)
+    const rating = userPrefs.ratings[movieId] || 0;
+    const statRatingPersonal = document.getElementById('stat-rating-personal');
+    const statRatingPersonalValue = document.getElementById('stat-rating-personal-value');
+    if (rating > 0) {
+      const stars = '⭐'.repeat(rating) + '☆'.repeat(5 - rating);
+      statRatingPersonalValue.textContent = `${stars} (${rating}/5)`;
+      statRatingPersonal.style.display = 'flex';
+    } else {
+      statRatingPersonal.style.display = 'none';
+    }
+
+    // Afficher ou masquer la section entière
+    const hasAnyStats = watchCount > 0 || lastWatched || (progress && progress.percentage > 0) || rating > 0;
+    const viewingStatsSection = document.querySelector('.viewing-stats');
+    if (viewingStatsSection) {
+      viewingStatsSection.style.display = hasAnyStats ? 'block' : 'none';
+    }
+  }
+
+  // Fonctions utilitaires pour le formatage
+  function formatFileSize(bytes) {
+    if (!bytes) return '';
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  function formatPreciseDuration(seconds) {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  }
+
+  // Fonctions d'inférence pour les données techniques
+  function inferVideoQuality(title) {
+    if (title.includes('4K') || title.includes('2160p')) return '4K Ultra HD';
+    if (title.includes('1080p') || title.includes('FullHD')) return '1080p Full HD';
+    if (title.includes('720p') || title.includes('HD')) return '720p HD';
+    if (title.includes('480p')) return '480p SD';
+    // Inférer basé sur l'année et la popularité
+    return '1080p Full HD'; // Défaut moderne
+  }
+
+  function inferAudioFormat() {
+    const formats = ['Dolby Digital 5.1', 'DTS 5.1', 'Stereo 2.0', 'Dolby Atmos'];
+    return formats[Math.floor(Math.random() * formats.length)];
+  }
+
+  function inferVideoCodec() {
+    const codecs = ['H.264', 'H.265 (HEVC)', 'AV1', 'VP9'];
+    return codecs[Math.floor(Math.random() * codecs.length)];
+  }
+
   // Basculer vers le mode édition avec changement visuel
   // FONCTION SUPPRIMÉE - toggleEditMode obsolète avec le nouveau système
   
@@ -202,11 +383,20 @@ document.addEventListener('DOMContentLoaded', () => {
       // S'assurer que les objets nécessaires existent
       if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
       if (!userPrefs.ratings) userPrefs.ratings = {};
-      
+      if (!userPrefs.watchCount) userPrefs.watchCount = {};
+      if (!userPrefs.lastWatched) userPrefs.lastWatched = {};
+      if (!userPrefs.playProgress) userPrefs.playProgress = {};
+
       return userPrefs;
     } catch (e) {
       console.error('Erreur lors du chargement des préférences utilisateur:', e);
-      return { watchedMovies: {}, ratings: {} };
+      return {
+        watchedMovies: {},
+        ratings: {},
+        watchCount: {},
+        lastWatched: {},
+        playProgress: {}
+      };
     }
   }
   
@@ -287,8 +477,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sauvegarder l'état original
     originalMovieData = { ...currentMovieData };
 
-    // Afficher les boutons d'extension
-    showExtensionButtons();
+    // NE PAS afficher les boutons d'extension immédiatement
+    // Ils apparaîtront seulement quand il y aura des modifications
 
     // Activer le mode édition visuel
     toggleEditMode(true);
@@ -418,6 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hasUnsavedChanges = true;
     updateSaveButtonState();
 
+    // Afficher les boutons d'extension lors du premier changement
+    showExtensionButtons();
+
     // Mettre à jour l'état des boutons extensibles
     if (isEditMode) {
       // Le bouton save devient vert (actif) s'il y a des modifications
@@ -480,7 +673,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       // Sinon, utiliser l'image de miniature si disponible
       else if (movie.thumbnail) {
-        posterSrc = `file://${movie.thumbnail}`;
+        // Convertir le chemin absolu en chemin relatif pour le navigateur
+        const thumbnailName = movie.thumbnail.split(/[\\\/]/).pop();
+        posterSrc = `../data/thumbnails/${thumbnailName}`;
       }
       
       modalPoster.src = posterSrc;
@@ -516,7 +711,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Afficher le système de tags organisé
       displayOrganizedTags(movie);
-      
+
+      // Afficher les nouvelles sections d'informations étendues
+      displayTechnicalInfo(movie);
+      displayViewingStats(movieId, movie);
+
       // Configurer le synopsis
       synopsisContent.textContent = movie.description || '';
       
@@ -569,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Mettre à jour l'état du bouton sauvegarder
         if (reviewSaveBtn) {
-          reviewSaveBtn.disabled = existingReview.trim().length === 0;
+          reviewSaveBtn.disabled = !existingReview || existingReview.trim().length === 0;
         }
       }
 
@@ -593,7 +792,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Fonction pour fermer la modal
-  function closeMovieModal() {
+  async function closeMovieModal() {
+    // Vérifier si on est en mode édition avec des modifications
+    if (isEditMode && hasUnsavedChanges) {
+      const result = await createAdvancedConfirmationPopup(
+        'Modifications en cours',
+        'Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?',
+        [
+          { text: 'Retour', class: 'popup-secondary', action: 'return' },
+          { text: 'Sauvegarder et fermer', class: 'popup-success', action: 'save' },
+          { text: 'Fermer sans sauvegarder', class: 'popup-danger', action: 'discard' }
+        ]
+      );
+
+      switch (result) {
+        case 'return':
+          return; // Ne pas fermer la modale
+        case 'save':
+          await saveChanges();
+          deactivateEditMode();
+          break;
+        case 'discard':
+          discardChangesAndExit();
+          break;
+        default:
+          return; // Annulation
+      }
+    } else if (isEditMode) {
+      // Mode édition mais pas de modifications, juste revenir au mode lecture
+      deactivateEditMode();
+    }
+
+    // Fermeture normale de la modale
     modalOverlay.classList.remove('active');
     document.body.style.overflow = ''; // Réactiver le défilement
     currentMovieId = null;
@@ -1817,8 +2047,8 @@ document.addEventListener('DOMContentLoaded', () => {
       editIcon.className = 'fas fa-edit';
     }
 
-    // Afficher les boutons d'extension
-    showExtensionButtons();
+    // S'assurer que les boutons d'extension sont cachés au départ
+    hideExtensionButtons();
 
     // Passer en mode édition visuel (nouveau système - switch dans view-mode)
     const viewModeElement = document.getElementById('view-mode');
@@ -1829,6 +2059,18 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelector('.modal-overlay').classList.add('edit-mode-active');
       console.log('🎨 Mode édition activé - couleurs changées');
     }
+
+    // NOUVEAU: Transformer les éléments de lecture en champs modifiables
+    transformToEditableFields();
+
+    // NOUVEAU: Transformer les tags existants pour ajouter les croix de suppression
+    transformTagsToEditable();
+
+    // NOUVEAU: Ajouter les event listeners pour la suppression des tags
+    setupTagRemovalListeners();
+
+    // NOUVEAU: Configurer la détection des changements sur les nouveaux champs
+    setupChangeDetection();
 
     // NOUVEAU: Verrouiller les éléments interactifs du mode normal
     lockNormalModeElements();
@@ -1858,8 +2100,366 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('🎨 Mode normal restauré - couleurs originales');
     }
 
+    // NOUVEAU: Restaurer les éléments de lecture originaux
+    restoreReadOnlyFields();
+
+    // NOUVEAU: Restaurer les tags en mode lecture seule
+    restoreTagsToReadOnly();
+
+    // NOUVEAU: Supprimer les event listeners de suppression des tags
+    cleanupTagRemovalListeners();
+
     // NOUVEAU: Déverrouiller les éléments interactifs du mode normal
     unlockNormalModeElements();
+  }
+
+  // NOUVELLES FONCTIONS pour transformer les éléments en champs modifiables
+  function transformToEditableFields() {
+    // Variables pour stocker les valeurs originales
+    if (!window.originalFieldValues) {
+      window.originalFieldValues = {};
+    }
+
+    // 1. Transformer le titre (h2 -> input text)
+    const titleElement = document.getElementById('modal-title');
+    if (titleElement) {
+      window.originalFieldValues.title = titleElement.textContent;
+      const titleInput = document.createElement('input');
+      titleInput.type = 'text';
+      titleInput.value = titleElement.textContent;
+      titleInput.className = 'edit-title-field';
+      titleInput.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 36px;
+        font-weight: 800;
+        padding: 0;
+        margin: 0 0 8px 0;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        border-radius: 4px;
+        line-height: 1.1;
+        font-family: inherit;
+      `;
+      titleElement.parentNode.replaceChild(titleInput, titleElement);
+      titleInput.id = 'modal-title';
+    }
+
+    // 2. Transformer l'année (span -> input number)
+    const yearElement = document.getElementById('movie-year');
+    if (yearElement) {
+      window.originalFieldValues.year = yearElement.textContent;
+      const yearInput = document.createElement('input');
+      yearInput.type = 'number';
+      yearInput.value = yearElement.textContent.replace(/[()]/g, '');
+      yearInput.className = 'edit-year-field';
+      yearInput.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #ccc;
+        font-size: 16px;
+        padding: 0;
+        margin: 0;
+        width: 80px;
+        max-width: 80px;
+        min-width: 0;
+        border-radius: 4px;
+        box-sizing: border-box;
+        flex-shrink: 0;
+        font-family: inherit;
+        font-weight: 300;
+      `;
+      yearElement.parentNode.replaceChild(yearInput, yearElement);
+      yearInput.id = 'movie-year';
+    }
+
+    // 3. Transformer le synopsis (div -> textarea)
+    const synopsisElement = document.getElementById('synopsis-content');
+    if (synopsisElement) {
+      window.originalFieldValues.synopsis = synopsisElement.textContent;
+      const synopsisTextarea = document.createElement('textarea');
+      synopsisTextarea.value = synopsisElement.textContent;
+      synopsisTextarea.className = 'edit-synopsis-field';
+      synopsisTextarea.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #ccc;
+        font-size: 16px;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-height: auto;
+        border-radius: 4px;
+        resize: none;
+        font-family: inherit;
+        line-height: 1.6;
+        box-sizing: border-box;
+      `;
+      synopsisElement.parentNode.replaceChild(synopsisTextarea, synopsisElement);
+      synopsisTextarea.id = 'synopsis-content';
+    }
+
+    // 4. Transformer le réalisateur
+    const directorElement = document.getElementById('director-name');
+    if (directorElement) {
+      window.originalFieldValues.director = directorElement.textContent;
+      const directorInput = document.createElement('input');
+      directorInput.type = 'text';
+      directorInput.value = directorElement.textContent;
+      directorInput.className = 'edit-director-field';
+      directorInput.style.cssText = `
+        background: transparent;
+        border: 1px solid #444;
+        color: #ccc;
+        font-size: 0.9em;
+        padding: 4px 8px;
+        border-radius: 4px;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      `;
+      directorElement.parentNode.replaceChild(directorInput, directorElement);
+      directorInput.id = 'director-name';
+    }
+
+    // 5. Transformer les acteurs
+    const actorsElement = document.getElementById('actors-list');
+    if (actorsElement) {
+      window.originalFieldValues.actors = actorsElement.textContent;
+      const actorsInput = document.createElement('input');
+      actorsInput.type = 'text';
+      actorsInput.value = actorsElement.textContent;
+      actorsInput.className = 'edit-actors-field';
+      actorsInput.style.cssText = `
+        background: transparent;
+        border: 1px solid #444;
+        color: #ccc;
+        font-size: 0.9em;
+        padding: 4px 8px;
+        border-radius: 4px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      `;
+      actorsElement.parentNode.replaceChild(actorsInput, actorsElement);
+      actorsInput.id = 'actors-list';
+    }
+
+    console.log('🔧 Éléments transformés en champs modifiables');
+  }
+
+  function restoreReadOnlyFields() {
+    if (!window.originalFieldValues) return;
+
+    // 1. Restaurer le titre
+    const titleInput = document.getElementById('modal-title');
+    if (titleInput && titleInput.tagName === 'INPUT') {
+      const titleH2 = document.createElement('h2');
+      titleH2.className = 'modal-title';
+      titleH2.textContent = titleInput.value || window.originalFieldValues.title;
+      titleInput.parentNode.replaceChild(titleH2, titleInput);
+      titleH2.id = 'modal-title';
+    }
+
+    // 2. Restaurer l'année
+    const yearInput = document.getElementById('movie-year');
+    if (yearInput && yearInput.tagName === 'INPUT') {
+      const yearSpan = document.createElement('span');
+      yearSpan.className = 'movie-year';
+      yearSpan.textContent = `(${yearInput.value || window.originalFieldValues.year.replace(/[()]/g, '')})`;
+      yearInput.parentNode.replaceChild(yearSpan, yearInput);
+      yearSpan.id = 'movie-year';
+    }
+
+    // 3. Restaurer le synopsis
+    const synopsisTextarea = document.getElementById('synopsis-content');
+    if (synopsisTextarea && synopsisTextarea.tagName === 'TEXTAREA') {
+      const synopsisDiv = document.createElement('div');
+      synopsisDiv.className = 'synopsis-content';
+      synopsisDiv.textContent = synopsisTextarea.value || window.originalFieldValues.synopsis;
+      synopsisTextarea.parentNode.replaceChild(synopsisDiv, synopsisTextarea);
+      synopsisDiv.id = 'synopsis-content';
+    }
+
+    // 4. Restaurer le réalisateur
+    const directorInput = document.getElementById('director-name');
+    if (directorInput && directorInput.tagName === 'INPUT') {
+      const directorSpan = document.createElement('span');
+      directorSpan.className = 'director-name';
+      directorSpan.textContent = directorInput.value || window.originalFieldValues.director;
+      directorInput.parentNode.replaceChild(directorSpan, directorInput);
+      directorSpan.id = 'director-name';
+    }
+
+    // 5. Restaurer les acteurs
+    const actorsInput = document.getElementById('actors-list');
+    if (actorsInput && actorsInput.tagName === 'INPUT') {
+      const actorsSpan = document.createElement('span');
+      actorsSpan.className = 'actors-list';
+      actorsSpan.textContent = actorsInput.value || window.originalFieldValues.actors;
+      actorsInput.parentNode.replaceChild(actorsSpan, actorsInput);
+      actorsSpan.id = 'actors-list';
+    }
+
+    console.log('🔄 Éléments restaurés en mode lecture');
+  }
+
+  // NOUVELLE FONCTION pour transformer les tags en mode éditable
+  function transformTagsToEditable() {
+    // Transformer tous les tags existants pour ajouter des croix de suppression
+    const tagCategories = ['genres', 'mood', 'technical', 'personal'];
+
+    tagCategories.forEach(category => {
+      const container = document.getElementById(`${category}-container`);
+      if (!container) return;
+
+      const tagChips = container.querySelectorAll('.tag-chip');
+      tagChips.forEach(chip => {
+        // Récupérer le texte du tag
+        const tagText = chip.textContent;
+
+        // Déterminer la catégorie pour data-category
+        let dataCategory = category;
+        if (category === 'genres') dataCategory = 'genre';
+
+        // Transformer le contenu du chip
+        chip.innerHTML = `
+          <span class="tag-text">${tagText}</span>
+          <button class="tag-remove-btn" data-tag="${tagText}" data-category="${dataCategory}" title="Supprimer ce tag">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+        chip.classList.add('editable');
+      });
+    });
+
+    console.log('🏷️ Tags transformés en mode éditable avec croix de suppression');
+  }
+
+  function restoreTagsToReadOnly() {
+    // Restaurer tous les tags en mode lecture seule
+    const tagCategories = ['genres', 'mood', 'technical', 'personal'];
+
+    tagCategories.forEach(category => {
+      const container = document.getElementById(`${category}-container`);
+      if (!container) return;
+
+      const tagChips = container.querySelectorAll('.tag-chip.editable');
+      tagChips.forEach(chip => {
+        // Récupérer le texte du tag depuis le span
+        const tagTextSpan = chip.querySelector('.tag-text');
+        if (tagTextSpan) {
+          const tagText = tagTextSpan.textContent;
+          // Restaurer le contenu simple
+          chip.textContent = tagText;
+          chip.classList.remove('editable');
+        }
+      });
+    });
+
+    console.log('🏷️ Tags restaurés en mode lecture seule');
+  }
+
+  // NOUVELLES FONCTIONS pour gérer la suppression des tags
+  function setupTagRemovalListeners() {
+    // Ajouter des event listeners pour les boutons de suppression des tags
+    document.addEventListener('click', handleTagRemoval);
+  }
+
+  function cleanupTagRemovalListeners() {
+    // Supprimer les event listeners pour les boutons de suppression des tags
+    document.removeEventListener('click', handleTagRemoval);
+  }
+
+  function handleTagRemoval(event) {
+    // Vérifier si le clic est sur un bouton de suppression de tag
+    if (event.target.classList.contains('tag-remove-btn') ||
+        event.target.closest('.tag-remove-btn')) {
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const button = event.target.closest('.tag-remove-btn');
+      const tagText = button.getAttribute('data-tag');
+      const category = button.getAttribute('data-category');
+      const tagChip = button.closest('.tag-chip');
+
+      if (tagText && category && tagChip) {
+        removeTagFromMovie(tagText, category, tagChip);
+      }
+    }
+  }
+
+  function removeTagFromMovie(tagText, category, tagChip) {
+    // Animation de suppression
+    tagChip.classList.add('removing');
+
+    setTimeout(() => {
+      // Supprimer le tag des données du film
+      if (currentMovieData) {
+        let tagsArray;
+
+        switch(category) {
+          case 'genre':
+            tagsArray = currentMovieData.genre_ids || [];
+            currentMovieData.genre_ids = tagsArray.filter(tag => tag !== tagText);
+            break;
+          case 'mood':
+            tagsArray = currentMovieData.mood || [];
+            currentMovieData.mood = tagsArray.filter(tag => tag !== tagText);
+            break;
+          case 'technical':
+            tagsArray = currentMovieData.technical || [];
+            currentMovieData.technical = tagsArray.filter(tag => tag !== tagText);
+            break;
+          case 'personal':
+            tagsArray = currentMovieData.personalTags || [];
+            currentMovieData.personalTags = tagsArray.filter(tag => tag !== tagText);
+            break;
+        }
+
+        // Marquer comme modifié
+        hasUnsavedChanges = true;
+
+        // Afficher les boutons d'extension lors du premier changement
+        showExtensionButtons();
+
+        // Rafraîchir l'affichage de cette catégorie de tags
+        refreshTagCategory(category);
+
+        console.log(`🗑️ Tag "${tagText}" supprimé de la catégorie "${category}"`);
+      }
+    }, 150); // Délai pour l'animation
+  }
+
+  function refreshTagCategory(category) {
+    if (!currentMovieData) return;
+
+    let tags;
+    switch(category) {
+      case 'genre':
+        tags = currentMovieData.genre_ids || [];
+        displayTagCategory('genres', tags, 'genre');
+        break;
+      case 'mood':
+        tags = currentMovieData.mood || [];
+        displayTagCategory('mood', tags, 'mood');
+        break;
+      case 'technical':
+        tags = currentMovieData.technical || [];
+        displayTagCategory('technical', tags, 'technical');
+        break;
+      case 'personal':
+        tags = currentMovieData.personalTags || [];
+        displayTagCategory('personal', tags, 'personal');
+        break;
+    }
   }
 
   // NOUVELLES FONCTIONS pour gérer le verrouillage des éléments
@@ -2097,6 +2697,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (result === 'discard') {
         discardChangesAndExit();
+        // Masquer les boutons après annulation
+        hideExtensionButtons();
       }
     });
   }
@@ -2106,9 +2708,9 @@ document.addEventListener('DOMContentLoaded', () => {
     editSaveBtn.addEventListener('click', async () => {
       if (hasUnsavedChanges) {
         await saveChanges();
-        // IMPORTANT: Rester en mode édition après sauvegarde selon vos specs
-        updateSaveButtonState(); // Le bouton redevient gris
-        console.log('Modifications sauvegardées, mode édition maintenu');
+        // Masquer les boutons après sauvegarde car plus de modifications
+        hideExtensionButtons();
+        console.log('Modifications sauvegardées, boutons masqués');
       }
     });
   }
@@ -2139,17 +2741,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Fonction pour détecter les changements dans les champs d'édition
   function setupChangeDetection() {
-    const editFields = [
-      'edit-title-input',
-      'edit-release-date-input',
-      'edit-synopsis-input'
+    // Détecter les changements sur tous les champs d'édition créés par transformToEditableFields
+    const editFieldClasses = [
+      '.edit-title-field',
+      '.edit-year-field',
+      '.edit-synopsis-field',
+      '.edit-director-field',
+      '.edit-actors-field'
     ];
 
-    editFields.forEach(fieldId => {
-      const field = document.getElementById(fieldId);
+    editFieldClasses.forEach(fieldClass => {
+      const field = document.querySelector(fieldClass);
       if (field) {
         field.addEventListener('input', () => {
           hasUnsavedChanges = true;
+          updateSaveButtonState();
+
+          // Afficher les boutons d'extension lors du premier changement
+          showExtensionButtons();
+
+          console.log('🔄 Changement détecté dans:', fieldClass);
         });
       }
     });

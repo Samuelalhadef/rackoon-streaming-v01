@@ -636,3 +636,314 @@
   font-size: 16px;
   opacity: 0.8;
 }
+
+/* ========================================
+   NOUVEAUX STYLES POUR L'INTERFACE SIMPLIFIÉE
+   ======================================== */
+
+/* Système de tags pour les genres */
+.genres-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.genres-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+/* Pastille de genre */
+.genre-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.25), rgba(66, 165, 245, 0.2));
+  border: 1px solid rgba(100, 181, 246, 0.4);
+  border-radius: 20px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  animation: tagAppear 0.3s ease;
+}
+
+@keyframes tagAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.genre-tag:hover {
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.35), rgba(66, 165, 245, 0.3));
+  border-color: rgba(100, 181, 246, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(100, 181, 246, 0.3);
+}
+
+/* Bouton X pour retirer */
+.genre-tag-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.genre-tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+/* Dropdown pour ajouter un genre */
+.genre-add-dropdown {
+  position: relative;
+}
+
+.genre-add-btn {
+  padding: 6px 12px;
+  background: rgba(100, 181, 246, 0.15);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-radius: 20px;
+  color: #64b5f6;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.genre-add-btn:hover {
+  background: rgba(100, 181, 246, 0.25);
+  border-color: rgba(100, 181, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.genre-add-btn:active {
+  transform: translateY(0);
+}
+
+/* Menu dropdown */
+.genre-dropdown-menu {
+  position: fixed; /* Changé en fixed pour sortir du contexte de la carte */
+  min-width: 180px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #0a0f1e;
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 20000; /* Au-dessus de tout, y compris la modale (z-index: 2000) */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* Position sera définie dynamiquement via JavaScript */
+}
+
+.genre-dropdown-menu.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto; /* Réactiver les événements quand visible */
+}
+
+/* Variante pour ouverture vers le haut si nécessaire */
+.genre-dropdown-menu.open-upward {
+  /* Position sera ajustée dynamiquement */
+}
+
+@keyframes dropdownAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.genre-dropdown-option {
+  padding: 10px 15px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.genre-dropdown-option:hover {
+  background: rgba(100, 181, 246, 0.2);
+}
+
+.genre-dropdown-option.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Scrollbar personnalisée pour le dropdown */
+.genre-dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.genre-dropdown-menu::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.genre-dropdown-menu::-webkit-scrollbar-thumb {
+  background: rgba(100, 181, 246, 0.3);
+  border-radius: 3px;
+}
+
+.genre-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 181, 246, 0.5);
+}
+
+/* Description textarea */
+.description-input {
+  resize: vertical;
+  min-height: 50px;
+  font-family: inherit;
+}
+
+/* Section avancée (collapsible) */
+.advanced-section {
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.advanced-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #64b5f6;
+  padding: 5px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+  list-style: none;
+  user-select: none;
+}
+
+.advanced-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-section summary:hover {
+  background: rgba(100, 181, 246, 0.1);
+}
+
+.advanced-section[open] summary {
+  margin-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 10px;
+}
+
+.advanced-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Désactiver tous les effets hover sur les cartes de galerie Phase 2 */
+.gallery-card {
+  transition: none !important;
+}
+
+.gallery-card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Masquer/afficher les champs selon le type */
+.gallery-card[data-media-type="series"] .unique-fields {
+  display: none;
+}
+
+.gallery-card[data-media-type="series"] .series-fields {
+  display: block !important;
+}
+
+.gallery-card:not([data-media-type="series"]) .series-fields {
+  display: none !important;
+}
+
+.gallery-card:not([data-media-type="series"]) .unique-fields {
+  display: block;
+}
+
+/* Désactiver les effets hover sur la modale durant la phase 2 */
+.import-modal .modal-poster:hover img {
+  transform: none !important;
+}
+
+.import-modal .modal-poster:hover {
+  transform: none !important;
+}
+
+.import-modal .tag-chip:hover {
+  transform: none !important;
+}
+
+.import-modal .edit-button:hover {
+  transform: none !important;
+}
+
+.import-modal .modal-star:hover::before {
+  transform: none !important;
+}
+
+.import-modal .modal-star:hover {
+  transform: none !important;
+}
+
+.import-modal .btn-watch-film:hover {
+  transform: none !important;
+}
+
+.import-modal .btn-watch-toggle-modal:hover {
+  transform: none !important;
+}
+
+.import-modal .edit-cancel-btn:hover,
+.import-modal .edit-save-btn:hover {
+  transform: none !important;
+}
+
+/* Ajustements responsifs pour la grille de genres */
+@media (max-width: 768px) {
+  .genres-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .genre-checkbox {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}

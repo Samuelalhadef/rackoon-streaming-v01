@@ -8,6 +8,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Médias - APIs avec stockage JSON
   scanMedias: (options) => ipcRenderer.invoke('medias:scan', options),
+  scanMediasLight: (folderPath) => ipcRenderer.invoke('medias:scan-light', folderPath),
   scanSingleMedia: () => ipcRenderer.invoke('medias:scanSingle'),
   getAllMedias: () => ipcRenderer.invoke('medias:getAll'),
   getMediaPath: (mediaPath) => ipcRenderer.invoke('medias:getPath', mediaPath),

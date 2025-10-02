@@ -292,7 +292,13 @@
             <div class="decade" id="decade"></div>
           </div>
 
-          <!-- Nouveaux champs: Acteurs et Réalisateur -->
+          <!-- Synopsis remonté pour une meilleure logique de lecture -->
+          <div class="synopsis">
+            <h3 class="synopsis-title">Synopsis</h3>
+            <div class="synopsis-content" id="synopsis-content"></div>
+          </div>
+
+          <!-- Crédits après le synopsis -->
           <div class="movie-credits">
             <div class="director-section" id="director-section" style="display: none;">
               <span class="credit-label">Réalisateur :</span>
@@ -307,9 +313,65 @@
               <span class="franchise-name" id="franchise-name"></span>
             </div>
           </div>
-          
-          
-          <!-- Système de tags organisé par catégories -->
+
+          <!-- Informations techniques -->
+          <div class="technical-info">
+            <h3 class="technical-info-title">Informations Techniques</h3>
+            <div class="technical-info-content">
+              <div class="tech-item" id="tech-quality" style="display: none;">
+                <span class="tech-label">Qualité :</span>
+                <span class="tech-value" id="tech-quality-value"></span>
+              </div>
+              <div class="tech-item" id="tech-filesize" style="display: none;">
+                <span class="tech-label">Taille :</span>
+                <span class="tech-value" id="tech-filesize-value"></span>
+              </div>
+              <div class="tech-item" id="tech-duration-precise" style="display: none;">
+                <span class="tech-label">Durée exacte :</span>
+                <span class="tech-value" id="tech-duration-precise-value"></span>
+              </div>
+              <div class="tech-item" id="tech-codec" style="display: none;">
+                <span class="tech-label">Codec :</span>
+                <span class="tech-value" id="tech-codec-value"></span>
+              </div>
+              <div class="tech-item" id="tech-audio" style="display: none;">
+                <span class="tech-label">Audio :</span>
+                <span class="tech-value" id="tech-audio-value"></span>
+              </div>
+              <div class="tech-item" id="tech-language" style="display: none;">
+                <span class="tech-label">Langue :</span>
+                <span class="tech-value" id="tech-language-value"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section Visionnage -->
+          <div class="viewing-stats">
+            <h3 class="viewing-stats-title">Historique de Visionnage</h3>
+            <div class="viewing-stats-content">
+              <div class="stat-item" id="stat-watch-count" style="display: none;">
+                <span class="stat-label">Regardé :</span>
+                <span class="stat-value" id="stat-watch-count-value">0 fois</span>
+              </div>
+              <div class="stat-item" id="stat-last-watched" style="display: none;">
+                <span class="stat-label">Dernier visionnage :</span>
+                <span class="stat-value" id="stat-last-watched-value"></span>
+              </div>
+              <div class="stat-item" id="stat-progress" style="display: none;">
+                <span class="stat-label">Progression :</span>
+                <span class="stat-value" id="stat-progress-value"></span>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                </div>
+              </div>
+              <div class="stat-item" id="stat-rating-personal" style="display: none;">
+                <span class="stat-label">Ma note :</span>
+                <span class="stat-value" id="stat-rating-personal-value"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tags après les nouvelles sections -->
           <div class="tags-container">
             <!-- Genres -->
             <div class="tag-category" id="genres-category" style="display: none;">
@@ -347,17 +409,14 @@
               <div class="tag-chips" id="personal-container"></div>
             </div>
           </div>
-          
-          <div class="synopsis">
-            <h3 class="synopsis-title">Synopsis</h3>
-            <div class="synopsis-content" id="synopsis-content"></div>
+
+          <!-- Bouton flottant pour regarder le film -->
+          <button class="btn-watch-film floating-watch-btn" id="btn-watch-film">
+            <i class="fas fa-play"></i>
+            <span>Regarder le film</span>
+          </button>
           </div>
 
-
-          <div class="modal-actions">
-            <button class="btn-watch-film" id="btn-watch-film">Regarder le film</button>
-          </div>
-          </div>
         </div>
       </div>
       
@@ -542,6 +601,7 @@
       </div> -->
     </div>
   </div>
+  </div>
 
   <!-- Modal de présentation des séries -->
   <div class="modal-overlay" id="series-modal-overlay" style="display: none;">
@@ -695,6 +755,7 @@
       
       <div class="import-modal-footer">
         <div class="import-actions">
+          <button class="btn-danger" id="cancel-import-btn">❌ Annuler l'import</button>
           <button class="btn-secondary" id="skip-all-triage-btn">Tout passer (médias non triés)</button>
           <button class="btn-primary" id="validate-triage-btn">Valider et continuer la classification</button>
         </div>
@@ -790,6 +851,7 @@
       
       <div class="import-modal-footer">
         <div class="import-actions">
+          <button class="btn-danger" id="cancel-classification-btn">❌ Annuler l'import</button>
           <button class="btn-secondary" id="skip-all-btn">Tout passer (non trié)</button>
           <button class="btn-primary" id="validate-import-btn">Valider la sélection</button>
         </div>
@@ -911,17 +973,18 @@
       </div>
 
       <div class="gallery-card-body">
+        <!-- Titre (obligatoire) -->
         <div class="form-group">
-          <label>Titre *</label>
+          <label>📝 Titre *</label>
           <input type="text" class="form-control title-input" placeholder="Titre du média" required>
         </div>
 
-
+        <!-- Champs pour les séries (masqués par défaut) -->
         <div class="series-fields" style="display: none;">
           <div class="form-group">
-            <label>Série</label>
+            <label>📺 Série</label>
             <input type="text" class="form-control series-name-readonly" readonly>
-            <small class="form-hint">📺 Série définie lors du tri initial</small>
+            <small class="form-hint">Série définie lors du tri initial</small>
           </div>
 
           <div class="form-group-row">
@@ -936,9 +999,80 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Année</label>
-          <input type="number" class="form-control year-input" placeholder="2024" min="1900" max="2030">
+        <!-- Champs pour les médias uniques (films, etc.) -->
+        <div class="unique-fields">
+          <!-- Année -->
+          <div class="form-group">
+            <label>📅 Année</label>
+            <input type="number" class="form-control year-input" placeholder="2024" min="1900" max="2030">
+          </div>
+
+          <!-- Genres (pastilles avec dropdown) -->
+          <div class="form-group">
+            <label>🎭 Genres</label>
+            <div class="genres-tags-container">
+              <!-- Les pastilles de genres sélectionnés apparaîtront ici -->
+              <div class="genres-tags-list"></div>
+
+              <!-- Bouton + avec dropdown -->
+              <div class="genre-add-dropdown">
+                <button type="button" class="genre-add-btn">+ Ajouter</button>
+                <div class="genre-dropdown-menu">
+                  <div class="genre-dropdown-option" data-genre="Action">Action</div>
+                  <div class="genre-dropdown-option" data-genre="Aventure">Aventure</div>
+                  <div class="genre-dropdown-option" data-genre="Comédie">Comédie</div>
+                  <div class="genre-dropdown-option" data-genre="Drame">Drame</div>
+                  <div class="genre-dropdown-option" data-genre="Horreur">Horreur</div>
+                  <div class="genre-dropdown-option" data-genre="Thriller">Thriller</div>
+                  <div class="genre-dropdown-option" data-genre="Romance">Romance</div>
+                  <div class="genre-dropdown-option" data-genre="Science-fiction">Science-fiction</div>
+                  <div class="genre-dropdown-option" data-genre="Fantasy">Fantasy</div>
+                  <div class="genre-dropdown-option" data-genre="Animation">Animation</div>
+                  <div class="genre-dropdown-option" data-genre="Documentaire">Documentaire</div>
+                  <div class="genre-dropdown-option" data-genre="Guerre">Guerre</div>
+                  <div class="genre-dropdown-option" data-genre="Western">Western</div>
+                  <div class="genre-dropdown-option" data-genre="Crime">Crime</div>
+                  <div class="genre-dropdown-option" data-genre="Mystère">Mystère</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description courte -->
+          <div class="form-group">
+            <label>📖 Description (facultatif)</label>
+            <textarea class="form-control description-input" placeholder="Résumé en 1-2 phrases..." rows="2" maxlength="200"></textarea>
+          </div>
+
+          <!-- Section avancée (cachée par défaut) -->
+          <details class="advanced-section">
+            <summary>➕ Plus d'options</summary>
+            <div class="advanced-fields">
+              <!-- Réalisateur -->
+              <div class="form-group">
+                <label>🎬 Réalisateur</label>
+                <input type="text" class="form-control director-input" placeholder="Christopher Nolan">
+              </div>
+
+              <!-- Acteurs principaux -->
+              <div class="form-group">
+                <label>👥 Acteurs principaux (séparés par des virgules)</label>
+                <input type="text" class="form-control actors-input" placeholder="Leonardo DiCaprio, Tom Hardy">
+              </div>
+
+              <!-- Franchise -->
+              <div class="form-group">
+                <label>🏢 Franchise/Collection</label>
+                <input type="text" class="form-control franchise-input" placeholder="Marvel, Star Wars, etc.">
+              </div>
+
+              <!-- Poster personnalisé -->
+              <div class="form-group">
+                <label>📸 Poster (URL)</label>
+                <input type="url" class="form-control poster-input" placeholder="https://example.com/poster.jpg">
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -1027,6 +1161,25 @@
   </div>
 
   <!-- Modal pour nouvelle série -->
+  <!-- Modal de confirmation d'annulation -->
+  <div id="cancel-confirmation-modal" class="import-modal" style="display: none;">
+    <div class="import-modal-content small-modal">
+      <div class="import-modal-header">
+        <h2>⚠️ Confirmer l'annulation</h2>
+      </div>
+
+      <div class="import-modal-body">
+        <p>Êtes-vous sûr de vouloir annuler complètement l'import des médias ?</p>
+        <p><strong>Cette action arrêtera le processus d'import et annulera tous les médias sélectionnés.</strong></p>
+      </div>
+
+      <div class="import-modal-footer">
+        <button class="btn-secondary" id="cancel-confirmation-no">Non, continuer</button>
+        <button class="btn-danger" id="cancel-confirmation-yes">Oui, annuler l'import</button>
+      </div>
+    </div>
+  </div>
+
   <div id="new-series-modal" class="import-modal" style="display: none;">
     <div class="import-modal-content small-modal">
       <div class="import-modal-header">

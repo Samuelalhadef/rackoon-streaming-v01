@@ -7,6 +7,7 @@ class ImportTriageSystem {
     this.processedFiles = [];
     this.isProcessing = false;
     this.series = []; // Liste des séries disponibles
+    this.newlyScannedIds = []; // IDs des fichiers nouvellement scannés (pour nettoyage si annulé)
 
     this.init();
   }
@@ -55,25 +56,46 @@ class ImportTriageSystem {
       newSeriesBatchBtn.addEventListener('click', () => this.showNewSeriesModal());
     }
 
-    // Fermer la modale en cliquant à l'extérieur
+    // Empêcher la fermeture automatique en cliquant à l'extérieur
     if (this.triageModal) {
       this.triageModal.addEventListener('click', (e) => {
         if (e.target === this.triageModal) {
-          this.closeTriageModal();
+          // Afficher la confirmation d'annulation au lieu de fermer directement
+          this.showCancelConfirmation();
         }
       });
+    }
+
+    // Bouton d'annulation d'import
+    const cancelImportBtn = document.getElementById('cancel-import-btn');
+    if (cancelImportBtn) {
+      cancelImportBtn.addEventListener('click', () => this.showCancelConfirmation());
     }
   }
 
   // Démarrer le processus de tri (appelé depuis dashboard.js)
   async startTriage(files, scanType) {
-    console.log(`📋 Démarrage du tri: ${files.length} fichiers (${scanType})`);
-    console.log('📂 Fichiers reçus du scan:', files.map(f => ({
-      name: f.name,
+    console.log('═══════════════════════════════════════');
+    console.log(`📋 DÉBUT startTriage: ${files.length} fichiers (${scanType})`);
+    console.log('═══════════════════════════════════════');
+
+    console.log('📂 Fichiers à traiter:', files.map(f => ({
+      name: f.name || f.title,
       path: f.path,
-      size: f.size,
+      size: f.size_bytes || f.size,
       duration: f.duration
     })));
+
+    // Afficher la modale IMMÉDIATEMENT avec un état de chargement
+    console.log('⏳ Tentative d\'affichage de la modale...');
+    this.showTriageModal();
+    console.log('⏳ Affichage de l\'état de chargement...');
+    this.showLoadingState(`Analyse de ${files.length} fichiers...`);
+    console.log('✅ Modale et état de chargement configurés');
+
+    // Réinitialiser la liste des IDs nouvellement scannés
+    this.newlyScannedIds = files.map(file => file.id).filter(id => id);
+    console.log('📋 IDs des fichiers existants à tracker:', this.newlyScannedIds);
 
     // Filtrer pour ne garder que les nouveaux fichiers
     console.log('🔍 Filtrage des nouveaux fichiers...');
@@ -88,6 +110,9 @@ class ImportTriageSystem {
       const alreadyImportedCount = files.length - newFiles.length;
       console.log(`⚠️ Aucun fichier à traiter: ${files.length} totaux, ${newFiles.length} nouveaux, ${alreadyImportedCount} déjà importés`);
 
+      // Fermer la modale avant d'afficher le message
+      this.hideTriageModal();
+
       // SÉCURITÉ : En cas de problème de filtrage, permettre un mode de récupération
       if (files.length > 0) {
         console.log('🚨 Mode de récupération: le filtrage semble trop strict');
@@ -95,6 +120,8 @@ class ImportTriageSystem {
         if (forceProcess) {
           console.log('🔄 Mode forcé activé');
           filesToProcess = [...files];
+          // Réafficher la modale
+          this.showTriageModal();
         } else {
           return;
         }
@@ -108,7 +135,7 @@ class ImportTriageSystem {
     console.log(`📋 Résultat: ${files.length} fichiers totaux, ${newFiles.length} nouveaux à traiter`);
 
     this.skippedFilesCount = files.length - filesToProcess.length;
-    
+
     this.currentFiles = filesToProcess.map((file, index) => ({
       ...file,
       originalIndex: index,
@@ -116,9 +143,9 @@ class ImportTriageSystem {
       action: 'classify' // 'classify' ou 'skip'
     }));
 
-    // Remplir et afficher la modale de tri
+    // Remplir la modale de tri (elle est déjà affichée)
     this.populateTriageModal();
-    this.showTriageModal();
+    this.hideLoadingState();
   }
 
   // Filtrer les fichiers pour ne garder que ceux pas encore importés
@@ -374,6 +401,12 @@ class ImportTriageSystem {
           if (result.success) {
             results.push({ success: true, file: file.name });
             console.log(`✅ ${file.name} enregistré comme non trié`);
+
+            // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+            if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+              this.newlyScannedIds.push(result.movieId);
+              console.log('📋 ID ajouté à la liste des films trackés (tout passer triage):', result.movieId);
+            }
           } else {
             results.push({ success: false, file: file.name, error: result.message });
             console.error(`❌ Erreur pour ${file.name}: ${result.message}`);
@@ -462,6 +495,12 @@ class ImportTriageSystem {
 
         if (result.success) {
           console.log(`✅ ${file.name} sauvegardé comme ${file.triageType}`);
+
+          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+          if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+            this.newlyScannedIds.push(result.movieId);
+            console.log('📋 ID ajouté à la liste des films trackés (fichiers sautés):', result.movieId);
+          }
         } else {
           console.error(`❌ Erreur pour ${file.name}: ${result.message}`);
         }
@@ -497,6 +536,12 @@ class ImportTriageSystem {
 
         if (result.success) {
           console.log(`✅ Phase 1: ${file.title || file.name} → catégorie: ${file.triageType}`);
+
+          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+          if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+            this.newlyScannedIds.push(result.movieId);
+            console.log('📋 ID ajouté à la liste des films trackés (validation triage):', result.movieId);
+          }
         } else {
           console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}: ${result.message}`);
         }
@@ -511,9 +556,26 @@ class ImportTriageSystem {
   }
 
   showTriageModal() {
+    console.log('🔍 showTriageModal appelée');
+    console.log('🔍 this.triageModal:', this.triageModal);
+
     if (this.triageModal) {
+      console.log('✅ Élément trouvé, affichage de la modale');
       this.triageModal.style.display = 'flex';
-      console.log('📋 Modale de tri affichée');
+      console.log('📋 Modale de tri affichée - display:', this.triageModal.style.display);
+
+      // Force un reflow pour s'assurer que le changement est appliqué
+      this.triageModal.offsetHeight;
+    } else {
+      console.error('❌ this.triageModal est null ou undefined !');
+      console.log('🔍 Tentative de récupération de l\'élément...');
+      this.triageModal = document.getElementById('import-triage-modal');
+      console.log('🔍 Élément récupéré:', this.triageModal);
+
+      if (this.triageModal) {
+        this.triageModal.style.display = 'flex';
+        console.log('✅ Modale affichée après récupération');
+      }
     }
   }
 
@@ -521,6 +583,134 @@ class ImportTriageSystem {
     if (this.triageModal) {
       this.triageModal.style.display = 'none';
       console.log('📋 Modale de tri fermée');
+    }
+  }
+
+  hideTriageModal() {
+    this.closeTriageModal();
+  }
+
+  showLoadingState(message) {
+    // Afficher un état de chargement dans l'overlay
+    const container = document.getElementById('triage-files-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+  }
+
+  hideLoadingState() {
+    // Masquer l'état de chargement (sera remplacé par populateTriageModal)
+    const container = document.getElementById('triage-files-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+  }
+
+  showCancelConfirmation() {
+    const confirmModal = document.getElementById('cancel-confirmation-modal');
+    if (confirmModal) {
+      confirmModal.style.display = 'flex';
+
+      // Gérer les boutons de confirmation
+      const btnNo = document.getElementById('cancel-confirmation-no');
+      const btnYes = document.getElementById('cancel-confirmation-yes');
+
+      btnNo.onclick = () => {
+        confirmModal.style.display = 'none';
+      };
+
+      btnYes.onclick = () => {
+        this.cancelImportCompletely();
+        confirmModal.style.display = 'none';
+      };
+    }
+  }
+
+  async cancelImportCompletely() {
+    console.log('🚫 Annulation complète de l\'import');
+
+    // Nettoyer les fichiers partiellement importés (suppression de la DB)
+    await this.cleanupPartialImport();
+
+    // Réinitialiser les données d'import
+    this.currentFiles = [];
+    this.processedFiles = [];
+    this.isProcessing = false;
+
+    // Fermer toutes les modals d'import
+    this.closeTriageModal();
+
+    // Si la modal de classification est ouverte, la fermer aussi
+    const classificationModal = document.getElementById('import-modal');
+    if (classificationModal && classificationModal.style.display !== 'none') {
+      classificationModal.style.display = 'none';
+    }
+
+    // Notifier l'utilisateur
+    if (window.showNotification) {
+      window.showNotification('Import annulé', 'L\'import des médias a été annulé avec succès.', 'info');
+    }
+
+    // Réinitialiser l'interface
+    this.resetUI();
+
+    console.log('✅ Import complètement annulé');
+  }
+
+  async cleanupPartialImport() {
+    console.log('🧹 Nettoyage des données d\'import partielles (triage)');
+
+    if (this.newlyScannedIds && this.newlyScannedIds.length > 0) {
+      console.log(`🗑️ Suppression de ${this.newlyScannedIds.length} fichiers nouvellement scannés`);
+
+      try {
+        // Supprimer chaque fichier nouvellement scanné de la base de données
+        for (const movieId of this.newlyScannedIds) {
+          console.log(`🗑️ Suppression du média ${movieId}`);
+          const result = await window.electronAPI.deleteMedia(movieId);
+          if (result.success) {
+            console.log(`✅ Média ${movieId} supprimé avec succès`);
+          } else {
+            console.error(`❌ Erreur lors de la suppression du média ${movieId}:`, result.message);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors du nettoyage des données partielles:', error);
+      }
+    }
+
+    // Réinitialiser la liste des IDs nouvellement scannés
+    this.newlyScannedIds = [];
+  }
+
+  resetUI() {
+    // Réinitialiser le compteur
+    const triageCount = document.getElementById('triage-count');
+    if (triageCount) {
+      triageCount.textContent = '0 fichiers trouvés';
+    }
+
+    // Vider le tableau
+    const tableBody = document.getElementById('triage-table-body');
+    if (tableBody) {
+      tableBody.innerHTML = '';
+    }
+
+    // Réinitialiser les contrôles globaux
+    const globalTypeSelect = document.getElementById('global-triage-type');
+    if (globalTypeSelect) {
+      globalTypeSelect.value = '';
+    }
+
+    // Masquer les contrôles de série par lot
+    const seriesBatchControl = document.getElementById('series-batch-control');
+    if (seriesBatchControl) {
+      seriesBatchControl.style.display = 'none';
     }
   }
 
@@ -554,32 +744,30 @@ class ImportTriageSystem {
     }
   }
 
-  completeProcess(results, type) {
+  async completeProcess(results, type) {
     this.hideProgress();
-    
+
     const successCount = results.filter(r => r.success).length;
     const errorCount = results.filter(r => !r.success).length;
-    
+
     let message = `Traitement terminé!\n`;
     message += `✅ ${successCount} fichier(s) traité(s) avec succès\n`;
     if (errorCount > 0) {
       message += `❌ ${errorCount} erreur(s)\n`;
     }
-    
+
     if (type === 'unsorted') {
       message += `\nTous les fichiers ont été placés dans "Médias non triés".`;
     }
-    
+
     // Fermer la modale d'abord
     this.closeTriageModal();
-    
+
     // Forcer le rechargement des films AVANT l'alert
-    this.forceReloadMovies();
-    
-    // Attendre un peu puis afficher le message
-    setTimeout(() => {
-      alert(message);
-    }, 500);
+    await this.forceReloadMovies();
+
+    // Afficher le message après le rechargement
+    alert(message);
   }
 
   async forceReloadMovies() {

@@ -278,15 +278,13 @@ class JSONDatabase {
     let deletedCount = 0;
 
     try {
-      const thumbnailsDir = path.join(this.dataDir, 'thumbnails');
-
-      if (await fs.pathExists(thumbnailsDir)) {
-        const files = await fs.readdir(thumbnailsDir);
+      if (await fs.pathExists(this.thumbnailsPath)) {
+        const files = await fs.readdir(this.thumbnailsPath);
 
         for (const file of files) {
           if (file.endsWith('.jpg') || file.endsWith('.png') || file.endsWith('.jpeg')) {
             try {
-              await fs.unlink(path.join(thumbnailsDir, file));
+              await fs.unlink(path.join(this.thumbnailsPath, file));
               deletedCount++;
             } catch (error) {
               console.warn(`⚠️ Impossible de supprimer la miniature ${file}:`, error.message);

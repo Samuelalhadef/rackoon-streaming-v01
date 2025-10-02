@@ -40,10 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const mediaGrid = document.getElementById('media-grid');
   const statusMessage = document.getElementById('status-message');
   const progressBar = document.getElementById('progress-bar');
-  
-  
+
+  console.log('🔍 Éléments UI récupérés:');
+  console.log('  - addBtn:', addBtn);
+  console.log('  - scanMenu:', scanMenu);
+  console.log('  - scanFolderBtn:', scanFolderBtn);
+  console.log('  - scanFileBtn:', scanFileBtn);
+
   // Gestion du menu flottant
   addBtn.addEventListener('click', () => {
+    console.log('➕ Bouton + cliqué');
     scanMenu.classList.toggle('active');
   });
   
@@ -63,75 +69,100 @@ document.addEventListener('DOMContentLoaded', () => {
   // Plus de système de déconnexion
   
   // Recherche de dossier
+  console.log('📁 Attachement du listener sur scanFolderBtn');
   scanFolderBtn.addEventListener('click', async () => {
+    console.log('═══════════════════════════════════════');
+    console.log('📁 BOUTON DOSSIER CLIQUÉ !');
+    console.log('═══════════════════════════════════════');
+
     try {
       scanMenu.classList.remove('active');
-      statusMessage.textContent = 'Sélection du dossier à scanner...';
+      statusMessage.textContent = 'Sélection du dossier...';
       progressBar.style.width = '0%';
-      
-      // Lancer le scan direct
-      const result = await window.electronAPI.scanMedias();
-      
-      if (result.success) {
-        statusMessage.textContent = `${result.medias.length} fichiers vidéo trouvés`;
-        progressBar.style.width = '100%';
-        
-        // Si des fichiers ont été trouvés, lancer la modale de tri
-        if (result.medias && result.medias.length > 0) {
-          console.log('🎯 Lancement de la modale de tri pour', result.medias.length, 'fichiers');
-          
-          // Lancer la modale de tri au lieu d'afficher directement les films
-          if (window.startTriage) {
-            window.startTriage(result.medias, 'folder');
-          } else {
-            console.error('❌ Système de tri non disponible, affichage direct');
-            displayMedias(result.medias);
-          }
+
+      console.log('🔍 Début du scan de dossier...');
+
+      // Lancer le scan léger qui ouvrira l'overlay après la sélection
+      const scanResult = await window.electronAPI.scanMediasLight();
+
+      console.log('📊 Résultat du scan:', scanResult);
+
+      if (scanResult.success && scanResult.medias && scanResult.medias.length > 0) {
+        console.log(`📂 ${scanResult.medias.length} fichiers trouvés, ouverture de l'overlay`);
+        console.log('🔍 window.startTriage existe?', typeof window.startTriage);
+        console.log('🔍 window.importTriageSystem existe?', typeof window.importTriageSystem);
+
+        // Maintenant afficher l'overlay avec les fichiers trouvés
+        if (window.startTriage) {
+          console.log('✅ Appel de window.startTriage avec', scanResult.medias.length, 'fichiers');
+          window.startTriage(scanResult.medias, 'folder');
+          console.log('✅ window.startTriage appelée');
         } else {
-          statusMessage.textContent = 'Aucun fichier vidéo trouvé';
+          console.error('❌ Système de tri non disponible');
+          console.error('❌ window.startTriage est:', window.startTriage);
+          statusMessage.textContent = 'Erreur : système de tri non disponible';
         }
-        
-        // Masquer la barre de progression après 3 secondes
-        setTimeout(() => {
-          progressBar.style.width = '0%';
-          statusMessage.textContent = 'Prêt à rechercher des vidéos';
-        }, 3000);
       } else {
-        statusMessage.textContent = result.message || 'Erreur lors de la recherche';
-        progressBar.style.width = '0%';
+        // L'utilisateur a annulé ou aucun fichier trouvé
+        statusMessage.textContent = scanResult.message || 'Aucun fichier trouvé';
+        setTimeout(() => {
+          statusMessage.textContent = 'Prêt à rechercher des vidéos';
+        }, 2000);
       }
+
+      // Masquer la barre de progression
+      progressBar.style.width = '0%';
+
     } catch (error) {
-      console.error('Erreur lors de la recherche de films:', error);
-      statusMessage.textContent = 'Erreur lors de la recherche';
+      console.error('Erreur lors du scan:', error);
+      statusMessage.textContent = 'Erreur lors du scan';
       progressBar.style.width = '0%';
     }
   });
   
   // Recherche de fichier individuel
+  console.log('📄 Attachement du listener sur scanFileBtn');
   scanFileBtn.addEventListener('click', async () => {
+    console.log('═══════════════════════════════════════');
+    console.log('📄 BOUTON FICHIER CLIQUÉ !');
+    console.log('═══════════════════════════════════════');
+
     try {
       scanMenu.classList.remove('active');
       statusMessage.textContent = 'Sélection du fichier vidéo...';
       progressBar.style.width = '0%';
-      
+
+      console.log('📞 Appel de window.electronAPI.scanSingleMedia()...');
+      console.log('🔍 window.electronAPI existe?', typeof window.electronAPI);
+      console.log('🔍 window.electronAPI.scanSingleMedia existe?', typeof window.electronAPI?.scanSingleMedia);
+
       // Lancer la sélection de fichier unique
       const result = await window.electronAPI.scanSingleMedia();
-      
+
+      console.log('📊 Résultat de scanSingleMedia:', result);
+
       if (result.success) {
-        if (result.movie) {
-          statusMessage.textContent = `Fichier sélectionné: ${result.movie.title}`;
+        // ⚠️ CORRECTION: c'est result.media, pas result.movie
+        const media = result.media || result.movie;
+
+        if (media) {
+          statusMessage.textContent = `Fichier sélectionné: ${media.title}`;
           progressBar.style.width = '100%';
-          
+
           console.log('🎯 Lancement de la modale de tri pour 1 fichier');
-          
+          console.log('🔍 window.startTriage existe?', typeof window.startTriage);
+
           // Lancer la modale de tri même pour un seul fichier
           if (window.startTriage) {
-            window.startTriage([result.movie], 'file');
+            console.log('✅ Appel de window.startTriage avec le fichier:', media);
+            window.startTriage([media], 'file');
+            console.log('✅ window.startTriage appelée');
           } else {
             console.error('❌ Système de tri non disponible, ajout direct');
             await loadMediasFromDatabase();
           }
         } else {
+          console.warn('⚠️ Aucun média dans le résultat');
           statusMessage.textContent = result.message || 'Fichier non sélectionné';
         }
         
@@ -145,7 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBar.style.width = '0%';
       }
     } catch (error) {
-      console.error('Erreur lors de la sélection de fichier:', error);
+      console.error('═══════════════════════════════════════');
+      console.error('❌ ERREUR lors de la sélection de fichier:', error);
+      console.error('❌ Stack:', error.stack);
+      console.error('═══════════════════════════════════════');
       statusMessage.textContent = 'Erreur lors de la sélection de fichier';
       progressBar.style.width = '0%';
     }

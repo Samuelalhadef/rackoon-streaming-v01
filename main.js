@@ -280,10 +280,88 @@ function generateTMDBImageName(mediaTitle, tmdbImageUrl) {
   return `tmdb_${cleanTitle}_${timestamp}${extension}`;
 }
 
+// Fonction helper pour formater la taille des fichiers
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+
 // Configuration des gestionnaires de messages IPC avec stockage JSON
 function setupIPCHandlers() {
-  
-  // Recherche et ajout de médias dans la base JSON
+
+  // Scan léger : juste trouver les fichiers sans les traiter
+  ipcMain.handle('medias:scan-light', async (event, folderPath) => {
+    try {
+      let videoFiles = [];
+      let folderToScan;
+
+      // Si pas de dossier fourni, demander à l'utilisateur
+      if (!folderPath) {
+        const result = await dialog.showOpenDialog(mainWindow, {
+          properties: ['openDirectory'],
+          title: 'Sélectionnez un dossier à scanner'
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+          console.log('Sélection de dossier annulée');
+          return { success: false, message: 'Aucun dossier sélectionné' };
+        }
+
+        folderToScan = result.filePaths[0];
+      } else {
+        folderToScan = folderPath;
+      }
+
+      console.log(`🔍 Scan léger dans: ${folderToScan}`);
+
+      // Rechercher tous les fichiers vidéo (scan rapide uniquement)
+      for (const ext of SUPPORTED_FORMATS) {
+        try {
+          const pattern = `${folderToScan}/**/*${ext}`;
+          const files = await glob(pattern, { nocase: true });
+          videoFiles = [...videoFiles, ...files];
+        } catch (error) {
+          console.error(`Erreur avec l'extension ${ext}: ${error.message}`);
+        }
+      }
+
+      console.log(`📊 Scan léger terminé: ${videoFiles.length} fichiers trouvés`);
+
+      // Créer des objets de base pour l'affichage
+      const lightMedias = videoFiles.map(filePath => {
+        const stats = fs.statSync(filePath);
+        const fileExtension = path.extname(filePath).toLowerCase();
+        const fileName = path.basename(filePath, fileExtension);
+
+        return {
+          id: null, // Sera généré lors du traitement complet
+          title: fileName,
+          path: filePath,
+          format: fileExtension.substring(1),
+          size_bytes: stats.size,
+          // Pas de métadonnées/miniatures pour le scan léger
+          duration: 0,
+          width: 0,
+          height: 0,
+          thumbnail: null
+        };
+      });
+
+      return {
+        success: true,
+        medias: lightMedias,
+        folderPath: folderToScan
+      };
+
+    } catch (error) {
+      console.error('Erreur lors du scan léger:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Recherche et ajout de médias dans la base JSON (fonction complète existante)
   ipcMain.handle('medias:scan', async (event, options) => {
     try {
       let videoFiles = [];
@@ -628,13 +706,50 @@ function setupIPCHandlers() {
       }
 
       if (!existingMedia) {
-        console.error('❌ Média non trouvé. Chemin recherché:', fileData.filePath);
-        if (allMedias && allMedias.length > 0) {
-          console.error('❌ Premiers chemins en base:', allMedias.slice(0, 2).map(m => m.path));
-        } else {
-          console.error('❌ Aucun média en base de données');
+        console.log('⚠️ Média non trouvé dans la base, création d\'un nouveau média');
+
+        // Créer un nouveau média au lieu de retourner une erreur
+        const stats = fs.statSync(fileData.filePath);
+
+        const mediaData = {
+          id: crypto.randomUUID(),
+          path: fileData.filePath,
+          title: fileData.title,
+          category: fileData.category || 'unsorted',
+          mediaType: fileData.mediaType || (fileData.category === 'series' ? 'series' : 'unique'),
+
+          // Champs enrichis
+          description: fileData.description || '',
+          year: fileData.year || null,
+          genres: fileData.genres || [],
+          director: fileData.director || '',
+          actors: fileData.actors || [],
+          franchise: fileData.franchise || '',
+          posterUrl: fileData.posterUrl || '',
+
+          // Champs pour séries
+          releaseDate: fileData.releaseDate || null,
+          seriesId: fileData.seriesId || null,
+          seriesName: fileData.seriesName || null,
+          season_number: fileData.season_number || null,
+          episode_number: fileData.episode_number || null,
+
+          // Métadonnées de base
+          name: path.basename(fileData.filePath),
+          size_bytes: stats.size,
+          formattedSize: formatFileSize(stats.size),
+          format: path.extname(fileData.filePath).toLowerCase().replace('.', ''),
+          dateAdded: new Date().toISOString()
+        };
+
+        const result = await db.addMedia(mediaData);
+
+        if (result.success) {
+          console.log(`💾 Nouveau média créé: ${mediaData.title} (catégorie: ${mediaData.category})`);
+          return { ...result, movieId: mediaData.id };
         }
-        return { success: false, message: 'Média non trouvé dans la base de données' };
+
+        return result;
       }
 
       console.log('✅ Média trouvé:', existingMedia.title);
@@ -643,12 +758,20 @@ function setupIPCHandlers() {
       const mediaData = {
         ...existingMedia, // Reprendre toutes les métadonnées existantes
         title: fileData.title,
-        category: fileData.category || 'unsorted', // Si toujours null après tri, utiliser 'unsorted' par défaut
+        category: fileData.category || 'unsorted',
         mediaType: fileData.mediaType || (fileData.category === 'series' ? 'series' : 'unique'),
+
+        // Champs enrichis
         description: fileData.description || '',
-        releaseDate: fileData.releaseDate || null,
         year: fileData.year || null,
+        genres: fileData.genres || [],
+        director: fileData.director || '',
+        actors: fileData.actors || [],
+        franchise: fileData.franchise || '',
+        posterUrl: fileData.posterUrl || '',
+
         // Champs pour les séries
+        releaseDate: fileData.releaseDate || null,
         seriesId: fileData.seriesId || null,
         seriesName: fileData.seriesName || null,
         season_number: fileData.season_number || null,
@@ -660,7 +783,7 @@ function setupIPCHandlers() {
 
       if (result.success) {
         console.log(`💾 Fichier classifié mis à jour: ${mediaData.title} (catégorie: ${mediaData.category})`);
-        return result;
+        return { ...result, movieId: existingMedia.id };
       }
 
       return result;

@@ -269,7 +269,8 @@
 /* MODE ÉDITION - THÈME DIFFÉRENT */
 /* ============================================ */
 
-/* Transformation visuelle quand on passe en mode édition */
+/* STYLES OBSOLÈTES - Ancienne version du mode édition - Désactivés pour éviter conflits */
+/*
 .movie-modal.edit-mode {
   background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
   border: 2px solid #ffd700;
@@ -289,6 +290,7 @@
   background: #ffed4e;
   transform: scale(1.1);
 }
+*/
 
 /* ============================================ */
 /* AUTRES ÉLÉMENTS AGRANDIS */
@@ -722,8 +724,8 @@
   background: linear-gradient(135deg, rgba(220, 53, 69, 0.2), rgba(220, 53, 69, 0.1));
   border-color: rgba(220, 53, 69, 0.4);
   color: #dc3545;
-  right: 48px;
-  transform: translateX(100%);
+  left: -60px;
+  transform: translateX(0);
   opacity: 0;
 }
 
@@ -745,8 +747,8 @@
   background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(40, 167, 69, 0.1));
   border-color: rgba(40, 167, 69, 0.4);
   color: #28a745;
-  left: 48px;
-  transform: translateX(-100%);
+  left: 60px;
+  transform: translateX(0);
   opacity: 0;
 }
 
@@ -1171,7 +1173,8 @@
   }
 }
 
-/* Mode édition */
+/* ANCIENS STYLES MODE ÉDITION - Désactivés pour éviter conflits avec le nouveau système */
+/*
 .edit-mode {
   background: rgba(8, 16, 41, 0.97);
 }
@@ -1179,7 +1182,10 @@
 .edit-mode .modal-content {
   max-height: 80vh;
 }
+*/
 
+/* ANCIENS STYLES .edit-mode - Désactivés (suite) */
+/*
 .edit-mode .edit-section {
   margin-bottom: 20px;
 }
@@ -1209,7 +1215,10 @@
   font-size: 15px;
   width: 100%;
 }
+*/
 
+/* ANCIENS STYLES .edit-mode - Suite désactivée */
+/*
 .edit-mode input[type="text"]:focus,
 .edit-mode input[type="date"]:focus,
 .edit-mode textarea:focus,
@@ -1223,7 +1232,6 @@
   resize: vertical;
 }
 
-/* Genres en mode édition */
 .edit-mode .genres-edit {
   display: flex;
   flex-wrap: wrap;
@@ -1284,20 +1292,102 @@
 .edit-mode .add-genre-btn:hover {
   background-color: #2a5db3;
 }
+*/
 
-/* Mode édition - couleurs plus sombres */
+/* Mode édition - couleurs plus sombres et dimensions identiques */
 .modal-overlay.edit-mode-active {
   background-color: rgba(5, 15, 35, 0.95);
+}
+
+/* Mode édition - modal principale avec exactement les mêmes dimensions + débordement contrôlé */
+.modal-overlay.edit-mode-active .movie-modal {
+  width: 90vw !important;
+  max-width: 1300px !important;
+  min-height: 85vh !important;
+  max-height: 90vh !important;
+  overflow: hidden !important;
+  padding: 40px !important;
+}
+
+/* Mode édition - view-mode avec contraintes strictes */
+.modal-overlay.edit-mode-active .view-mode {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+/* Mode édition - unified-content avec contraintes strictes */
+.modal-overlay.edit-mode-active .unified-content {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Mode édition - contraintes globales pour tous les éléments du contenu */
+.modal-overlay.edit-mode-active .modal-content * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.modal-overlay.edit-mode-active .modal-content input,
+.modal-overlay.edit-mode-active .modal-content textarea,
+.modal-overlay.edit-mode-active .modal-content select {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .modal-overlay.edit-mode-active .modal-content {
   background: linear-gradient(135deg, #051326 0%, #0a1b3d 50%, #0f2454 100%);
   border: 1px solid rgba(40, 80, 150, 0.3);
+  /* Hériter de la mise en page optimisée */
+  flex: 1 !important;
+  padding: 0 15px 0 0 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 .modal-overlay.edit-mode-active .modal-sidebar {
   background: linear-gradient(135deg, rgba(5, 19, 38, 0.9) 0%, rgba(10, 27, 61, 0.9) 100%);
   border-right: 1px solid rgba(40, 80, 150, 0.2);
+  /* Sidebar légèrement plus petite en mode édition pour donner plus d'espace */
+  width: 280px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Mode édition - unified-content avec même layout optimisé */
+.modal-overlay.edit-mode-active .unified-content {
+  display: flex !important;
+  gap: 30px !important;
+  padding: 20px 0 !important;
+  max-width: 100% !important;
+}
+
+/* Mode édition - espacement interne optimisé comme en mode lecture + contraintes */
+.modal-overlay.edit-mode-active .modal-content > * {
+  margin-bottom: 24px !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.modal-overlay.edit-mode-active .modal-content > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.modal-overlay.edit-mode-active .tags-container {
+  margin: 20px 0 !important;
+}
+
+.modal-overlay.edit-mode-active .tag-category {
+  margin-bottom: 18px !important;
+}
+
+.modal-overlay.edit-mode-active .synopsis {
+  margin: 24px 0 !important;
+}
+
+.modal-overlay.edit-mode-active .synopsis-content {
+  padding: 2px !important;
+  line-height: 1.6 !important;
 }
 
 .modal-overlay.edit-mode-active .modal-info h2 {
@@ -2043,7 +2133,8 @@
   }
 }
 
-/* Sélection d'image */
+/* ANCIENS STYLES .edit-mode - Sélection d'image - Désactivés */
+/*
 .edit-mode .image-upload-container {
   position: relative;
   width: 100%;
@@ -2087,10 +2178,12 @@
 .edit-mode .image-upload-btn:hover {
   background-color: #2a5db3;
 }
+*/
 
-/* Bouton pour rechercher sur TMDB */
+/* ANCIENS STYLES .edit-mode - TMDB et boutons - Désactivés */
+/*
 .edit-mode .tmdb-search-btn {
-  background-color: #01d277; /* Couleur TMDB */
+  background-color: #01d277;
   color: white;
   border: none;
   border-radius: 4px;
@@ -2112,7 +2205,6 @@
   font-size: 16px;
 }
 
-/* Bouton pour sortir du mode édition */
 .edit-mode .exit-edit-mode {
   background-color: #e74c3c;
   color: white;
@@ -2129,8 +2221,10 @@
 .edit-mode .exit-edit-mode:hover {
   background-color: #c0392b;
 }
+*/
 
-/* Style pour les select/dropdowns des genres prédéfinis */
+/* ANCIENS STYLES .edit-mode - Dropdowns et boutons - Désactivés */
+/*
 .edit-mode .genre-dropdown {
   background-color: rgba(255, 255, 255, 0.1);
   color: white;
@@ -2147,7 +2241,6 @@
   color: white;
 }
 
-/* Sauvegarder les changements */
 .edit-mode .save-changes-btn {
   background-color: #27ae60;
   color: white;
@@ -2160,10 +2253,14 @@
   transition: all 0.2s;
   width: 100%;
 }
+*/
 
+/* ANCIEN STYLE .edit-mode - Hover bouton - Désactivé */
+/*
 .edit-mode .save-changes-btn:hover {
   background-color: #219653;
 }
+*/
 
 /* Modal pour nouvelle série */
 .new-series-modal-overlay {
@@ -2262,10 +2359,10 @@
 /* DESIGN MODERNE ET AMÉLIORÉ - UI/UX OPTIMISÉE */
 /* ============================================ */
 
-/* Modal principale avec design responsive et moderne */
+/* Modal principale avec design responsive et moderne - largeur optimisée */
 .movie-modal {
-  width: 95vw !important;
-  max-width: 1400px !important;
+  width: 90vw !important;
+  max-width: 1300px !important;
   min-height: 85vh !important;
   max-height: 90vh !important;
   overflow: hidden !important;
@@ -2307,16 +2404,17 @@
   background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4)) !important;
 }
 
-/* Container unifié avec layout flex */
+/* Container unifié avec layout flex optimisé */
 .unified-content {
   display: flex !important;
-  gap: 40px !important;
+  gap: 30px !important;
   padding: 20px 0 !important;
+  max-width: 100% !important;
 }
 
-/* Sidebar avec affiche et évaluation */
+/* Sidebar avec affiche et évaluation - largeur optimisée */
 .modal-sidebar {
-  width: 320px !important;
+  width: 300px !important;
   flex-shrink: 0 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -2601,10 +2699,286 @@
   opacity: 0.9 !important;
 }
 
-/* Contenu principal unifié */
+/* Contenu principal unifié - padding optimisé pour respirer */
 .modal-content {
   flex: 1 !important;
-  padding: 0 20px 0 0 !important;
+  padding: 0 15px 0 0 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Améliorer l'espacement interne du contenu et forcer l'utilisation de l'espace vertical */
+.modal-content {
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  height: 100% !important;
+}
+
+.modal-content > * {
+  margin-bottom: 24px !important;
+}
+
+.modal-content > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Forcer les nouvelles sections à occuper plus d'espace vertical */
+.technical-info, .viewing-stats {
+  flex-grow: 1 !important;
+  min-height: 200px !important;
+}
+
+/* Assurer que les tags occupent l'espace restant si disponible */
+.tags-container {
+  flex-grow: 2 !important;
+  min-height: 150px !important;
+}
+
+/* Espacement optimisé pour les sections de tags */
+.tags-container {
+  margin: 20px 0 !important;
+}
+
+.tag-category {
+  margin-bottom: 18px !important;
+}
+
+/* Synopsis avec plus d'espacement */
+.synopsis {
+  margin: 24px 0 !important;
+}
+
+/* ============================================ */
+/* NOUVELLES SECTIONS : INFORMATIONS TECHNIQUES ET HISTORIQUE */
+/* ============================================ */
+
+/* Section Informations Techniques */
+.technical-info {
+  margin: 24px 0;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.08), rgba(76, 175, 80, 0.04));
+  border-radius: 16px;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  animation: technicalEntrance 0.8s ease-out 0.6s both;
+}
+
+@keyframes technicalEntrance {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.technical-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #4caf50, #66bb6a, #81c784);
+  border-radius: 0 2px 2px 0;
+}
+
+.technical-info-title {
+  font-size: 20px;
+  color: #ffffff;
+  margin-bottom: 16px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff, #c8e6c9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.technical-info-title::before {
+  content: '🔧';
+  font-size: 18px;
+  filter: none;
+  -webkit-text-fill-color: initial;
+}
+
+.technical-info-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tech-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(76, 175, 80, 0.1);
+  transition: all 0.3s ease;
+}
+
+.tech-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(76, 175, 80, 0.2);
+}
+
+.tech-label {
+  font-weight: 600;
+  color: #81c784;
+  font-size: 14px;
+}
+
+.tech-value {
+  color: #e8f5e8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Section Historique de Visionnage */
+.viewing-stats {
+  margin: 24px 0;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.08), rgba(156, 39, 176, 0.04));
+  border-radius: 16px;
+  border: 1px solid rgba(156, 39, 176, 0.2);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  animation: viewingEntrance 0.8s ease-out 0.8s both;
+}
+
+@keyframes viewingEntrance {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.viewing-stats::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #9c27b0, #ba68c8, #ce93d8);
+  border-radius: 0 2px 2px 0;
+}
+
+.viewing-stats-title {
+  font-size: 20px;
+  color: #ffffff;
+  margin-bottom: 16px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff, #f3e5f5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.viewing-stats-title::before {
+  content: '📊';
+  font-size: 18px;
+  filter: none;
+  -webkit-text-fill-color: initial;
+}
+
+.viewing-stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(156, 39, 176, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(156, 39, 176, 0.2);
+}
+
+.stat-label {
+  font-weight: 600;
+  color: #ce93d8;
+  font-size: 14px;
+}
+
+.stat-value {
+  color: #f8e8f8;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Barre de progression pour le visionnage */
+.progress-bar-container {
+  width: 100px;
+  height: 6px;
+  background: rgba(156, 39, 176, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-left: 12px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9c27b0, #ba68c8);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* Responsive pour les nouvelles sections */
+@media (max-width: 900px) {
+  .technical-info-content {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-bar-container {
+    width: 80px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tech-item,
+  .stat-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .progress-bar-container {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
+
+.synopsis-content {
+  padding: 2px !important;
+  line-height: 1.6 !important;
 }
 
 /* Bouton fermer modernisé */
@@ -2642,11 +3016,11 @@
   }
 
   .unified-content {
-    gap: 30px !important;
+    gap: 25px !important;
   }
 
   .modal-sidebar {
-    width: 280px !important;
+    width: 270px !important;
   }
 
   .modal-poster {
@@ -2853,4 +3227,389 @@
   50% {
     opacity: 1;
   }
+}
+
+/* ============================================ */
+/* STYLES POUR LES CHAMPS D'ÉDITION IN-PLACE */
+/* ============================================ */
+
+/* Style de base pour tous les champs d'édition - contraintes strictes */
+.modal-overlay.edit-mode-active .edit-title-field,
+.modal-overlay.edit-mode-active .edit-year-field,
+.modal-overlay.edit-mode-active .edit-synopsis-field,
+.modal-overlay.edit-mode-active .edit-director-field,
+.modal-overlay.edit-mode-active .edit-actors-field {
+  transition: all 0.3s ease;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Focus states avec animations */
+.modal-overlay.edit-mode-active .edit-title-field:focus,
+.modal-overlay.edit-mode-active .edit-year-field:focus,
+.modal-overlay.edit-mode-active .edit-synopsis-field:focus,
+.modal-overlay.edit-mode-active .edit-director-field:focus,
+.modal-overlay.edit-mode-active .edit-actors-field:focus {
+  border-color: #64b5f6;
+  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.2);
+  background: rgba(100, 181, 246, 0.05);
+}
+
+/* Champ titre - style imposant */
+.modal-overlay.edit-mode-active .edit-title-field {
+  background: transparent;
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  color: #fff !important;
+  font-size: 36px;
+  font-weight: 800;
+  padding: 0;
+  margin: 0 0 8px 0;
+  width: 100%;
+  border-radius: 4px;
+  line-height: 1.1;
+  box-shadow: none;
+}
+
+.modal-overlay.edit-mode-active .edit-title-field:hover {
+  border-color: rgba(100, 181, 246, 0.5);
+  background: transparent;
+}
+
+.modal-overlay.edit-mode-active .edit-title-field:focus {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2) !important;
+  background: transparent;
+  color: #fff !important;
+}
+
+/* Champ année - compact */
+.modal-overlay.edit-mode-active .edit-year-field {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  color: #ccc;
+  font-size: 1em;
+  padding: 6px 12px;
+  width: 90px;
+  border-radius: 6px;
+  margin-left: 8px;
+  text-align: center;
+}
+
+.modal-overlay.edit-mode-active .edit-year-field:hover {
+  border-color: rgba(100, 181, 246, 0.5);
+}
+
+/* Champ synopsis - textarea étendue */
+.modal-overlay.edit-mode-active .edit-synopsis-field {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  color: #ccc;
+  font-size: 0.95em;
+  padding: 16px;
+  width: 100%;
+  min-height: 140px;
+  border-radius: 8px;
+  resize: vertical;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.modal-overlay.edit-mode-active .edit-synopsis-field:hover {
+  border-color: rgba(100, 181, 246, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Champs réalisateur et acteurs - style compact */
+.modal-overlay.edit-mode-active .edit-director-field,
+.modal-overlay.edit-mode-active .edit-actors-field {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  color: #ccc;
+  font-size: 0.9em;
+  padding: 8px 12px;
+  border-radius: 6px;
+  min-width: 200px;
+}
+
+.modal-overlay.edit-mode-active .edit-director-field:hover,
+.modal-overlay.edit-mode-active .edit-actors-field:hover {
+  border-color: rgba(100, 181, 246, 0.5);
+}
+
+/* Champ acteurs - plus large */
+.modal-overlay.edit-mode-active .edit-actors-field {
+  width: 350px;
+  max-width: 100%;
+}
+
+/* Effet de survol général */
+.modal-overlay.edit-mode-active input:hover,
+.modal-overlay.edit-mode-active textarea:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Animation d'apparition des champs */
+.modal-overlay.edit-mode-active .edit-title-field,
+.modal-overlay.edit-mode-active .edit-year-field,
+.modal-overlay.edit-mode-active .edit-synopsis-field,
+.modal-overlay.edit-mode-active .edit-director-field,
+.modal-overlay.edit-mode-active .edit-actors-field {
+  animation: fieldAppear 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes fieldAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Placeholders stylisés */
+.modal-overlay.edit-mode-active input::placeholder,
+.modal-overlay.edit-mode-active textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+/* Mode édition - responsive design cohérent avec le mode lecture */
+@media (max-width: 1200px) {
+  .modal-overlay.edit-mode-active .movie-modal {
+    padding: 30px !important;
+  }
+
+  .modal-overlay.edit-mode-active .unified-content {
+    gap: 25px !important;
+  }
+
+  .modal-overlay.edit-mode-active .modal-sidebar {
+    width: 270px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .modal-overlay.edit-mode-active .movie-modal {
+    padding: 25px !important;
+    height: 95vh !important;
+    max-height: 95vh !important;
+  }
+
+  .modal-overlay.edit-mode-active .unified-content {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+
+  .modal-overlay.edit-mode-active .modal-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .modal-overlay.edit-mode-active .movie-modal {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    padding: 20px !important;
+  }
+
+  .modal-overlay.edit-mode-active .modal-sidebar {
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+}
+
+/* Style responsive pour mobile - champs d'édition */
+@media (max-width: 768px) {
+  .modal-overlay.edit-mode-active .edit-title-field {
+    font-size: 1.4em;
+    padding: 10px 12px;
+  }
+
+  .modal-overlay.edit-mode-active .edit-actors-field {
+    width: 100%;
+  }
+
+  .modal-overlay.edit-mode-active .edit-synopsis-field {
+    min-height: 100px;
+    padding: 12px;
+  }
+}
+
+/* ============================================ */
+/* STYLES POUR LES BOUTONS DE SUPPRESSION DES TAGS */
+/* ============================================ */
+
+/* Tags avec boutons de suppression en mode édition */
+.modal-overlay.edit-mode-active .tag-chip.editable {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 4px 6px 12px !important;
+  position: relative !important;
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.15), rgba(100, 181, 246, 0.08)) !important;
+  border: 1px solid rgba(100, 181, 246, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.modal-overlay.edit-mode-active .tag-chip.editable:hover {
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.25), rgba(100, 181, 246, 0.15)) !important;
+  border-color: rgba(100, 181, 246, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(100, 181, 246, 0.2) !important;
+}
+
+/* Texte du tag */
+.modal-overlay.edit-mode-active .tag-chip .tag-text {
+  flex: 1 !important;
+  font-size: inherit !important;
+  color: inherit !important;
+}
+
+/* Bouton de suppression */
+.modal-overlay.edit-mode-active .tag-remove-btn {
+  background: rgba(220, 53, 69, 0.8) !important;
+  border: none !important;
+  color: white !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 10px !important;
+  transition: all 0.2s ease !important;
+  opacity: 0.7 !important;
+  margin-left: 4px !important;
+}
+
+.modal-overlay.edit-mode-active .tag-remove-btn:hover {
+  background: rgba(220, 53, 69, 1) !important;
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4) !important;
+}
+
+.modal-overlay.edit-mode-active .tag-remove-btn i {
+  font-size: 8px !important;
+  pointer-events: none !important;
+}
+
+/* Animation de suppression */
+.modal-overlay.edit-mode-active .tag-chip.removing {
+  opacity: 0.5 !important;
+  background: rgba(220, 53, 69, 0.1) !important;
+  border-color: rgba(220, 53, 69, 0.3) !important;
+  transform: scale(0.95) !important;
+  transition: all 0.3s ease !important;
+}
+
+/* ============================================ */
+/* MASQUER LES ÉLÉMENTS D'ÉDITION EN MODE LECTURE */
+/* ============================================ */
+
+/* Masquer tous les éléments d'édition quand on N'EST PAS en mode édition */
+.modal-overlay:not(.edit-mode-active) .tmdb-search-btn,
+.modal-overlay:not(.edit-mode-active) .exit-edit-mode,
+.modal-overlay:not(.edit-mode-active) .save-changes-btn,
+.modal-overlay:not(.edit-mode-active) #tmdb-search-btn,
+.modal-overlay:not(.edit-mode-active) #exit-edit-mode,
+.modal-overlay:not(.edit-mode-active) #save-changes-btn,
+.modal-overlay:not(.edit-mode-active) .edit-section,
+.modal-overlay:not(.edit-mode-active) .edit-header {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* ============================================ */
+/* BOUTON FLOTTANT "REGARDER LE FILM" */
+/* ============================================ */
+
+.floating-watch-btn {
+  position: absolute !important;
+  bottom: 30px !important;
+  right: 30px !important;
+  background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 50px !important;
+  padding: 16px 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-shadow: 0 8px 32px rgba(231, 76, 60, 0.4) !important;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+  z-index: 1000 !important;
+  backdrop-filter: blur(10px) !important;
+  animation: floatIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+.floating-watch-btn:hover {
+  background: linear-gradient(135deg, #c0392b, #a93226) !important;
+  transform: translateY(-4px) scale(1.05) !important;
+  box-shadow: 0 12px 40px rgba(231, 76, 60, 0.6) !important;
+}
+
+.floating-watch-btn:active {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 8px 25px rgba(231, 76, 60, 0.5) !important;
+}
+
+.floating-watch-btn i {
+  font-size: 18px !important;
+  color: white !important;
+}
+
+.floating-watch-btn span {
+  white-space: nowrap !important;
+  font-family: inherit !important;
+}
+
+/* Animation d'apparition du bouton */
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(60px) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive pour mobile */
+@media (max-width: 768px) {
+  .floating-watch-btn {
+    bottom: 20px !important;
+    right: 20px !important;
+    padding: 14px 20px !important;
+    font-size: 14px !important;
+  }
+
+  .floating-watch-btn i {
+    font-size: 16px !important;
+  }
+}
+
+/* Masquer l'ancien container modal-actions s'il existe encore */
+.modal-actions {
+  display: none !important;
 }

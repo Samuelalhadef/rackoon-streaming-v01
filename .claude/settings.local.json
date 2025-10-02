@@ -32,7 +32,9 @@
       "Bash(del \"data/thumbnails/*\")",
       "Bash(sed:*)",
       "Bash(del test-tags.js)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(del \"data\\movies.json\")",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

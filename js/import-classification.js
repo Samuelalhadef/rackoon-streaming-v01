@@ -305,6 +305,10 @@ class ImportClassificationSystem {
       // Configurer les attributs de la carte
       card.dataset.fileIndex = index;
 
+      // ⭐ NOUVEAU: Définir le type de média pour le CSS
+      const mediaType = file.triageType === 'series' ? 'series' : 'unique';
+      card.dataset.mediaType = mediaType;
+
       // Remplir les informations du fichier
       const fileName = card.querySelector('.file-name');
       const fileDuration = card.querySelector('.file-duration');
@@ -318,7 +322,8 @@ class ImportClassificationSystem {
       console.log(`🔍 Remplissage carte ${index}:`, {
         fileName: file.name,
         fileTitle: file.title,
-        triageType: file.triageType
+        triageType: file.triageType,
+        mediaType: mediaType
       });
 
       titleInput.value = file.title || file.name;
@@ -342,11 +347,6 @@ class ImportClassificationSystem {
 
       // Afficher automatiquement les champs série si c'est une série
       if (file.triageType === 'series') {
-        const seriesFields = card.querySelector('.series-fields');
-        if (seriesFields) {
-          seriesFields.style.display = 'block';
-        }
-
         // Remplir le nom de la série (lecture seule)
         const seriesNameInput = card.querySelector('.series-name-readonly');
         if (seriesNameInput && file.seriesName) {
@@ -372,12 +372,105 @@ class ImportClassificationSystem {
       const card = e.target.closest('.gallery-card');
       if (!card) return;
 
+      // Gestion des boutons principaux
       if (e.target.classList.contains('save-btn')) {
         this.saveGalleryCard(card);
       } else if (e.target.classList.contains('skip-btn')) {
         this.skipGalleryCard(card);
       } else if (e.target.classList.contains('new-series-btn')) {
         this.showNewSeriesModal();
+      }
+
+      // Gestion du bouton "Ajouter un genre"
+      if (e.target.classList.contains('genre-add-btn')) {
+        e.stopPropagation();
+
+        // Fermer tous les autres dropdowns d'abord
+        document.querySelectorAll('.genre-dropdown-menu.active').forEach(dd => {
+          if (dd !== card.querySelector('.genre-dropdown-menu')) {
+            dd.classList.remove('active');
+          }
+        });
+
+        const dropdown = card.querySelector('.genre-dropdown-menu');
+        if (dropdown) {
+          const isActive = dropdown.classList.contains('active');
+
+          if (isActive) {
+            // Si déjà ouvert, fermer
+            dropdown.classList.remove('active');
+          } else {
+            // Ouvrir et positionner
+            // Positionner le dropdown en fonction du bouton
+            const rect = e.target.getBoundingClientRect();
+            const dropdownHeight = 200; // max-height du dropdown
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+
+            // Déterminer si on ouvre vers le haut ou le bas
+            let top, left;
+
+            if (spaceBelow >= dropdownHeight + 10) {
+              // Assez d'espace en bas
+              top = rect.bottom + 5;
+              dropdown.classList.remove('open-upward');
+            } else if (spaceAbove >= dropdownHeight + 10) {
+              // Pas assez d'espace en bas, ouvrir vers le haut
+              top = rect.top - dropdownHeight - 5;
+              dropdown.classList.add('open-upward');
+            } else {
+              // Pas assez d'espace ni en haut ni en bas, centrer verticalement
+              top = Math.max(10, (window.innerHeight - dropdownHeight) / 2);
+              dropdown.classList.remove('open-upward');
+            }
+
+            // Position horizontale (aligné à gauche du bouton)
+            left = rect.left;
+
+            // Vérifier que le dropdown ne dépasse pas à droite
+            const dropdownWidth = 180;
+            if (left + dropdownWidth > window.innerWidth) {
+              left = window.innerWidth - dropdownWidth - 10;
+            }
+
+            // Appliquer les positions
+            dropdown.style.top = `${top}px`;
+            dropdown.style.left = `${left}px`;
+
+            // Ouvrir le dropdown
+            dropdown.classList.add('active');
+          }
+        }
+      }
+
+      // Gestion de la sélection d'un genre dans le dropdown
+      if (e.target.classList.contains('genre-dropdown-option')) {
+        const genre = e.target.dataset.genre;
+        const dropdown = card.querySelector('.genre-dropdown-menu');
+        this.addGenreTag(card, genre);
+        dropdown.classList.remove('active');
+      }
+
+      // Gestion du retrait d'un genre
+      if (e.target.classList.contains('genre-tag-remove')) {
+        const tag = e.target.closest('.genre-tag');
+        if (tag) {
+          tag.remove();
+          this.updateGenreDropdown(card);
+        }
+      }
+    });
+
+    // Fermer les dropdowns quand on clique ailleurs (mais pas sur la modale du film)
+    document.addEventListener('click', (e) => {
+      // Ne pas fermer si on clique sur le dropdown lui-même ou sur la modale du film
+      if (!e.target.closest('.genre-add-dropdown') &&
+          !e.target.closest('.genre-dropdown-menu') &&
+          !e.target.closest('.movie-modal') &&
+          !e.target.closest('.modal-overlay')) {
+        document.querySelectorAll('.genre-dropdown-menu.active').forEach(dropdown => {
+          dropdown.classList.remove('active');
+        });
       }
     });
 
@@ -410,7 +503,13 @@ class ImportClassificationSystem {
     // Bouton Annuler
     const cancelBtn = document.getElementById('cancel-import-btn');
     if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => this.cancelImport());
+      cancelBtn.addEventListener('click', () => this.showCancelConfirmation());
+    }
+
+    // Bouton Annuler classification
+    const cancelClassificationBtn = document.getElementById('cancel-classification-btn');
+    if (cancelClassificationBtn) {
+      cancelClassificationBtn.addEventListener('click', () => this.showCancelConfirmation());
     }
 
     // Bouton Retour
@@ -419,11 +518,11 @@ class ImportClassificationSystem {
       backBtn.addEventListener('click', () => this.backToTriage());
     }
 
-    // Clic à l'extérieur de la modal équivaut à annuler
+    // Clic à l'extérieur de la modal affiche la confirmation d'annulation
     if (this.galleryModal) {
       this.galleryModal.addEventListener('click', (e) => {
         if (e.target === this.galleryModal) {
-          this.cancelImport();
+          this.showCancelConfirmation();
         }
       });
     }
@@ -431,7 +530,7 @@ class ImportClassificationSystem {
     if (this.importModal) {
       this.importModal.addEventListener('click', (e) => {
         if (e.target === this.importModal) {
-          this.cancelImport();
+          this.showCancelConfirmation();
         }
       });
     }
@@ -567,9 +666,18 @@ class ImportClassificationSystem {
         title: formData.title.trim(),
         category: formData.category,
         mediaType: formData.mediaType,
-        description: '',
-        releaseDate: null,
+
+        // Nouveaux champs enrichis
+        description: formData.description || '',
         year: formData.year || null,
+        genres: formData.genres || [],
+        director: formData.director || '',
+        actors: formData.actors || [],
+        franchise: formData.franchise || '',
+        posterUrl: formData.posterUrl || '',
+
+        // Champs pour séries
+        releaseDate: null,
         seriesId: formData.seriesId || null,
         seriesName: formData.seriesName || null,
         season_number: formData.seasonNumber || null,
@@ -582,6 +690,12 @@ class ImportClassificationSystem {
 
       if (result.success) {
         console.log('✅ Fichier sauvegardé avec succès');
+
+        // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+        if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+          this.newlyScannedIds.push(result.movieId);
+          console.log('📋 ID ajouté à la liste des films trackés:', result.movieId);
+        }
 
         // Marquer comme sauvegardé
         this.markCardAsSaved(card, fileIndex);
@@ -626,11 +740,38 @@ class ImportClassificationSystem {
       console.log(`   - Titre vide, utilisation du fallback: ${title}`);
     }
 
+    // Récupérer les genres sélectionnés (pastilles)
+    const genreTags = card.querySelectorAll('.genre-tag');
+    const genres = Array.from(genreTags).map(tag => tag.dataset.genre);
+
+    // Récupérer la description
+    const description = card.querySelector('.description-input')?.value?.trim() || '';
+
+    // Récupérer les champs avancés
+    const director = card.querySelector('.director-input')?.value?.trim() || '';
+
+    // Récupérer les acteurs et les convertir en array
+    const actorsString = card.querySelector('.actors-input')?.value?.trim() || '';
+    const actors = actorsString ? actorsString.split(',').map(a => a.trim()).filter(a => a) : [];
+
+    const franchise = card.querySelector('.franchise-input')?.value?.trim() || '';
+    const posterUrl = card.querySelector('.poster-input')?.value?.trim() || '';
+
     const result = {
       title: title.trim(),
       category: category,
       mediaType: file?.mediaType || (category === 'series' ? 'series' : 'unique'),
       year: parseInt(card.querySelector('.year-input')?.value) || null,
+
+      // Nouveaux champs pour médias uniques
+      genres: genres,
+      description: description,
+      director: director,
+      actors: actors,
+      franchise: franchise,
+      posterUrl: posterUrl,
+
+      // Champs pour séries
       seriesId: file?.seriesId || null,
       seriesName: file?.seriesName || null,
       seasonNumber: parseInt(card.querySelector('.season-input')?.value) || null,
@@ -748,6 +889,12 @@ class ImportClassificationSystem {
         if (result.success) {
           file.classified = true;
           this.classifiedFiles.push(file);
+
+          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+          if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+            this.newlyScannedIds.push(result.movieId);
+            console.log('📋 ID ajouté à la liste des films trackés (tout passer):', result.movieId);
+          }
         }
       } catch (error) {
         console.error('❌ Erreur pour', file.name, ':', error);
@@ -796,6 +943,12 @@ class ImportClassificationSystem {
             file.classified = true;
             this.classifiedFiles.push(file);
             console.log(`✅ ${fileName} sauvegardé automatiquement avec catégorie: ${formData.category}`);
+
+            // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+            if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+              this.newlyScannedIds.push(result.movieId);
+              console.log('📋 ID ajouté à la liste des films trackés (finir):', result.movieId);
+            }
           } else {
             console.error(`❌ Erreur lors de la sauvegarde automatique de ${fileName}:`, result.message);
           }
@@ -826,12 +979,11 @@ class ImportClassificationSystem {
     }
     message += `\nLes fichiers ont été ajoutés à votre bibliothèque.`;
 
-    // Recharger les films
-    this.forceReloadMovies();
+    // Recharger les films AVANT d'afficher le message
+    await this.forceReloadMovies();
 
-    setTimeout(() => {
-      alert(message);
-    }, 500);
+    // Afficher le message après le rechargement
+    alert(message);
   }
 
   onCategoryChange(categoryValue) {
@@ -912,6 +1064,12 @@ class ImportClassificationSystem {
 
       if (result.success) {
         console.log('✅ Fichier sauvegardé avec succès');
+
+        // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+        if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+          this.newlyScannedIds.push(result.movieId);
+          console.log('📋 ID ajouté à la liste des films trackés (mode détail):', result.movieId);
+        }
 
         // Marquer le fichier comme classifié
         this.currentFiles[this.currentFileIndex].classified = true;
@@ -1013,42 +1171,81 @@ class ImportClassificationSystem {
     document.getElementById('new-series-description').value = '';
   }
 
-  async cancelImport() {
-    // Afficher une confirmation avant d'annuler
-    const isConfirmed = confirm('Êtes-vous sûr de vouloir annuler l\'importation ? Toutes les données non sauvegardées seront perdues.');
+  showCancelConfirmation() {
+    const confirmModal = document.getElementById('cancel-confirmation-modal');
+    if (confirmModal) {
+      confirmModal.style.display = 'flex';
 
-    if (isConfirmed) {
-      console.log('❌ Annulation de l\'importation par l\'utilisateur');
+      // Gérer les boutons de confirmation
+      const btnNo = document.getElementById('cancel-confirmation-no');
+      const btnYes = document.getElementById('cancel-confirmation-yes');
 
-      // Marquer la fin de l'import
-      this.isImporting = false;
+      btnNo.onclick = () => {
+        confirmModal.style.display = 'none';
+      };
 
-      // Fermer toutes les modales
-      if (this.galleryModal) this.galleryModal.style.display = 'none';
-      if (this.detailsModal) this.detailsModal.style.display = 'none';
-      if (this.importModal) this.importModal.style.display = 'none';
-
-      // Réinitialiser les données
-      this.currentFiles = [];
-      this.classifiedFiles = [];
-      this.currentFileIndex = 0;
-
-      // IMPORTANT: Nettoyer les fichiers partiellement importés (suppression de la DB)
-      await this.cleanupPartialImport();
+      btnYes.onclick = () => {
+        this.cancelImportCompletely();
+        confirmModal.style.display = 'none';
+      };
     }
+  }
+
+  async cancelImportCompletely() {
+    console.log('❌ Annulation complète de l\'importation par l\'utilisateur');
+
+    // Marquer la fin de l'import
+    this.isImporting = false;
+
+    // Fermer toutes les modales
+    if (this.galleryModal) this.galleryModal.style.display = 'none';
+    if (this.detailsModal) this.detailsModal.style.display = 'none';
+    if (this.importModal) this.importModal.style.display = 'none';
+
+    // Réinitialiser les données
+    this.currentFiles = [];
+    this.classifiedFiles = [];
+    this.currentFileIndex = 0;
+
+    // IMPORTANT: Nettoyer les fichiers partiellement importés (suppression de la DB)
+    await this.cleanupPartialImport();
+
+    // Notifier l'utilisateur
+    if (window.showNotification) {
+      window.showNotification('Import annulé', 'L\'import des médias a été annulé avec succès.', 'info');
+    }
+
+    console.log('✅ Import complètement annulé');
+  }
+
+  async cancelImport() {
+    // Méthode obsolète, rediriger vers la nouvelle méthode avec confirmation
+    this.showCancelConfirmation();
   }
 
   backToTriage() {
     console.log('🔙 Retour vers la phase de triage');
 
+    // Vérifier s'il y a eu des modifications dans la phase 2
+    const hasModifications = this.classifiedFiles.length > 0 ||
+                             this.currentFiles.some(f => f.classified || f.skipped);
+
+    if (hasModifications) {
+      const confirmation = confirm(
+        'Vous avez des modifications non sauvegardées.\n\n' +
+        'En retournant à la phase 1, vous perdrez toutes les modifications effectuées dans la phase 2.\n\n' +
+        'Voulez-vous vraiment continuer ?'
+      );
+
+      if (!confirmation) {
+        console.log('🚫 Retour annulé par l\'utilisateur');
+        return;
+      }
+    }
+
     // Fermer la modal galerie (phase 2)
     if (this.galleryModal) {
       this.galleryModal.style.display = 'none';
-    }
-
-    // Réouvrir la modal de triage (phase 1)
-    if (this.importModal) {
-      this.importModal.style.display = 'flex';
     }
 
     // IMPORTANT: Ne pas réinitialiser this.currentFiles car on veut garder les médias
@@ -1058,6 +1255,20 @@ class ImportClassificationSystem {
       file.skipped = false;
     });
     this.classifiedFiles = [];
+
+    // Repeupler et réafficher la modal de triage (phase 1)
+    // Utiliser l'instance du système de triage pour repeupler les données
+    if (window.importTriageSystem && typeof window.importTriageSystem.populateTriageModal === 'function') {
+      console.log('🔄 Repeuplement de la modale de triage avec', this.currentFiles.length, 'fichiers');
+      // Transférer les fichiers vers le système de triage
+      window.importTriageSystem.currentFiles = this.currentFiles;
+      window.importTriageSystem.populateTriageModal();
+      window.importTriageSystem.showTriageModal();
+    } else if (this.importModal) {
+      // Fallback : juste ouvrir la modal (peut être vide)
+      console.warn('⚠️ Système de triage non disponible, ouverture simple de la modal');
+      this.importModal.style.display = 'flex';
+    }
 
     // Garder l'état d'import actif car on revient juste en arrière
     // this.isImporting reste true
@@ -1091,6 +1302,61 @@ class ImportClassificationSystem {
 
     // Réinitialiser la liste des IDs nouvellement scannés
     this.newlyScannedIds = [];
+  }
+
+  // Méthode pour nettoyer les films par nom (pour corriger les imports problématiques)
+  async cleanupMoviesByName(searchTerm) {
+    console.log(`🧹 Recherche et suppression des films contenant: "${searchTerm}"`);
+
+    try {
+      // Récupérer tous les films et filtrer côté client
+      const result = await window.electronAPI.getAllMedias();
+
+      if (result.success && result.medias && result.medias.length > 0) {
+        // Filtrer les films contenant le terme de recherche
+        const matchingMovies = result.medias.filter(movie => {
+          const title = (movie.title || movie.name || '').toLowerCase();
+          return title.includes(searchTerm.toLowerCase());
+        });
+
+        if (matchingMovies.length > 0) {
+          console.log(`🔍 ${matchingMovies.length} films trouvés à supprimer`);
+
+          const confirmMessage = `Voulez-vous supprimer ${matchingMovies.length} film(s) contenant "${searchTerm}" ?\n\nFilms concernés:\n${matchingMovies.map(m => `• ${m.title || m.name}`).join('\n')}`;
+
+          if (confirm(confirmMessage)) {
+            let deletedCount = 0;
+
+            for (const movie of matchingMovies) {
+              const deleteResult = await window.electronAPI.deleteMedia(movie.id);
+              if (deleteResult.success) {
+                deletedCount++;
+                console.log(`✅ Film "${movie.title || movie.name}" supprimé`);
+              } else {
+                console.error(`❌ Erreur lors de la suppression de "${movie.title || movie.name}":`, deleteResult.message);
+              }
+            }
+
+            if (window.showNotification) {
+              window.showNotification('Nettoyage terminé', `${deletedCount} film(s) supprimé(s) avec succès.`, 'success');
+            }
+
+            return { success: true, deletedCount };
+          } else {
+            return { success: false, message: 'Nettoyage annulé par l\'utilisateur' };
+          }
+        } else {
+          console.log(`ℹ️ Aucun film trouvé contenant "${searchTerm}"`);
+          return { success: true, deletedCount: 0 };
+        }
+      } else {
+        console.log('ℹ️ Aucun film dans la base de données');
+        return { success: true, deletedCount: 0 };
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du nettoyage des films:', error);
+      return { success: false, error };
+    }
   }
 
   async createNewSeries() {
@@ -1156,7 +1422,7 @@ class ImportClassificationSystem {
     }
   }
 
-  completeClassification() {
+  async completeClassification() {
     console.log('🎉 Classification terminée!');
     console.log(`📊 Fichiers classifiés: ${this.classifiedFiles.length}/${this.currentFiles.length}`);
 
@@ -1179,39 +1445,97 @@ class ImportClassificationSystem {
     }
     message += `\nLes fichiers ont été ajoutés à votre bibliothèque.`;
 
-    // Recharger les films MAINTENANT (à la fin seulement)
-    this.forceReloadMovies();
+    // Recharger les films AVANT d'afficher le message
+    await this.forceReloadMovies();
 
-    setTimeout(() => {
-      alert(message);
-    }, 500);
+    // Afficher le message après le rechargement
+    alert(message);
   }
 
   async forceReloadMovies() {
     try {
       console.log('🔄 Rechargement forcé de la liste des films après classification');
-      
+
       // Appeler la fonction de rechargement des films
       if (window.loadMoviesFromDatabase) {
         await window.loadMoviesFromDatabase();
       }
-      
+
       if (window.loadMovies) {
         await window.loadMovies();
       }
-      
+
       // Déclencher un événement personnalisé pour informer le dashboard
       const event = new CustomEvent('moviesUpdated');
       document.dispatchEvent(event);
-      
+
     } catch (error) {
       console.error('❌ Erreur lors du rechargement:', error);
     }
+  }
+
+  // Ajouter un genre tag à une carte
+  addGenreTag(card, genre) {
+    const tagsList = card.querySelector('.genres-tags-list');
+    if (!tagsList) return;
+
+    // Vérifier si le genre n'est pas déjà ajouté
+    const existingTags = Array.from(tagsList.querySelectorAll('.genre-tag'));
+    if (existingTags.some(tag => tag.dataset.genre === genre)) {
+      console.log('Genre déjà ajouté:', genre);
+      return;
+    }
+
+    // Créer la pastille
+    const tag = document.createElement('div');
+    tag.className = 'genre-tag';
+    tag.dataset.genre = genre;
+    tag.innerHTML = `
+      <span>${genre}</span>
+      <button type="button" class="genre-tag-remove" title="Retirer">×</button>
+    `;
+
+    tagsList.appendChild(tag);
+
+    // Mettre à jour le dropdown pour désactiver ce genre
+    this.updateGenreDropdown(card);
+  }
+
+  // Mettre à jour le dropdown pour désactiver les genres déjà sélectionnés
+  updateGenreDropdown(card) {
+    const tagsList = card.querySelector('.genres-tags-list');
+    const dropdown = card.querySelector('.genre-dropdown-menu');
+
+    if (!tagsList || !dropdown) return;
+
+    // Récupérer les genres déjà sélectionnés
+    const selectedGenres = Array.from(tagsList.querySelectorAll('.genre-tag'))
+      .map(tag => tag.dataset.genre);
+
+    // Mettre à jour les options du dropdown
+    const options = dropdown.querySelectorAll('.genre-dropdown-option');
+    options.forEach(option => {
+      const genre = option.dataset.genre;
+      if (selectedGenres.includes(genre)) {
+        option.classList.add('disabled');
+      } else {
+        option.classList.remove('disabled');
+      }
+    });
   }
 }
 
 // Créer l'instance globale
 window.importClassificationSystem = new ImportClassificationSystem();
+
+// Exposer la méthode de nettoyage globalement pour utilisation depuis la console
+window.cleanupKizumonogatari = async () => {
+  if (window.importClassificationSystem) {
+    return await window.importClassificationSystem.cleanupMoviesByName('Kizumonogatari');
+  } else {
+    console.error('❌ Système d\'import non initialisé');
+  }
+};
 
 // Export pour utilisation dans d'autres modules
 window.startClassification = (files, scanType) => {
