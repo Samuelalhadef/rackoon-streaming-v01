@@ -1301,12 +1301,12 @@
 
 /* Mode édition - modal principale avec exactement les mêmes dimensions + débordement contrôlé */
 .modal-overlay.edit-mode-active .movie-modal {
-  width: 90vw !important;
-  max-width: 1300px !important;
+  width: 95vw !important;
+  max-width: 1600px !important;
   min-height: 85vh !important;
   max-height: 90vh !important;
   overflow: hidden !important;
-  padding: 40px !important;
+  padding: 30px !important;
 }
 
 /* Mode édition - view-mode avec contraintes strictes */
@@ -1341,7 +1341,7 @@
   border: 1px solid rgba(40, 80, 150, 0.3);
   /* Hériter de la mise en page optimisée */
   flex: 1 !important;
-  padding: 0 15px 0 0 !important;
+  padding: 0 !important;
   min-width: 0 !important;
   max-width: 100% !important;
 }
@@ -1349,22 +1349,22 @@
 .modal-overlay.edit-mode-active .modal-sidebar {
   background: linear-gradient(135deg, rgba(5, 19, 38, 0.9) 0%, rgba(10, 27, 61, 0.9) 100%);
   border-right: 1px solid rgba(40, 80, 150, 0.2);
-  /* Sidebar légèrement plus petite en mode édition pour donner plus d'espace */
-  width: 280px !important;
+  /* Même largeur qu'en mode lecture pour éviter les décalages */
+  width: 350px !important;
   flex-shrink: 0 !important;
 }
 
 /* Mode édition - unified-content avec même layout optimisé */
 .modal-overlay.edit-mode-active .unified-content {
   display: flex !important;
-  gap: 30px !important;
+  gap: 40px !important;
   padding: 20px 0 !important;
   max-width: 100% !important;
 }
 
 /* Mode édition - espacement interne optimisé comme en mode lecture + contraintes */
 .modal-overlay.edit-mode-active .modal-content > * {
-  margin-bottom: 24px !important;
+  margin-bottom: 28px !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
@@ -2361,8 +2361,8 @@
 
 /* Modal principale avec design responsive et moderne - largeur optimisée */
 .movie-modal {
-  width: 90vw !important;
-  max-width: 1300px !important;
+  width: 95vw !important;
+  max-width: 1600px !important;
   min-height: 85vh !important;
   max-height: 90vh !important;
   overflow: hidden !important;
@@ -2370,7 +2370,7 @@
   background: linear-gradient(135deg, #0a1b42 0%, #1a2b5d 50%, #0f1f4a 100%) !important;
   border-radius: 20px !important;
   position: relative !important;
-  padding: 40px !important;
+  padding: 30px !important;
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
   backdrop-filter: blur(20px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -2407,14 +2407,16 @@
 /* Container unifié avec layout flex optimisé */
 .unified-content {
   display: flex !important;
-  gap: 30px !important;
-  padding: 20px 0 !important;
+  gap: 40px !important;
+  padding: 20px 10px 20px 0 !important;
   max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Sidebar avec affiche et évaluation - largeur optimisée */
 .modal-sidebar {
-  width: 300px !important;
+  width: 350px !important;
   flex-shrink: 0 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -2424,8 +2426,8 @@
 /* Affiche dans la sidebar */
 .modal-poster {
   position: relative !important;
-  width: 280px !important;
-  height: 420px !important;
+  width: 100% !important;
+  height: 520px !important;
   border-radius: 16px !important;
   overflow: hidden !important;
   background: rgba(0, 0, 0, 0.4) !important;
@@ -2702,20 +2704,16 @@
 /* Contenu principal unifié - padding optimisé pour respirer */
 .modal-content {
   flex: 1 !important;
-  padding: 0 15px 0 0 !important;
+  padding: 0 !important;
   min-width: 0 !important;
   max-width: 100% !important;
-}
-
-/* Améliorer l'espacement interne du contenu et forcer l'utilisation de l'espace vertical */
-.modal-content {
   justify-content: flex-start !important;
   align-items: stretch !important;
   height: 100% !important;
 }
 
 .modal-content > * {
-  margin-bottom: 24px !important;
+  margin-bottom: 28px !important;
 }
 
 .modal-content > *:last-child {
@@ -3012,20 +3010,19 @@
 /* Responsive design pour le layout unifié */
 @media (max-width: 1200px) {
   .movie-modal {
-    padding: 30px !important;
+    padding: 25px !important;
   }
 
   .unified-content {
-    gap: 25px !important;
+    gap: 30px !important;
   }
 
   .modal-sidebar {
-    width: 270px !important;
+    width: 320px !important;
   }
 
   .modal-poster {
-    width: 240px !important;
-    height: 360px !important;
+    height: 480px !important;
   }
 }
 
@@ -3537,9 +3534,10 @@
 /* ============================================ */
 
 .floating-watch-btn {
-  position: absolute !important;
+  position: sticky !important;
   bottom: 30px !important;
-  right: 30px !important;
+  align-self: flex-end !important;
+  margin-top: auto !important;
   background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
   color: white !important;
   border: none !important;

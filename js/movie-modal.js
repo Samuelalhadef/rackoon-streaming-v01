@@ -117,9 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const directorName = document.getElementById('director-name');
     if (movie.director && movie.director.trim()) {
       directorName.textContent = movie.director;
+      directorName.style.fontStyle = 'normal';
+      directorName.style.color = '#ffffff';
       directorSection.style.display = 'block';
     } else {
-      directorSection.style.display = 'none';
+      directorName.textContent = 'Non renseigné';
+      directorName.style.fontStyle = 'italic';
+      directorName.style.color = '#888';
+      directorSection.style.display = 'block';
     }
 
     // Acteurs
@@ -128,9 +133,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (movie.actors && movie.actors.length > 0) {
       const actorsText = movie.actors.slice(0, 3).join(', '); // Max 3 acteurs principaux
       actorsList.textContent = actorsText;
+      actorsList.style.fontStyle = 'normal';
+      actorsList.style.color = '#e3f2fd';
       actorsSection.style.display = 'block';
     } else {
-      actorsSection.style.display = 'none';
+      actorsList.textContent = 'Non renseigné';
+      actorsList.style.fontStyle = 'italic';
+      actorsList.style.color = '#888';
+      actorsSection.style.display = 'block';
     }
 
     // Franchise/Collection
@@ -138,9 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const franchiseName = document.getElementById('franchise-name');
     if (movie.franchise && movie.franchise.trim()) {
       franchiseName.textContent = movie.franchise;
+      franchiseName.style.fontStyle = 'normal';
+      franchiseName.style.color = '#ffffff';
       franchiseSection.style.display = 'block';
     } else {
-      franchiseSection.style.display = 'none';
+      franchiseName.textContent = 'Aucune collection';
+      franchiseName.style.fontStyle = 'italic';
+      franchiseName.style.color = '#888';
+      franchiseSection.style.display = 'block';
     }
   }
 
@@ -717,7 +732,15 @@ document.addEventListener('DOMContentLoaded', () => {
       displayViewingStats(movieId, movie);
 
       // Configurer le synopsis
-      synopsisContent.textContent = movie.description || '';
+      if (movie.description && movie.description.trim()) {
+        synopsisContent.textContent = movie.description;
+        synopsisContent.style.fontStyle = 'normal';
+        synopsisContent.style.color = '#e0e0e0';
+      } else {
+        synopsisContent.textContent = 'Aucun synopsis disponible';
+        synopsisContent.style.fontStyle = 'italic';
+        synopsisContent.style.color = '#888';
+      }
       
       // Configurer l'état "vu/à voir"
       const userPrefs = loadUserPreferences();
