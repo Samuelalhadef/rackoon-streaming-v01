@@ -217,6 +217,33 @@ class DashboardCategories {
   attachEventListeners() {
     // Les événements seront attachés directement aux cartes de films
     // Plus besoin d'événements globaux avec le nouveau design
+
+    // Écouter les mises à jour de note pour mettre à jour les cartes en temps réel
+    window.addEventListener('ratingUpdated', (e) => {
+      this.updateCardRating(e.detail.movieId, e.detail.rating);
+    });
+  }
+
+  // Mettre à jour la note sur une carte spécifique
+  updateCardRating(movieId, rating) {
+    const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
+    if (!card) return;
+
+    const starsContainer = card.querySelector('.stars-container');
+    if (!starsContainer) return;
+
+    const stars = starsContainer.querySelectorAll('.star');
+    const fullStars = Math.floor(rating);
+
+    stars.forEach((star, index) => {
+      if (index < fullStars) {
+        star.classList.add('filled');
+      } else {
+        star.classList.remove('filled');
+      }
+    });
+
+    console.log(`🔄 Carte mise à jour: ${movieId} - Note: ${rating}/5`);
   }
 
 
@@ -265,7 +292,38 @@ class DashboardCategories {
       duration.textContent = window.formatTime(movie.duration || 0);
     }
 
+    // Charger et afficher la note de l'utilisateur
+    const userPrefs = this.loadUserPreferences();
+    const userRating = userPrefs.ratings[movie.id] || 0;
+
+    if (userRating > 0) {
+      const starsContainer = card.querySelector('.stars-container');
+      if (starsContainer) {
+        const stars = starsContainer.querySelectorAll('.star');
+        const fullStars = Math.floor(userRating);
+
+        stars.forEach((star, index) => {
+          if (index < fullStars) {
+            star.classList.add('filled');
+          }
+        });
+      }
+    }
+
     return cardElement;
+  }
+
+  // Charger les préférences utilisateur depuis localStorage
+  loadUserPreferences() {
+    const stored = localStorage.getItem('userPreferences');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    return {
+      watchedMovies: {},
+      ratings: {},
+      reviews: {}
+    };
   }
 
   // Afficher la modale de création de catégorie

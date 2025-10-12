@@ -17,7 +17,7 @@
   background-color: #081029;
   border-radius: 15px;
   width: 95%;
-  max-width: 1200px;
+  max-width: 1400px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -177,6 +177,14 @@
   cursor: pointer;
   min-width: 160px;
   transition: all 0.3s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 32px;
 }
 
 .category-selector:focus {
@@ -190,9 +198,19 @@
 }
 
 .category-selector option {
-  background-color: #081029;
-  color: #ffffff;
-  padding: 8px;
+  background-color: #1a1f35 !important;
+  background: #1a1f35 !important;
+  color: #ffffff !important;
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+.category-selector option:hover,
+.category-selector option:checked,
+.category-selector option:focus {
+  background-color: #2a3350 !important;
+  background: linear-gradient(#2a3350, #2a3350) !important;
+  color: #ffffff !important;
 }
 
 /* États des sélecteurs */
@@ -565,8 +583,14 @@
 }
 
 .batch-series-select option {
-  background-color: #081029;
-  color: white;
+  background-color: #1a1f35;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+.batch-series-select option:hover {
+  background-color: #2a3350;
 }
 
 .batch-apply-btn {

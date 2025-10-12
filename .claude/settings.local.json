@@ -34,7 +34,8 @@
       "Bash(del test-tags.js)",
       "Bash(dir:*)",
       "Bash(del \"data\\movies.json\")",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

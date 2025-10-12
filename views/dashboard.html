@@ -237,15 +237,28 @@
               <!-- Bouton Vu/À voir -->
               <button class="btn-watch-toggle-modal" id="btn-watch-toggle-modal">À voir</button>
 
-              <!-- Système d'étoiles -->
+              <!-- Système d'étoiles progressif -->
               <div class="rating-compact">
                 <div class="rating-title">Ma Note</div>
-                <div class="modal-stars">
-                  <span class="modal-star" data-value="1"><i class="fas fa-star"></i></span>
-                  <span class="modal-star" data-value="2"><i class="fas fa-star"></i></span>
-                  <span class="modal-star" data-value="3"><i class="fas fa-star"></i></span>
-                  <span class="modal-star" data-value="4"><i class="fas fa-star"></i></span>
-                  <span class="modal-star" data-value="5"><i class="fas fa-star"></i></span>
+                <div class="rating-controls">
+                  <div class="progressive-stars" id="progressive-stars">
+                    <div class="stars-background">
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stars-fill" id="stars-fill">
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stars-overlay" id="stars-overlay"></div>
+                  </div>
+                  <input type="number" id="rating-input" class="rating-input" min="0" max="5" step="0.1" value="0" placeholder="0.0">
                 </div>
               </div>
 
@@ -263,7 +276,11 @@
           <div class="modal-header">
             <div class="title-section">
               <h2 class="modal-title" id="modal-title">Le Comte de Monte Cristo</h2>
-              <span class="movie-year" id="movie-year">(2024)</span>
+              <div class="media-meta-line">
+                <span class="media-category" id="media-category">Film</span>
+                <span class="meta-separator">•</span>
+                <span class="movie-year" id="movie-year">2024</span>
+              </div>
             </div>
             <div class="action-buttons">
               <!-- Système de boutons extensibles -->
@@ -298,49 +315,7 @@
             <div class="synopsis-content" id="synopsis-content"></div>
           </div>
 
-          <!-- Crédits après le synopsis -->
-          <div class="movie-credits">
-            <div class="director-section" id="director-section" style="display: none;">
-              <span class="credit-label">Réalisateur :</span>
-              <span class="director-name" id="director-name"></span>
-            </div>
-            <div class="actors-section" id="actors-section" style="display: none;">
-              <span class="credit-label">Acteurs :</span>
-              <span class="actors-list" id="actors-list"></span>
-            </div>
-            <div class="franchise-section" id="franchise-section" style="display: none;">
-              <span class="credit-label">Collection :</span>
-              <span class="franchise-name" id="franchise-name"></span>
-            </div>
-          </div>
-
-          <!-- Section Visionnage -->
-          <div class="viewing-stats">
-            <h3 class="viewing-stats-title">Historique de Visionnage</h3>
-            <div class="viewing-stats-content">
-              <div class="stat-item" id="stat-watch-count" style="display: none;">
-                <span class="stat-label">Regardé :</span>
-                <span class="stat-value" id="stat-watch-count-value">0 fois</span>
-              </div>
-              <div class="stat-item" id="stat-last-watched" style="display: none;">
-                <span class="stat-label">Dernier visionnage :</span>
-                <span class="stat-value" id="stat-last-watched-value"></span>
-              </div>
-              <div class="stat-item" id="stat-progress" style="display: none;">
-                <span class="stat-label">Progression :</span>
-                <span class="stat-value" id="stat-progress-value"></span>
-                <div class="progress-bar-container">
-                  <div class="progress-bar-fill" id="progress-bar-fill"></div>
-                </div>
-              </div>
-              <div class="stat-item" id="stat-rating-personal" style="display: none;">
-                <span class="stat-label">Ma note :</span>
-                <span class="stat-value" id="stat-rating-personal-value"></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Tags après les nouvelles sections -->
+          <!-- Tags déplacés avant les crédits -->
           <div class="tags-container">
             <!-- Genres -->
             <div class="tag-category" id="genres-category" style="display: none;">
@@ -379,6 +354,52 @@
             </div>
           </div>
 
+          <!-- Crédits après les tags -->
+          <div class="movie-credits">
+            <div class="director-section" id="director-section" style="display: none;">
+              <span class="credit-label">Réalisateur :</span>
+              <span class="director-name" id="director-name"></span>
+            </div>
+            <div class="actors-section" id="actors-section" style="display: none;">
+              <span class="credit-label">Acteurs :</span>
+              <span class="actors-list" id="actors-list"></span>
+            </div>
+            <div class="franchise-section" id="franchise-section" style="display: none;">
+              <span class="credit-label">Collection :</span>
+              <span class="franchise-name" id="franchise-name"></span>
+            </div>
+            <div class="platform-section" id="platform-section" style="display: none;">
+              <span class="credit-label">Plateforme :</span>
+              <span class="platform-name" id="platform-name"></span>
+            </div>
+          </div>
+
+          <!-- Section Visionnage -->
+          <div class="viewing-stats">
+            <h3 class="viewing-stats-title">Historique de Visionnage</h3>
+            <div class="viewing-stats-content">
+              <div class="stat-item" id="stat-watch-count" style="display: none;">
+                <span class="stat-label">Regardé :</span>
+                <span class="stat-value" id="stat-watch-count-value">0 fois</span>
+              </div>
+              <div class="stat-item" id="stat-last-watched" style="display: none;">
+                <span class="stat-label">Dernier visionnage :</span>
+                <span class="stat-value" id="stat-last-watched-value"></span>
+              </div>
+              <div class="stat-item" id="stat-progress" style="display: none;">
+                <span class="stat-label">Progression :</span>
+                <span class="stat-value" id="stat-progress-value"></span>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                </div>
+              </div>
+              <div class="stat-item" id="stat-rating-personal" style="display: none;">
+                <span class="stat-label">Ma note :</span>
+                <span class="stat-value" id="stat-rating-personal-value"></span>
+              </div>
+            </div>
+          </div>
+
           <!-- Informations techniques (déplacées en bas) -->
           <div class="technical-info">
             <h3 class="technical-info-title">Informations Techniques</h3>
@@ -406,6 +427,14 @@
               <div class="tech-item" id="tech-language" style="display: none;">
                 <span class="tech-label">Langue :</span>
                 <span class="tech-value" id="tech-language-value"></span>
+              </div>
+              <div class="tech-item" id="tech-subtitles" style="display: none;">
+                <span class="tech-label">Sous-titres :</span>
+                <span class="tech-value" id="tech-subtitles-value"></span>
+              </div>
+              <div class="tech-item" id="tech-date-added" style="display: none;">
+                <span class="tech-label">Ajouté le :</span>
+                <span class="tech-value" id="tech-date-added-value"></span>
               </div>
             </div>
           </div>
@@ -1225,7 +1254,7 @@
     background-color: #081029;
     border-radius: 15px;
     width: 95%;
-    max-width: 1200px;
+    max-width: 1400px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -1343,6 +1372,14 @@
     font-size: 14px;
     cursor: pointer;
     min-width: 140px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 32px;
   }
 
   .type-selector:focus {
@@ -1351,8 +1388,19 @@
   }
 
   .type-selector option {
-    background-color: #081029;
-    color: #ffffff;
+    background-color: #1a1f35 !important;
+    background: #1a1f35 !important;
+    color: #ffffff !important;
+    padding: 8px 12px;
+    font-weight: 500;
+  }
+
+  .type-selector option:hover,
+  .type-selector option:checked,
+  .type-selector option:focus {
+    background-color: #2a3350 !important;
+    background: linear-gradient(#2a3350, #2a3350) !important;
+    color: #ffffff !important;
   }
 
   .btn-small {
@@ -1775,7 +1823,7 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 20px;
-    margin: 20px 20px 0 20px;
+    margin: 20px 20px 25px 20px;
     position: sticky;
     top: 0;
     z-index: 10;

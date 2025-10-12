@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const genresContainer = document.getElementById('genres-container');
   const synopsisContent = document.getElementById('synopsis-content');
   const modalStars = document.querySelectorAll('.modal-star');
+  const progressiveStars = document.getElementById('progressive-stars');
+  const starsFill = document.getElementById('stars-fill');
+  const starsOverlay = document.getElementById('stars-overlay');
+  const ratingInput = document.getElementById('rating-input');
   const watchToggleModal = document.getElementById('btn-watch-toggle-modal');
   const watchFilmBtn = document.getElementById('btn-watch-film');
   const editButton = document.getElementById('edit-button');
@@ -157,6 +161,23 @@ document.addEventListener('DOMContentLoaded', () => {
       franchiseName.style.color = '#888';
       franchiseSection.style.display = 'block';
     }
+
+    // Plateforme d'origine
+    const platformSection = document.getElementById('platform-section');
+    const platformName = document.getElementById('platform-name');
+    if (platformName) {
+      if (movie.platform && movie.platform.trim()) {
+        platformName.textContent = movie.platform;
+        platformName.style.fontStyle = 'normal';
+        platformName.style.color = '#ffffff';
+        platformSection.style.display = 'block';
+      } else {
+        platformName.textContent = 'Non renseigné';
+        platformName.style.fontStyle = 'italic';
+        platformName.style.color = '#888';
+        platformSection.style.display = 'block';
+      }
+    }
   }
 
   // Afficher les tags organisés par catégories avec chips colorés
@@ -194,8 +215,18 @@ document.addEventListener('DOMContentLoaded', () => {
           containerElement.appendChild(chip);
         }
       });
-    } else {
-      // Afficher un message pour catégorie vide
+    }
+
+    // En mode édition, toujours afficher le bouton + pour ajouter des tags
+    if (isEditMode) {
+      const addButton = document.createElement('button');
+      addButton.className = 'add-tag-btn-inline';
+      addButton.innerHTML = '<i class="fas fa-plus"></i>';
+      addButton.dataset.category = categoryId;
+      addButton.title = 'Ajouter un tag';
+      containerElement.appendChild(addButton);
+    } else if (!tags || tags.length === 0) {
+      // En mode lecture, afficher le message seulement si vide
       const emptyMessage = document.createElement('span');
       emptyMessage.className = 'empty-tags-message';
       emptyMessage.textContent = 'Aucun tag ajouté';
@@ -275,6 +306,40 @@ document.addEventListener('DOMContentLoaded', () => {
       techLanguage.style.display = 'flex';
     } else {
       techLanguage.style.display = 'none';
+    }
+
+    // Sous-titres
+    const techSubtitles = document.getElementById('tech-subtitles');
+    const techSubtitlesValue = document.getElementById('tech-subtitles-value');
+    if (techSubtitles && techSubtitlesValue) {
+      if (movie.subtitles && movie.subtitles.length > 0) {
+        const subtitlesText = Array.isArray(movie.subtitles) ? movie.subtitles.join(', ') : movie.subtitles;
+        techSubtitlesValue.textContent = subtitlesText;
+        techSubtitles.style.display = 'flex';
+      } else {
+        techSubtitlesValue.textContent = 'Aucun';
+        techSubtitlesValue.style.fontStyle = 'italic';
+        techSubtitlesValue.style.color = '#888';
+        techSubtitles.style.display = 'flex';
+      }
+    }
+
+    // Date d'ajout
+    const techDateAdded = document.getElementById('tech-date-added');
+    const techDateAddedValue = document.getElementById('tech-date-added-value');
+    if (techDateAdded && techDateAddedValue) {
+      if (movie.dateAdded || movie.date_added || movie.createdAt) {
+        const dateAdded = movie.dateAdded || movie.date_added || movie.createdAt;
+        const formattedDate = new Date(dateAdded).toLocaleDateString('fr-FR', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+        techDateAddedValue.textContent = formattedDate;
+        techDateAdded.style.display = 'flex';
+      } else {
+        techDateAdded.style.display = 'none';
+      }
     }
 
     // Afficher ou masquer la section entière
@@ -698,13 +763,25 @@ document.addEventListener('DOMContentLoaded', () => {
       window.handleImageError(modalPoster);
       
       // Configurer les informations du film
-      const truncatedTitle = movie.title.length > 20 ? movie.title.substring(0, 20) + '...' : movie.title;
-      modalTitle.textContent = truncatedTitle;
-      
+      modalTitle.textContent = movie.title;
+
       // Extraire l'année du titre ou utiliser une valeur par défaut
       const yearMatch = movie.title.match(/\((\d{4})\)$/);
       const year = movie.year || (yearMatch ? yearMatch[1] : new Date().getFullYear());
-      movieYear.textContent = `(${year})`;
+      movieYear.textContent = year;
+
+      // Afficher la catégorie du média
+      const mediaCategoryElement = document.getElementById('media-category');
+      if (mediaCategoryElement) {
+        const categoryMap = {
+          'movie': 'Film',
+          'short': 'Court-métrage',
+          'documentary': 'Documentaire',
+          'series': 'Série'
+        };
+        const categoryDisplay = categoryMap[movie.media_type] || movie.media_type || 'Film';
+        mediaCategoryElement.textContent = categoryDisplay;
+      }
       
       // Configurer la date de sortie
       releaseDate.textContent = movie.releaseDate || '';
@@ -733,10 +810,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Configurer le synopsis
       if (movie.description && movie.description.trim()) {
+        synopsisContent.className = 'synopsis-content';
         synopsisContent.textContent = movie.description;
         synopsisContent.style.fontStyle = 'normal';
         synopsisContent.style.color = '#e0e0e0';
       } else {
+        synopsisContent.className = 'synopsis-content synopsis-empty';
         synopsisContent.textContent = 'Aucun synopsis disponible';
         synopsisContent.style.fontStyle = 'italic';
         synopsisContent.style.color = '#888';
@@ -757,6 +836,15 @@ document.addEventListener('DOMContentLoaded', () => {
       // Configurer les étoiles de notation
       const rating = userPrefs.ratings[movieId] || 0;
       updateModalStarsDisplay(rating);
+
+      // Initialiser le système progressif
+      updateProgressiveStars(rating);
+
+      // Réinitialiser le mode notation
+      isRatingActive = false;
+      if (progressiveStars) {
+        progressiveStars.classList.remove('active');
+      }
       
       // Pré-remplir les champs du mode édition
       editTitleInput.value = movie.title;
@@ -934,6 +1022,181 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         star.classList.remove('filled');
       }
+    });
+  }
+
+  // ============================================
+  // NOUVEAU SYSTÈME DE NOTATION PROGRESSIF
+  // ============================================
+
+  let currentRating = 0;
+  let isRatingActive = false; // Mode slider actif
+  let longPressTimer = null;
+  const LONG_PRESS_DURATION = 500; // 500ms pour activer le mode slider
+
+  // Fonction pour mettre à jour le remplissage des étoiles
+  function updateProgressiveStars(rating) {
+    if (!starsFill) return;
+
+    currentRating = Math.max(0, Math.min(5, rating)); // Limiter entre 0 et 5
+    const percentage = (currentRating / 5) * 100;
+    starsFill.style.width = `${percentage}%`;
+
+    if (ratingInput) {
+      ratingInput.value = currentRating.toFixed(1);
+    }
+  }
+
+  // Fonction pour calculer la note depuis la position de la souris
+  function calculateRatingFromPosition(e) {
+    const rect = progressiveStars.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    const hoverRating = Math.max(0, Math.min(5, (x / width) * 5));
+    return Math.round(hoverRating * 10) / 10; // Arrondir au 0.1 près
+  }
+
+  // Gérer le système de notation sur les étoiles
+  if (starsOverlay && progressiveStars) {
+    // Démarrer le timer au mousedown
+    starsOverlay.addEventListener('mousedown', (e) => {
+      if (!currentMovieId) return;
+
+      // Démarrer le timer pour le clic long
+      longPressTimer = setTimeout(() => {
+        // Mode slider activé après 500ms
+        isRatingActive = true;
+        progressiveStars.classList.add('active');
+        console.log('🎯 Mode slider activé - glissez pour ajuster');
+
+        // Calculer et afficher la note à la position actuelle
+        const rating = calculateRatingFromPosition(e);
+        updateProgressiveStars(rating);
+      }, LONG_PRESS_DURATION);
+    });
+
+    // Gérer mouseup global (même en dehors des étoiles)
+    document.addEventListener('mouseup', (e) => {
+      if (!currentMovieId) return;
+
+      // Si le timer est encore actif, c'est un clic court
+      if (longPressTimer && !isRatingActive) {
+        clearTimeout(longPressTimer);
+
+        // Vérifier que le mouseup est sur les étoiles
+        if (e.target === starsOverlay || starsOverlay.contains(e.target)) {
+          // Clic court : noter directement à cet endroit
+          const rating = calculateRatingFromPosition(e);
+          updateProgressiveStars(rating);
+
+          // Enregistrer la note immédiatement
+          const userPrefs = loadUserPreferences();
+          userPrefs.ratings[currentMovieId] = rating;
+          saveUserPreferences(userPrefs);
+
+          // Automatiquement marquer comme "Vu"
+          autoMarkAsWatched();
+
+          // Déclencher un événement pour mettre à jour la carte sur le dashboard
+          window.dispatchEvent(new CustomEvent('ratingUpdated', {
+            detail: { movieId: currentMovieId, rating: rating }
+          }));
+
+          console.log(`⭐ Note enregistrée (clic court): ${rating}/5`);
+        }
+      }
+      // Si en mode slider, enregistrer la note (même si mouseup en dehors)
+      else if (isRatingActive) {
+        const userPrefs = loadUserPreferences();
+        userPrefs.ratings[currentMovieId] = currentRating;
+        saveUserPreferences(userPrefs);
+
+        // Automatiquement marquer comme "Vu"
+        autoMarkAsWatched();
+
+        // Déclencher un événement pour mettre à jour la carte sur le dashboard
+        window.dispatchEvent(new CustomEvent('ratingUpdated', {
+          detail: { movieId: currentMovieId, rating: currentRating }
+        }));
+
+        console.log(`⭐ Note enregistrée (slider): ${currentRating}/5`);
+
+        // Désactiver le mode slider
+        isRatingActive = false;
+        progressiveStars.classList.remove('active');
+      }
+
+      longPressTimer = null;
+    });
+
+    // Ne plus annuler si on quitte - garder le mode actif tant que le clic est maintenu
+    starsOverlay.addEventListener('mouseleave', () => {
+      // Ne rien faire - le mode slider reste actif jusqu'au mouseup
+    });
+
+    // Survol : mettre à jour uniquement en mode slider
+    // Utiliser document.addEventListener pour capturer le mouvement même en dehors
+    document.addEventListener('mousemove', (e) => {
+      if (!isRatingActive) return;
+
+      const rating = calculateRatingFromPosition(e);
+      updateProgressiveStars(rating);
+    });
+  }
+
+  // Gérer le changement de l'input numérique
+  if (ratingInput) {
+    // Empêcher le mousedown sur l'input de déclencher le système d'étoiles
+    ratingInput.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+    });
+
+    // Flèches pour ajuster finement
+    ratingInput.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.shiftKey ? 1.0 : 0.1;
+        updateProgressiveStars(Math.min(5, currentRating + step));
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const step = e.shiftKey ? 1.0 : 0.1;
+        updateProgressiveStars(Math.max(0, currentRating - step));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        ratingInput.blur(); // Valide et ferme
+      }
+    });
+
+    ratingInput.addEventListener('input', (e) => {
+      let value = parseFloat(e.target.value);
+      if (!isNaN(value)) {
+        value = Math.max(0, Math.min(5, value));
+        updateProgressiveStars(value);
+      }
+    });
+
+    ratingInput.addEventListener('blur', () => {
+      if (!currentMovieId) return;
+
+      // Validation au blur
+      let value = parseFloat(ratingInput.value);
+      if (isNaN(value)) value = 0;
+      value = Math.max(0, Math.min(5, value));
+      updateProgressiveStars(value);
+
+      const userPrefs = loadUserPreferences();
+      userPrefs.ratings[currentMovieId] = currentRating;
+      saveUserPreferences(userPrefs);
+
+      // Automatiquement marquer comme "Vu"
+      autoMarkAsWatched();
+
+      // Déclencher un événement pour mettre à jour la carte sur le dashboard
+      window.dispatchEvent(new CustomEvent('ratingUpdated', {
+        detail: { movieId: currentMovieId, rating: currentRating }
+      }));
+
+      console.log(`⭐ Note enregistrée via input: ${currentRating}/5`);
     });
   }
   
@@ -1903,7 +2166,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       // Mise à jour du synopsis
-      synopsisContent.textContent = editSynopsisInput.value.trim();
+      const synopsisText = editSynopsisInput.value.trim();
+      synopsisContent.textContent = synopsisText;
+
+      // Appliquer le style italic si vide
+      if (!synopsisText || synopsisText === 'Aucun synopsis disponible') {
+        synopsisContent.className = 'synopsis-content synopsis-empty';
+        synopsisContent.style.fontStyle = 'italic';
+        synopsisContent.style.color = '#888';
+      } else {
+        synopsisContent.className = 'synopsis-content';
+        synopsisContent.style.fontStyle = 'normal';
+        synopsisContent.style.color = '#e0e0e0';
+      }
       
       // Mise à jour de l'image
       modalPoster.src = finalImageUrl;
@@ -2083,6 +2358,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('🎨 Mode édition activé - couleurs changées');
     }
 
+    // NOUVEAU: Transformer le bouton "Regarder le film" en "Rechercher sur TMDB"
+    transformWatchButtonToTMDB();
+
     // NOUVEAU: Transformer les éléments de lecture en champs modifiables
     transformToEditableFields();
 
@@ -2097,6 +2375,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // NOUVEAU: Verrouiller les éléments interactifs du mode normal
     lockNormalModeElements();
+
+    // NOUVEAU: Recharger les tags pour afficher les boutons +
+    if (currentMovieData) {
+      console.log('🏷️ Rechargement des tags en mode édition:', {
+        genres: currentMovieData.genres,
+        mood: currentMovieData.mood,
+        technical: currentMovieData.technical,
+        personalTags: currentMovieData.personalTags
+      });
+      displayOrganizedTags(currentMovieData);
+    }
+
+    // NOUVEAU: Configurer les boutons + pour ajouter des tags
+    setupAddTagButtons();
   }
 
   // Fonction pour désactiver le mode édition
@@ -2123,6 +2415,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('🎨 Mode normal restauré - couleurs originales');
     }
 
+    // NOUVEAU: Restaurer le bouton "Regarder le film"
+    restoreTMDBButtonToWatch();
+
     // NOUVEAU: Restaurer les éléments de lecture originaux
     restoreReadOnlyFields();
 
@@ -2134,6 +2429,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // NOUVEAU: Déverrouiller les éléments interactifs du mode normal
     unlockNormalModeElements();
+
+    // CORRECTIF: Recharger complètement les tags pour s'assurer qu'ils sont en mode lecture
+    if (currentMovieData) {
+      console.log('🔄 Rechargement complet des tags en mode lecture');
+      displayOrganizedTags(currentMovieData);
+    }
+
+    // NOUVEAU: Sauvegarder les tags automatiquement
+    saveTagsToDatabase();
+  }
+
+  // Fonction pour sauvegarder les tags dans la base de données
+  async function saveTagsToDatabase() {
+    if (!currentMovieId || !window.electronAPI || !window.electronAPI.updateMediaDetails) {
+      console.log('⚠️ Impossible de sauvegarder les tags - API non disponible');
+      return;
+    }
+
+    try {
+      const tagUpdates = {
+        genres: currentMovieData.genres || [],
+        mood: currentMovieData.mood || [],
+        technical: currentMovieData.technical || [],
+        personalTags: currentMovieData.personalTags || []
+      };
+
+      console.log('💾 Sauvegarde automatique des tags:', tagUpdates);
+
+      const result = await window.electronAPI.updateMediaDetails(currentMovieId, tagUpdates);
+      if (result.success) {
+        console.log('✅ Tags sauvegardés avec succès');
+      } else {
+        console.error('❌ Erreur lors de la sauvegarde des tags:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde des tags:', error);
+    }
   }
 
   // NOUVELLES FONCTIONS pour transformer les éléments en champs modifiables
@@ -2154,8 +2486,9 @@ document.addEventListener('DOMContentLoaded', () => {
       titleInput.style.cssText = `
         background: transparent;
         border: none;
+        border-bottom: 2px solid transparent;
         color: #fff;
-        font-size: 36px;
+        font-size: 42px;
         font-weight: 800;
         padding: 0;
         margin: 0 0 8px 0;
@@ -2163,10 +2496,17 @@ document.addEventListener('DOMContentLoaded', () => {
         max-width: 100%;
         min-width: 0;
         box-sizing: border-box;
-        border-radius: 4px;
-        line-height: 1.1;
+        line-height: 1.2;
         font-family: inherit;
+        letter-spacing: -0.5px;
+        outline: none;
       `;
+      titleInput.addEventListener('focus', function() {
+        this.style.borderBottom = '2px solid rgba(100, 181, 246, 0.5)';
+      });
+      titleInput.addEventListener('blur', function() {
+        this.style.borderBottom = '2px solid transparent';
+      });
       titleElement.parentNode.replaceChild(titleInput, titleElement);
       titleInput.id = 'modal-title';
     }
@@ -2208,21 +2548,30 @@ document.addEventListener('DOMContentLoaded', () => {
       synopsisTextarea.className = 'edit-synopsis-field';
       synopsisTextarea.style.cssText = `
         background: transparent;
-        border: none;
-        color: #ccc;
+        border: 1px solid transparent;
+        color: #c0c0c0;
         font-size: 16px;
-        padding: 0;
+        padding: 8px;
         margin: 0;
         width: 100%;
         max-width: 100%;
         min-width: 0;
-        min-height: auto;
+        min-height: 100px;
         border-radius: 4px;
-        resize: none;
+        resize: vertical;
         font-family: inherit;
         line-height: 1.6;
         box-sizing: border-box;
+        outline: none;
       `;
+      synopsisTextarea.addEventListener('focus', function() {
+        this.style.border = '1px solid rgba(100, 181, 246, 0.5)';
+        this.style.background = 'rgba(100, 181, 246, 0.05)';
+      });
+      synopsisTextarea.addEventListener('blur', function() {
+        this.style.border = '1px solid transparent';
+        this.style.background = 'transparent';
+      });
       synopsisElement.parentNode.replaceChild(synopsisTextarea, synopsisElement);
       synopsisTextarea.id = 'synopsis-content';
     }
@@ -2237,15 +2586,26 @@ document.addEventListener('DOMContentLoaded', () => {
       directorInput.className = 'edit-director-field';
       directorInput.style.cssText = `
         background: transparent;
-        border: 1px solid #444;
-        color: #ccc;
-        font-size: 0.9em;
+        border: 1px solid transparent;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 500;
         padding: 4px 8px;
         border-radius: 4px;
+        width: 100%;
         max-width: 100%;
         min-width: 0;
         box-sizing: border-box;
+        outline: none;
       `;
+      directorInput.addEventListener('focus', function() {
+        this.style.border = '1px solid rgba(100, 181, 246, 0.5)';
+        this.style.background = 'rgba(100, 181, 246, 0.05)';
+      });
+      directorInput.addEventListener('blur', function() {
+        this.style.border = '1px solid transparent';
+        this.style.background = 'transparent';
+      });
       directorElement.parentNode.replaceChild(directorInput, directorElement);
       directorInput.id = 'director-name';
     }
@@ -2260,16 +2620,27 @@ document.addEventListener('DOMContentLoaded', () => {
       actorsInput.className = 'edit-actors-field';
       actorsInput.style.cssText = `
         background: transparent;
-        border: 1px solid #444;
-        color: #ccc;
-        font-size: 0.9em;
+        border: 1px solid transparent;
+        color: #e3f2fd;
+        font-size: 15px;
+        font-weight: 500;
+        font-style: italic;
         padding: 4px 8px;
         border-radius: 4px;
         width: 100%;
         max-width: 100%;
         min-width: 0;
         box-sizing: border-box;
+        outline: none;
       `;
+      actorsInput.addEventListener('focus', function() {
+        this.style.border = '1px solid rgba(100, 181, 246, 0.5)';
+        this.style.background = 'rgba(100, 181, 246, 0.05)';
+      });
+      actorsInput.addEventListener('blur', function() {
+        this.style.border = '1px solid transparent';
+        this.style.background = 'transparent';
+      });
       actorsElement.parentNode.replaceChild(actorsInput, actorsElement);
       actorsInput.id = 'actors-list';
     }
@@ -2304,8 +2675,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const synopsisTextarea = document.getElementById('synopsis-content');
     if (synopsisTextarea && synopsisTextarea.tagName === 'TEXTAREA') {
       const synopsisDiv = document.createElement('div');
-      synopsisDiv.className = 'synopsis-content';
-      synopsisDiv.textContent = synopsisTextarea.value || window.originalFieldValues.synopsis;
+      const synopsisText = synopsisTextarea.value || window.originalFieldValues.synopsis || '';
+      const synopsisTextTrimmed = synopsisText.trim();
+
+      // Si vide ou "Aucun synopsis disponible", afficher avec style italic
+      if (!synopsisTextTrimmed || synopsisTextTrimmed === 'Aucun synopsis disponible') {
+        synopsisDiv.className = 'synopsis-content synopsis-empty';
+        synopsisDiv.textContent = 'Aucun synopsis disponible';
+        synopsisDiv.style.fontStyle = 'italic';
+        synopsisDiv.style.color = '#888';
+      } else {
+        synopsisDiv.className = 'synopsis-content';
+        synopsisDiv.textContent = synopsisText;
+        synopsisDiv.style.fontStyle = 'normal';
+        synopsisDiv.style.color = '#e0e0e0';
+      }
+
       synopsisTextarea.parentNode.replaceChild(synopsisDiv, synopsisTextarea);
       synopsisDiv.id = 'synopsis-content';
     }
@@ -2373,7 +2758,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById(`${category}-container`);
       if (!container) return;
 
-      const tagChips = container.querySelectorAll('.tag-chip.editable');
+      // CORRECTIF: Sélectionner TOUS les tag-chips, pas seulement ceux avec .editable
+      const tagChips = container.querySelectorAll('.tag-chip');
       tagChips.forEach(chip => {
         // Récupérer le texte du tag depuis le span
         const tagTextSpan = chip.querySelector('.tag-text');
@@ -2381,6 +2767,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const tagText = tagTextSpan.textContent;
           // Restaurer le contenu simple
           chip.textContent = tagText;
+          chip.classList.remove('editable');
+        } else {
+          // Si pas de span (tag déjà en lecture seule), s'assurer que la classe editable est retirée
           chip.classList.remove('editable');
         }
       });
@@ -2572,6 +2961,450 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlay = document.querySelector('.lock-overlay');
     if (overlay) {
       overlay.remove();
+    }
+  }
+
+  // Fonction pour transformer le bouton "Regarder le film" en "Rechercher sur TMDB"
+  function transformWatchButtonToTMDB() {
+    const watchBtn = document.getElementById('btn-watch-film');
+    if (!watchBtn) return;
+
+    // Sauvegarder l'état original si pas déjà fait
+    if (!watchBtn.dataset.originalState) {
+      const btnIcon = watchBtn.querySelector('i');
+      const btnText = watchBtn.querySelector('span');
+
+      watchBtn.dataset.originalState = JSON.stringify({
+        iconClass: btnIcon ? btnIcon.className : '',
+        text: btnText ? btnText.textContent : '',
+        backgroundColor: watchBtn.style.background
+      });
+    }
+
+    // Transformer le bouton
+    const btnIcon = watchBtn.querySelector('i');
+    const btnText = watchBtn.querySelector('span');
+
+    if (btnIcon) {
+      btnIcon.className = 'fas fa-search';
+    }
+    if (btnText) {
+      btnText.textContent = 'Rechercher sur TMDB';
+    }
+
+    // Retirer l'ancien event listener et ajouter le nouveau pour TMDB
+    const newWatchBtn = watchBtn.cloneNode(true);
+    watchBtn.parentNode.replaceChild(newWatchBtn, watchBtn);
+
+    newWatchBtn.addEventListener('click', async () => {
+      console.log('🔍 Recherche TMDB depuis le mode édition');
+      await searchOnTMDB();
+    });
+  }
+
+  // Fonction pour restaurer le bouton en mode "Regarder le film"
+  function restoreTMDBButtonToWatch() {
+    const watchBtn = document.getElementById('btn-watch-film');
+    if (!watchBtn || !watchBtn.dataset.originalState) return;
+
+    // Restaurer l'état original
+    const originalState = JSON.parse(watchBtn.dataset.originalState);
+    const btnIcon = watchBtn.querySelector('i');
+    const btnText = watchBtn.querySelector('span');
+
+    if (btnIcon) {
+      btnIcon.className = originalState.iconClass;
+    }
+    if (btnText) {
+      btnText.textContent = originalState.text;
+    }
+
+    // Retirer l'event listener TMDB et restaurer celui pour regarder le film
+    const newWatchBtn = watchBtn.cloneNode(true);
+    watchBtn.parentNode.replaceChild(newWatchBtn, watchBtn);
+
+    newWatchBtn.addEventListener('click', async () => {
+      console.log('🎬 Lecture du film depuis le mode normal');
+      await window.api.invoke('play-video', currentMovie.file_path);
+    });
+
+    // Supprimer l'état sauvegardé
+    delete newWatchBtn.dataset.originalState;
+  }
+
+  // Fonction pour rechercher sur TMDB (appelée depuis le bouton en mode édition)
+  async function searchOnTMDB() {
+    const titleElement = document.querySelector('.edit-title-field') || document.getElementById('modal-title');
+    const searchQuery = titleElement ? (titleElement.value || titleElement.textContent || '').trim() : '';
+
+    // Ouvrir la page de recherche directement avec une recherche initiale si possible
+    console.log('🔍 Ouverture de la page de recherche TMDB avec:', searchQuery);
+
+    // Ouvrir la page de recherche vide, l'utilisateur pourra chercher dedans
+    showTMDBSearchPage(searchQuery);
+  }
+
+  // Fonction pour afficher la page de recherche TMDB
+  function showTMDBSearchPage(initialQuery = '') {
+    // Créer l'overlay de fond
+    const overlay = document.createElement('div');
+    overlay.className = 'tmdb-search-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 10001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s ease;
+    `;
+
+    // Créer la fenêtre modale
+    const searchModal = document.createElement('div');
+    searchModal.className = 'tmdb-search-modal';
+    searchModal.style.cssText = `
+      background: #0f0f0f;
+      border-radius: 16px;
+      width: 90vw;
+      max-width: 1400px;
+      height: 85vh;
+      max-height: 900px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      border: 1px solid #222;
+      overflow: hidden;
+      animation: modalSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    `;
+
+    searchModal.innerHTML = `
+      <!-- Header avec recherche -->
+      <div style="
+        background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+        padding: 24px 32px;
+        border-bottom: 2px solid #222;
+        flex-shrink: 0;
+      ">
+        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+          <button id="close-tmdb-search" style="
+            background: #d32f2f;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+          ">
+            <i class="fas fa-times"></i>
+            Fermer
+          </button>
+          <h2 style="margin: 0; color: #fff; font-size: 28px; font-weight: 700;">Recherche TMDB</h2>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <input
+            type="text"
+            id="tmdb-search-input"
+            placeholder="Rechercher un film..."
+            value="${initialQuery}"
+            style="
+              flex: 1;
+              background: #1a1a1a;
+              border: 2px solid #333;
+              border-radius: 8px;
+              padding: 16px 20px;
+              color: #fff;
+              font-size: 18px;
+              outline: none;
+              transition: border-color 0.2s;
+            "
+          />
+          <button id="tmdb-search-btn" style="
+            background: linear-gradient(135deg, #01d277, #00b568);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+          ">
+            <i class="fas fa-search"></i>
+            Rechercher
+          </button>
+        </div>
+      </div>
+
+      <!-- Résultats avec scroll -->
+      <div style="
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px;
+        background: #0a0a0a;
+      ">
+        <div id="tmdb-results-container" style="
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 20px;
+        "></div>
+
+        <!-- Message de chargement -->
+        <div id="tmdb-loading" style="display: none; text-align: center; padding: 60px; color: #888;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 20px;"></i>
+          <p style="font-size: 18px; margin: 0;">Recherche en cours...</p>
+        </div>
+
+        <!-- Message aucun résultat -->
+        <div id="tmdb-no-results" style="display: none; text-align: center; padding: 60px; color: #888;">
+          <i class="fas fa-film" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
+          <p style="font-size: 18px; margin: 0;">Aucun résultat trouvé</p>
+        </div>
+
+        <!-- Message initial -->
+        <div id="tmdb-initial-message" style="text-align: center; padding: 60px; color: #888;">
+          <i class="fas fa-search" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
+          <p style="font-size: 18px; margin: 0;">Entrez un titre pour commencer la recherche</p>
+        </div>
+      </div>
+    `;
+
+    overlay.appendChild(searchModal);
+    document.body.appendChild(overlay);
+
+    // Event listeners
+    const searchInput = document.getElementById('tmdb-search-input');
+    const searchBtn = document.getElementById('tmdb-search-btn');
+    const closeBtn = document.getElementById('close-tmdb-search');
+
+    // Focus sur l'input
+    searchInput.focus();
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+
+    // Style focus pour l'input
+    searchInput.addEventListener('focus', function() {
+      this.style.borderColor = '#01d277';
+    });
+    searchInput.addEventListener('blur', function() {
+      this.style.borderColor = '#333';
+    });
+
+    // Recherche au clic
+    searchBtn.addEventListener('click', async () => {
+      await performTMDBSearch(searchInput.value.trim());
+    });
+
+    // Recherche avec Enter
+    searchInput.addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter') {
+        await performTMDBSearch(searchInput.value.trim());
+      }
+    });
+
+    // Fermer la modale
+    closeBtn.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+    });
+
+    // Fermer en cliquant sur l'overlay
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        document.body.removeChild(overlay);
+      }
+    });
+
+    closeBtn.addEventListener('mouseenter', function() {
+      this.style.background = '#b71c1c';
+    });
+    closeBtn.addEventListener('mouseleave', function() {
+      this.style.background = '#d32f2f';
+    });
+
+    // Si on a une query initiale, lancer la recherche automatiquement
+    if (initialQuery && initialQuery.trim()) {
+      performTMDBSearch(initialQuery.trim());
+    }
+  }
+
+  // Fonction pour effectuer une recherche TMDB
+  async function performTMDBSearch(query) {
+    if (!query) {
+      alert('Veuillez entrer un titre pour effectuer la recherche');
+      return;
+    }
+
+    const loadingDiv = document.getElementById('tmdb-loading');
+    const resultsContainer = document.getElementById('tmdb-results-container');
+    const noResultsDiv = document.getElementById('tmdb-no-results');
+    const initialMessageDiv = document.getElementById('tmdb-initial-message');
+
+    // Afficher le chargement
+    loadingDiv.style.display = 'block';
+    resultsContainer.innerHTML = '';
+    noResultsDiv.style.display = 'none';
+    if (initialMessageDiv) initialMessageDiv.style.display = 'none';
+
+    try {
+      console.log('🔍 Recherche TMDB pour:', query);
+      const results = await searchTMDBMovie(query);
+
+      loadingDiv.style.display = 'none';
+
+      if (results && results.length > 0) {
+        displaySearchResults(results);
+      } else {
+        noResultsDiv.style.display = 'block';
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la recherche TMDB:', error);
+      loadingDiv.style.display = 'none';
+      alert('Erreur lors de la recherche sur TMDB');
+    }
+  }
+
+  // Fonction pour afficher les résultats de recherche
+  function displaySearchResults(results) {
+    const resultsContainer = document.getElementById('tmdb-results-container');
+    resultsContainer.innerHTML = '';
+
+    results.slice(0, 20).forEach((result) => {
+      const resultCard = document.createElement('div');
+      resultCard.className = 'tmdb-result-card';
+      resultCard.style.cssText = `
+        background: #1a1a1a;
+        border-radius: 12px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      `;
+
+      const posterUrl = result.poster_path
+        ? `https://image.tmdb.org/t/p/w342${result.poster_path}`
+        : 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'342\' height=\'513\'%3E%3Crect width=\'342\' height=\'513\' fill=\'%23222\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' fill=\'%23555\' text-anchor=\'middle\' dy=\'.3em\' font-family=\'Arial\' font-size=\'24\'%3EAucune image%3C/text%3E%3C/svg%3E';
+
+      const year = result.release_date ? result.release_date.substring(0, 4) : 'Année inconnue';
+      const rating = result.vote_average ? result.vote_average.toFixed(1) : 'N/A';
+
+      resultCard.innerHTML = `
+        <div style="position: relative;">
+          <img src="${posterUrl}"
+               style="width: 100%; height: 420px; object-fit: cover;"
+               loading="lazy"
+          />
+          <div style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          ">
+            <i class="fas fa-star" style="color: #ffd700; font-size: 12px;"></i>
+            <span style="color: #fff; font-size: 14px; font-weight: 600;">${rating}</span>
+          </div>
+        </div>
+        <div style="padding: 16px;">
+          <h4 style="
+            margin: 0 0 8px 0;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          ">${result.title || result.name}</h4>
+          <p style="
+            margin: 0 0 12px 0;
+            color: #888;
+            font-size: 14px;
+          ">${year}</p>
+          <p style="
+            margin: 0;
+            color: #aaa;
+            font-size: 13px;
+            line-height: 1.4;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            min-height: 60px;
+          ">${result.overview || 'Aucune description disponible'}</p>
+        </div>
+      `;
+
+      // Hover effect
+      resultCard.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-8px)';
+        this.style.borderColor = '#01d277';
+        this.style.boxShadow = '0 8px 24px rgba(1, 210, 119, 0.3)';
+      });
+      resultCard.addEventListener('mouseleave', function() {
+        this.style.transform = 'translateY(0)';
+        this.style.borderColor = 'transparent';
+        this.style.boxShadow = 'none';
+      });
+
+      // Click to select
+      resultCard.addEventListener('click', () => {
+        applyTMDBData(result);
+        const searchOverlay = document.querySelector('.tmdb-search-overlay');
+        if (searchOverlay) {
+          document.body.removeChild(searchOverlay);
+        }
+      });
+
+      resultsContainer.appendChild(resultCard);
+    });
+  }
+
+  // Fonction pour appliquer les données TMDB au film
+  async function applyTMDBData(tmdbData) {
+    console.log('📝 Application des données TMDB:', tmdbData);
+
+    // Mettre à jour les champs éditables
+    const titleInput = document.querySelector('.edit-title-field');
+    if (titleInput && (tmdbData.title || tmdbData.name)) {
+      titleInput.value = tmdbData.title || tmdbData.name;
+    }
+
+    const yearSpan = document.getElementById('movie-year');
+    if (yearSpan && (tmdbData.release_date || tmdbData.first_air_date)) {
+      const year = (tmdbData.release_date || tmdbData.first_air_date).substring(0, 4);
+      yearSpan.textContent = year;
+    }
+
+    const synopsisTextarea = document.querySelector('.edit-synopsis-field');
+    if (synopsisTextarea && tmdbData.overview) {
+      synopsisTextarea.value = tmdbData.overview;
+    }
+
+    // Mettre à jour currentMovie pour la sauvegarde
+    if (currentMovie) {
+      currentMovie.title = tmdbData.title || tmdbData.name || currentMovie.title;
+      currentMovie.year = tmdbData.release_date || tmdbData.first_air_date ?
+        parseInt((tmdbData.release_date || tmdbData.first_air_date).substring(0, 4)) : currentMovie.year;
+      currentMovie.description = tmdbData.overview || currentMovie.description;
+      currentMovie.tmdb_id = tmdbData.id;
+
+      hasUnsavedChanges = true;
+      console.log('✅ Données TMDB appliquées avec succès');
     }
   }
 
@@ -3168,6 +4001,139 @@ document.addEventListener('DOMContentLoaded', () => {
       addNewTag,
       toggleTagTransparency
     };
+  }
+
+  // Fonction pour configurer les boutons + d'ajout de tags
+  function setupAddTagButtons() {
+    const availableTags = {
+      genres: ['Action', 'Aventure', 'Comédie', 'Drame', 'Fantastique', 'Horreur', 'Romance', 'Science-Fiction', 'Thriller', 'Animation', 'Documentaire', 'Musical'],
+      mood: ['Sombre', 'Joyeux', 'Mélancolique', 'Intense', 'Relaxant', 'Inspirant', 'Nostalgique', 'Mystérieux'],
+      technical: ['Effets Spéciaux', 'Cinématographie', 'Bande Originale', 'Montage', 'Direction Artistique', 'Costume', 'Maquillage'],
+      personal: ['Coup de cœur', 'À revoir', 'Déçu', 'Surprise', 'Classique']
+    };
+
+    const addButtons = document.querySelectorAll('.add-tag-btn-inline');
+    addButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const category = button.dataset.category;
+        const container = document.getElementById(`${category}-container`);
+        const existingTags = Array.from(container.querySelectorAll('.tag-chip')).map(chip => {
+          const textNode = chip.querySelector('.tag-text');
+          return textNode ? textNode.textContent : chip.textContent;
+        });
+
+        const tagsToShow = (availableTags[category] || []).filter(tag => !existingTags.includes(tag));
+        if (tagsToShow.length === 0) {
+          alert('Tous les tags sont déjà ajoutés pour cette catégorie');
+          return;
+        }
+
+        showTagSelectionPopup(category, tagsToShow);
+      });
+    });
+  }
+
+  function showTagSelectionPopup(category, tags) {
+    const popup = document.createElement('div');
+    popup.className = 'tag-selection-popup';
+    popup.innerHTML = `
+      <div class="tag-selection-content">
+        <h3>Ajouter un tag</h3>
+        <div class="tag-selection-list">
+          ${tags.map(tag => `<button class="tag-selection-item" data-tag="${tag}"><i class="fas fa-plus-circle"></i> ${tag}</button>`).join('')}
+        </div>
+        <button class="tag-selection-close">Fermer</button>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+    setTimeout(() => popup.classList.add('show'), 10);
+
+    popup.querySelectorAll('.tag-selection-item').forEach(item => {
+      item.addEventListener('click', () => {
+        addTagToCategory(category, item.dataset.tag);
+        popup.classList.remove('show');
+        setTimeout(() => popup.remove(), 300);
+      });
+    });
+
+    popup.querySelector('.tag-selection-close').addEventListener('click', () => {
+      popup.classList.remove('show');
+      setTimeout(() => popup.remove(), 300);
+    });
+
+    popup.addEventListener('click', (e) => {
+      if (e.target === popup) {
+        popup.classList.remove('show');
+        setTimeout(() => popup.remove(), 300);
+      }
+    });
+  }
+
+  function addTagToCategory(category, tagName) {
+    const container = document.getElementById(`${category}-container`);
+    if (!container) return;
+
+    // Mettre à jour currentMovieData pour persister le tag
+    const dataKey = category === 'genres' ? 'genres' : category === 'mood' ? 'mood' : category === 'technical' ? 'technical' : 'personalTags';
+    if (!currentMovieData[dataKey]) {
+      currentMovieData[dataKey] = [];
+    }
+    if (!currentMovieData[dataKey].includes(tagName)) {
+      currentMovieData[dataKey].push(tagName);
+    }
+
+    // Retirer le message "Aucun tag ajouté" s'il existe
+    const emptyMessage = container.querySelector('.empty-tags-message');
+    if (emptyMessage) emptyMessage.remove();
+
+    // Créer le chip
+    const chip = document.createElement('span');
+    chip.className = `tag-chip ${category === 'genres' ? 'genre' : category} editable`;
+    chip.innerHTML = `<span class="tag-text">${tagName}</span><button class="tag-remove-btn" title="Supprimer ce tag"><i class="fas fa-times"></i></button>`;
+
+    // Insérer avant le bouton +
+    const addButton = container.querySelector('.add-tag-btn-inline');
+    if (addButton) {
+      container.insertBefore(chip, addButton);
+    } else {
+      container.appendChild(chip);
+    }
+
+    // Ajouter l'événement de suppression
+    const removeBtn = chip.querySelector('.tag-remove-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        chip.remove();
+
+        // Mettre à jour currentMovieData pour supprimer le tag
+        const index = currentMovieData[dataKey].indexOf(tagName);
+        if (index > -1) {
+          currentMovieData[dataKey].splice(index, 1);
+        }
+
+        // Réafficher "Aucun tag ajouté" si plus de tags
+        const remainingTags = container.querySelectorAll('.tag-chip');
+        if (remainingTags.length === 0) {
+          const emptyMsg = document.createElement('span');
+          emptyMsg.className = 'empty-tags-message';
+          emptyMsg.textContent = 'Aucun tag ajouté';
+          const addBtn = container.querySelector('.add-tag-btn-inline');
+          if (addBtn) {
+            container.insertBefore(emptyMsg, addBtn);
+          } else {
+            container.appendChild(emptyMsg);
+          }
+        }
+
+        hasUnsavedChanges = true;
+        showExtensionButtons();
+      });
+    }
+
+    hasUnsavedChanges = true;
+    showExtensionButtons();
   }
 
   // Exposer la fonction pour pouvoir l'appeler depuis dashboard.js
