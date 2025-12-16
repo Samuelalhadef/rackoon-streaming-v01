@@ -15,6 +15,7 @@ class ImportClassificationSystem {
     this.isImporting = false; // Flag pour éviter les mises à jour pendant l'import
     this.useGalleryMode = true; // Par défaut, utiliser le mode galerie
     this.newlyScannedIds = []; // IDs des fichiers nouvellement scannés (pour nettoyage si annulé)
+    this.newlyCreatedSeriesIds = []; // IDs des séries créées durant l'import (pour nettoyage si annulé)
 
     this.init();
   }
@@ -149,14 +150,18 @@ class ImportClassificationSystem {
   }
 
   // Démarrer le processus de classification (appelé depuis dashboard.js)
-  async startClassification(files, scanType) {
+  async startClassification(files, scanType, newlyCreatedSeriesIds = [], existingMediaIds = []) {
     console.log(`🎯 Démarrage de la classification: ${files.length} fichiers (${scanType})`);
 
     // Marquer comme en cours d'import pour éviter les mises à jour du dashboard
     this.isImporting = true;
 
-    // Sauvegarder les IDs des fichiers nouvellement scannés pour pouvoir les supprimer si annulé
-    this.newlyScannedIds = files.map(file => file.id).filter(id => id);
+    // Fusionner les IDs existants (déjà sauvegardés en Phase 1) avec ceux des fichiers
+    const fileIds = files.map(file => file.id).filter(id => id);
+    this.newlyScannedIds = [...new Set([...existingMediaIds, ...fileIds])]; // Dédupliquer
+
+    // Sauvegarder les IDs des séries créées durant l'import
+    this.newlyCreatedSeriesIds = newlyCreatedSeriesIds;
 
     this.currentFiles = files.map((file, index) => ({
       ...file,
@@ -166,7 +171,8 @@ class ImportClassificationSystem {
     this.classifiedFiles = [];
     this.currentFileIndex = 0;
 
-    console.log('📋 IDs des fichiers nouvellement scannés:', this.newlyScannedIds);
+    console.log('📋 IDs des médias à tracker (Phase 1 + fichiers):', this.newlyScannedIds);
+    console.log('📋 IDs des séries créées:', this.newlyCreatedSeriesIds);
 
     // Utiliser le mode galerie par défaut
     if (this.useGalleryMode) {
@@ -284,10 +290,9 @@ class ImportClassificationSystem {
     const galleryContainer = document.getElementById('gallery-container');
     const galleryCount = document.getElementById('gallery-count');
     const galleryProgress = document.getElementById('gallery-progress');
-    const template = document.getElementById('gallery-card-template');
 
-    if (!galleryContainer || !template) {
-      console.error('❌ Éléments de la galerie introuvables');
+    if (!galleryContainer) {
+      console.error('❌ Élément gallery-container introuvable');
       return;
     }
 
@@ -298,65 +303,296 @@ class ImportClassificationSystem {
     galleryCount.textContent = `${this.currentFiles.length} fichiers`;
     galleryProgress.textContent = '0 classifiés';
 
-    // Ajouter chaque fichier à la galerie
-    this.currentFiles.forEach((file, index) => {
-      const card = template.content.cloneNode(true).querySelector('.gallery-card');
+    // 1. Séparer médias uniques et séries
+    const uniqueMedias = this.currentFiles.filter(f => f.triageType !== 'series');
+    const seriesMedias = this.currentFiles.filter(f => f.triageType === 'series');
 
-      // Configurer les attributs de la carte
-      card.dataset.fileIndex = index;
+    console.log(`📊 Répartition: ${uniqueMedias.length} médias uniques, ${seriesMedias.length} épisodes de séries`);
 
-      // ⭐ NOUVEAU: Définir le type de média pour le CSS
-      const mediaType = file.triageType === 'series' ? 'series' : 'unique';
-      card.dataset.mediaType = mediaType;
+    // 2. Grouper les séries par seriesName
+    const seriesGroups = {};
+    seriesMedias.forEach(file => {
+      const seriesKey = file.seriesName || `serie_${file.seriesId}`;
+      if (!seriesGroups[seriesKey]) {
+        seriesGroups[seriesKey] = {
+          seriesId: file.seriesId,
+          seriesName: file.seriesName,
+          files: []
+        };
+      }
+      seriesGroups[seriesKey].files.push(file);
+    });
 
-      // Remplir les informations du fichier
-      const fileName = card.querySelector('.file-name');
-      const fileDuration = card.querySelector('.file-duration');
-      const titleInput = card.querySelector('.title-input');
-      const categoryBadge = card.querySelector('.category-badge');
+    // 3. Créer les sections
+    this.renderUniqueMediaSection(uniqueMedias, galleryContainer);
+    this.renderSeriesMediaSection(seriesGroups, galleryContainer);
+  }
 
-      fileName.textContent = file.name;
-      fileDuration.textContent = file.duration ? this.formatDuration(file.duration) : '--:--';
+  renderUniqueMediaSection(uniqueMedias, container) {
+    if (uniqueMedias.length === 0) {
+      console.log('ℹ️ Aucun média unique à afficher');
+      return;
+    }
 
-      // Debug pour voir les valeurs
-      console.log(`🔍 Remplissage carte ${index}:`, {
-        fileName: file.name,
-        fileTitle: file.title,
-        triageType: file.triageType,
-        mediaType: mediaType
+    // Créer la section
+    const section = document.createElement('section');
+    section.className = 'media-section unique-media-section';
+    section.id = 'unique-media-section';
+
+    // Header de section
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `
+      <h3>📁 Médias uniques</h3>
+      <span class="section-count">${uniqueMedias.length} média(s)</span>
+    `;
+    section.appendChild(header);
+
+    // Grille de cartes
+    const grid = document.createElement('div');
+    grid.className = 'cards-grid';
+
+    // Ajouter chaque carte
+    uniqueMedias.forEach(file => {
+      const globalIndex = this.currentFiles.indexOf(file);
+      const card = this.createGalleryCard(file, globalIndex);
+      grid.appendChild(card);
+    });
+
+    section.appendChild(grid);
+    container.appendChild(section);
+
+    console.log(`✅ Section médias uniques créée: ${uniqueMedias.length} média(s)`);
+  }
+
+  renderSeriesMediaSection(seriesGroups, container) {
+    const seriesKeys = Object.keys(seriesGroups);
+    if (seriesKeys.length === 0) {
+      console.log('ℹ️ Aucune série à afficher');
+      return;
+    }
+
+    // Trier les séries par ordre alphabétique
+    seriesKeys.sort((a, b) => a.localeCompare(b));
+
+    // Créer la section
+    const section = document.createElement('section');
+    section.className = 'media-section series-media-section';
+    section.id = 'series-media-section';
+    // FORCER LA LARGEUR COMPLÈTE EN INLINE - OCCUPER TOUTES LES COLONNES DE LA GRILLE PARENT !
+    section.style.cssText = 'grid-column: 1 / -1 !important; width: 100% !important; max-width: none !important; display: block !important; float: none !important; clear: both !important; position: relative !important;';
+
+    // Header de section
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `
+      <h3>📺 Médias en série</h3>
+      <span class="section-count">${seriesKeys.length} série(s)</span>
+    `;
+    section.appendChild(header);
+
+    // Créer un groupe pour chaque série
+    seriesKeys.forEach(seriesKey => {
+      const seriesData = seriesGroups[seriesKey];
+
+      const group = document.createElement('div');
+      group.className = 'series-group';
+      group.dataset.seriesId = seriesData.seriesId;
+      group.dataset.seriesName = seriesData.seriesName;
+      // FORCER LA LARGEUR COMPLÈTE EN INLINE - VERSION HARDCORE
+      group.style.cssText = 'width: 100% !important; max-width: none !important; display: block !important; float: none !important; clear: both !important; box-sizing: border-box !important; position: relative !important;';
+
+      // Header du groupe (nom de la série)
+      const groupHeader = document.createElement('div');
+      groupHeader.className = 'series-group-header';
+      groupHeader.innerHTML = `
+        <div class="series-title-section">
+          <h4>${seriesData.seriesName}</h4>
+          <button class="btn-manage-seasons" data-series-id="${seriesData.seriesId}" data-series-name="${seriesData.seriesName}">
+            <i class="fas fa-layer-group"></i> Gérer les saisons
+          </button>
+        </div>
+        <span class="series-episodes-count">${seriesData.files.length} épisode(s)</span>
+      `;
+      group.appendChild(groupHeader);
+
+      // Grille des épisodes
+      const grid = document.createElement('div');
+      grid.className = 'series-cards-grid';
+      // FORCER FLEXBOX HORIZONTAL EN INLINE - VERSION HARDCORE
+      grid.style.cssText = 'display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; justify-content: flex-start !important;';
+
+      console.log(`🔧 Création grille pour série "${seriesData.seriesName}" avec ${seriesData.files.length} épisodes`);
+
+      seriesData.files.forEach((file, idx) => {
+        const globalIndex = this.currentFiles.indexOf(file);
+        const card = this.createGalleryCard(file, globalIndex);
+
+        console.log(`  📌 Épisode ${idx + 1}:`, {
+          cardCreated: !!card,
+          cardClassName: card?.className,
+          dataMediaType: card?.dataset?.mediaType
+        });
+
+        grid.appendChild(card);
       });
 
-      titleInput.value = file.title || file.name;
-      console.log(`📝 titleInput.value défini à: "${titleInput.value}"`);
+      console.log(`✅ Grid créée:`, {
+        className: grid.className,
+        childCount: grid.children.length,
+        computedStyle: window.getComputedStyle ? 'disponible' : 'non disponible'
+      });
 
-      // Ajouter le nom du fichier comme data attribute pour backup
-      card.setAttribute('data-file-name', file.name || '');
+      group.appendChild(grid);
+      section.appendChild(group);
 
-      // Afficher le badge de catégorie
-      if (categoryBadge && file.triageType) {
-        const categoryNames = {
-          'film': '🎬 Film',
-          'series': '📺 Série',
-          'short': '🎞️ Court',
-          'other': '📁 Autre',
-          'unsorted': '❓ Non trié'
-        };
-        categoryBadge.textContent = categoryNames[file.triageType] || file.triageType;
-        categoryBadge.className = `category-badge ${file.triageType}`;
-      }
+      // DEBUG: Afficher les infos après ajout au DOM
+      setTimeout(() => {
+        console.log('🔍 DEBUG après ajout au DOM:');
+        console.log('  - Largeur du series-group:', group.offsetWidth + 'px');
+        console.log('  - Largeur du grid:', grid.offsetWidth + 'px');
+        console.log('  - Display du grid:', window.getComputedStyle(grid).display);
 
-      // Afficher automatiquement les champs série si c'est une série
-      if (file.triageType === 'series') {
-        // Remplir le nom de la série (lecture seule)
-        const seriesNameInput = card.querySelector('.series-name-readonly');
-        if (seriesNameInput && file.seriesName) {
-          seriesNameInput.value = file.seriesName;
+        const section = group.parentElement;
+        if (section) {
+          console.log('  - Largeur de media-section:', section.offsetWidth + 'px');
+          const container = section.parentElement;
+          if (container) {
+            console.log('  - Largeur du gallery-container:', container.offsetWidth + 'px');
+          }
         }
+
+        const debugCards = grid.querySelectorAll('.gallery-card');
+        console.log('  - Nombre de cartes:', debugCards.length);
+        debugCards.forEach((c, idx) => {
+          const rect = c.getBoundingClientRect();
+          console.log(`  - Carte ${idx + 1}:`, {
+            width: c.offsetWidth + 'px',
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            display: window.getComputedStyle(c).display
+          });
+        });
+      }, 100);
+    });
+
+    container.appendChild(section);
+
+    console.log(`✅ Section séries créée: ${seriesKeys.length} série(s)`);
+
+    // Debug: Vérifier les styles appliqués après ajout au DOM
+    setTimeout(() => {
+      const grids = document.querySelectorAll('.series-cards-grid');
+      console.log(`🎨 Vérification styles après ajout au DOM:`);
+      grids.forEach((grid, idx) => {
+        const styles = window.getComputedStyle(grid);
+        console.log(`  Grid ${idx + 1}:`, {
+          display: styles.display,
+          flexDirection: styles.flexDirection,
+          flexWrap: styles.flexWrap,
+          gap: styles.gap,
+          childrenCount: grid.children.length,
+          gridOffsetWidth: grid.offsetWidth + 'px'
+        });
+
+        // Vérifier les cartes
+        const cards = grid.querySelectorAll('.gallery-card');
+        console.log(`    ${cards.length} cartes trouvées:`);
+
+        // DIAGNOSTIC POSITIONS
+        console.log(`    🔍 POSITIONS RÉELLES DES CARTES:`);
+        cards.forEach((card, cardIdx) => {
+          const rect = card.getBoundingClientRect();
+          const cardStyles = window.getComputedStyle(card);
+          console.log(`      Carte ${cardIdx + 1}:`, {
+            position: {
+              left: Math.round(rect.left),
+              top: Math.round(rect.top),
+              width: Math.round(rect.width),
+              height: Math.round(rect.height)
+            },
+            styles: {
+              width: cardStyles.width,
+              display: cardStyles.display,
+              flexBasis: cardStyles.flexBasis,
+              flexGrow: cardStyles.flexGrow,
+              flexShrink: cardStyles.flexShrink
+            }
+          });
+        });
+      });
+    }, 100);
+  }
+
+  createGalleryCard(file, globalIndex) {
+    const template = document.getElementById('gallery-card-template');
+    if (!template) {
+      console.error('❌ Template gallery-card-template introuvable');
+      return null;
+    }
+
+    const card = template.content.cloneNode(true).querySelector('.gallery-card');
+
+    // Configurer les attributs de la carte
+    card.dataset.fileIndex = globalIndex;
+
+    // Définir le type de média pour le CSS
+    const mediaType = file.triageType === 'series' ? 'series' : 'unique';
+    card.dataset.mediaType = mediaType;
+
+    // Remplir les informations du fichier
+    const fileName = card.querySelector('.file-name');
+    const fileDuration = card.querySelector('.file-duration');
+    const titleInput = card.querySelector('.title-input');
+    const categoryBadge = card.querySelector('.category-badge');
+
+    fileName.textContent = file.name;
+    fileDuration.textContent = file.duration ? this.formatDuration(file.duration) : '--:--';
+
+    titleInput.value = file.title || file.name;
+
+    // Ajouter le nom du fichier comme data attribute pour backup
+    card.setAttribute('data-file-name', file.name || '');
+
+    // Afficher le badge de catégorie
+    if (categoryBadge && file.triageType) {
+      const categoryNames = {
+        'film': '🎬 Film',
+        'series': '📺 Série',
+        'short': '🎞️ Court',
+        'other': '📁 Autre',
+        'unsorted': '❓ Non trié'
+      };
+      categoryBadge.textContent = categoryNames[file.triageType] || file.triageType;
+      categoryBadge.className = `category-badge ${file.triageType}`;
+    }
+
+    // Afficher automatiquement les champs série si c'est une série
+    if (file.triageType === 'series') {
+      // Remplir le nom de la série (lecture seule)
+      const seriesNameInput = card.querySelector('.series-name-readonly');
+      if (seriesNameInput && file.seriesName) {
+        seriesNameInput.value = file.seriesName;
       }
 
-      // Ajouter la carte au conteneur
-      galleryContainer.appendChild(card);
-    });
+      // Remplir la durée (lecture seule)
+      const durationDisplay = card.querySelector('.duration-display');
+      console.log('🔍 Debug durée:', {
+        found: !!durationDisplay,
+        duration: file.duration,
+        formatted: file.duration ? this.formatDuration(file.duration) : '--:--'
+      });
+
+      if (durationDisplay) {
+        const formattedDuration = file.duration ? this.formatDuration(file.duration) : '--:--';
+        durationDisplay.value = formattedDuration;
+        console.log('✅ Durée définie à:', formattedDuration);
+      } else {
+        console.warn('❌ Element .duration-display non trouvé dans la carte');
+      }
+    }
+
+    return card;
   }
 
   attachGalleryEvents() {
@@ -500,16 +736,22 @@ class ImportClassificationSystem {
       finishBtn.addEventListener('click', () => this.finishGalleryClassification());
     }
 
-    // Bouton Annuler
-    const cancelBtn = document.getElementById('cancel-import-btn');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => this.showCancelConfirmation());
+    // Boutons Annuler (Phase 1 - Triage)
+    const cancelImportBtn = document.getElementById('cancel-import-btn');
+    if (cancelImportBtn) {
+      cancelImportBtn.addEventListener('click', () => this.showCancelConfirmation());
     }
 
-    // Bouton Annuler classification
+    // Bouton Annuler (Phase 2 - Classification simple)
     const cancelClassificationBtn = document.getElementById('cancel-classification-btn');
     if (cancelClassificationBtn) {
       cancelClassificationBtn.addEventListener('click', () => this.showCancelConfirmation());
+    }
+
+    // Bouton Annuler (Phase 2 - Galerie)
+    const cancelGalleryBtn = document.getElementById('cancel-gallery-btn');
+    if (cancelGalleryBtn) {
+      cancelGalleryBtn.addEventListener('click', () => this.showCancelConfirmation());
     }
 
     // Bouton Retour
@@ -531,6 +773,17 @@ class ImportClassificationSystem {
       this.importModal.addEventListener('click', (e) => {
         if (e.target === this.importModal) {
           this.showCancelConfirmation();
+        }
+      });
+    }
+
+    // Empêcher la fermeture accidentelle de la modal de confirmation
+    const cancelConfirmModal = document.getElementById('cancel-confirmation-modal');
+    if (cancelConfirmModal) {
+      cancelConfirmModal.addEventListener('click', (e) => {
+        // Ne fermer que si on clique sur le fond (pas sur le contenu)
+        if (e.target === cancelConfirmModal) {
+          cancelConfirmModal.style.display = 'none';
         }
       });
     }
@@ -774,8 +1027,9 @@ class ImportClassificationSystem {
       // Champs pour séries
       seriesId: file?.seriesId || null,
       seriesName: file?.seriesName || null,
-      seasonNumber: parseInt(card.querySelector('.season-input')?.value) || null,
-      episodeNumber: parseInt(card.querySelector('.episode-input')?.value) || null
+      // Les numéros de saison/épisode seront gérés par le système de drag & drop (plus tard)
+      seasonNumber: null,
+      episodeNumber: null
     };
 
     console.log(`   - Données finales:`, result);
@@ -1277,6 +1531,7 @@ class ImportClassificationSystem {
   async cleanupPartialImport() {
     console.log('🧹 Nettoyage des données d\'import partielles');
 
+    // Supprimer les médias
     if (this.newlyScannedIds && this.newlyScannedIds.length > 0) {
       console.log(`🗑️ Suppression de ${this.newlyScannedIds.length} fichiers nouvellement scannés`);
 
@@ -1291,17 +1546,36 @@ class ImportClassificationSystem {
             console.error(`❌ Erreur lors de la suppression du média ${movieId}:`, result.message);
           }
         }
-
-        // Recharger la liste des films pour refléter les suppressions
-        this.forceReloadMovies();
-
       } catch (error) {
-        console.error('❌ Erreur lors du nettoyage:', error);
+        console.error('❌ Erreur lors du nettoyage des médias:', error);
       }
     }
 
-    // Réinitialiser la liste des IDs nouvellement scannés
+    // Supprimer les séries créées durant l'import
+    if (this.newlyCreatedSeriesIds && this.newlyCreatedSeriesIds.length > 0) {
+      console.log(`🗑️ Suppression de ${this.newlyCreatedSeriesIds.length} série(s) créée(s) durant l'import`);
+
+      try {
+        for (const seriesId of this.newlyCreatedSeriesIds) {
+          console.log(`🗑️ Suppression de la série ${seriesId}`);
+          const result = await window.electronAPI.deleteSeries(seriesId);
+          if (result.success) {
+            console.log(`✅ Série ${seriesId} supprimée avec succès`);
+          } else {
+            console.error(`❌ Erreur lors de la suppression de la série ${seriesId}:`, result.message);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors du nettoyage des séries:', error);
+      }
+    }
+
+    // Recharger la liste des films pour refléter les suppressions
+    this.forceReloadMovies();
+
+    // Réinitialiser les listes
     this.newlyScannedIds = [];
+    this.newlyCreatedSeriesIds = [];
   }
 
   // Méthode pour nettoyer les films par nom (pour corriger les imports problématiques)

@@ -1443,6 +1443,32 @@ function setupIPCHandlers() {
   });
 
   // ============================================
+  // API GESTION DES SAISONS
+  // ============================================
+
+  // Récupérer les saisons d'une série
+  ipcMain.handle('seasons:get', async (event, seriesId) => {
+    try {
+      const result = await db.getSeriesSeasons(seriesId);
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des saisons:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Sauvegarder les saisons d'une série
+  ipcMain.handle('seasons:save', async (event, seriesId, seasons) => {
+    try {
+      const result = await db.saveSeriesSeasons(seriesId, seasons);
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde des saisons:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // ============================================
   // API SYSTÈME DE TAGS
   // ============================================
 

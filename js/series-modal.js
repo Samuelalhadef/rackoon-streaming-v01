@@ -1,12 +1,38 @@
 /**
- * Gestionnaire de la modale série
+ * Gestionnaire de la modale série - Version améliorée similaire aux médias uniques
  */
 class SeriesModal {
   constructor() {
     this.modal = document.getElementById('series-modal-overlay');
     console.log('🔍 Element series-modal-overlay trouvé:', !!this.modal);
     this.currentSeries = null;
+    this.currentSeriesId = null;
+    this.USER_PREFS_KEY = 'userPrefs_global';
     this.attachEventListeners();
+  }
+
+  // Clé de stockage pour les préférences utilisateur
+  getUserPrefs() {
+    let userPrefs = localStorage.getItem(this.USER_PREFS_KEY);
+
+    if (!userPrefs) {
+      userPrefs = {
+        watchedSeries: {},
+        seriesRatings: {},
+        seriesReviews: {}
+      };
+    } else {
+      userPrefs = JSON.parse(userPrefs);
+      if (!userPrefs.watchedSeries) userPrefs.watchedSeries = {};
+      if (!userPrefs.seriesRatings) userPrefs.seriesRatings = {};
+      if (!userPrefs.seriesReviews) userPrefs.seriesReviews = {};
+    }
+
+    return userPrefs;
+  }
+
+  saveUserPrefs(userPrefs) {
+    localStorage.setItem(this.USER_PREFS_KEY, JSON.stringify(userPrefs));
   }
 
   attachEventListeners() {
@@ -25,22 +51,173 @@ class SeriesModal {
       });
     }
 
-    // Gestion des boutons
+    // Bouton de lecture
     const playBtn = document.getElementById('btn-play-series');
-    const editBtn = document.getElementById('btn-edit-series');
-
     if (playBtn) {
       playBtn.addEventListener('click', () => this.playFirstEpisode());
     }
 
+    // Bouton édition (à implémenter plus tard)
+    const editBtn = document.getElementById('series-edit-button');
     if (editBtn) {
-      editBtn.addEventListener('click', () => this.editSeries());
+      editBtn.addEventListener('click', () => {
+        console.log('✏️ Mode édition série (à implémenter)');
+        alert('Mode édition des séries à venir!');
+      });
     }
+
+    // Bouton Watch Toggle
+    const watchToggle = document.getElementById('btn-watch-toggle-series');
+    if (watchToggle) {
+      watchToggle.addEventListener('click', () => this.toggleWatchStatus());
+    }
+
+    // Système d'étoiles
+    this.setupStarsInteraction();
+
+    // Bouton sauvegarde avis
+    const reviewSaveBtn = document.getElementById('series-review-save-btn');
+    if (reviewSaveBtn) {
+      reviewSaveBtn.addEventListener('click', () => this.saveReview());
+    }
+  }
+
+  // Système d'étoiles progressif
+  setupStarsInteraction() {
+    const starsContainer = document.getElementById('series-progressive-stars');
+    const starsFill = document.getElementById('series-stars-fill');
+    const ratingInput = document.getElementById('series-rating-input');
+    const starsOverlay = document.getElementById('series-stars-overlay');
+
+    if (!starsContainer || !starsFill || !ratingInput || !starsOverlay) return;
+
+    // Interaction au survol
+    starsOverlay.addEventListener('mousemove', (e) => {
+      const rect = starsContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      starsFill.style.width = `${percentage}%`;
+
+      const rating = (percentage / 100) * 5;
+      ratingInput.value = rating.toFixed(1);
+    });
+
+    starsOverlay.addEventListener('mouseleave', () => {
+      const currentRating = parseFloat(ratingInput.value) || 0;
+      const percentage = (currentRating / 5) * 100;
+      starsFill.style.width = `${percentage}%`;
+    });
+
+    // Clic pour enregistrer la note
+    starsOverlay.addEventListener('click', (e) => {
+      const rect = starsContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      const rating = (percentage / 100) * 5;
+
+      ratingInput.value = rating.toFixed(1);
+      this.saveRating(rating);
+    });
+
+    // Input manuel
+    ratingInput.addEventListener('change', () => {
+      let rating = parseFloat(ratingInput.value) || 0;
+      rating = Math.max(0, Math.min(5, rating));
+      ratingInput.value = rating.toFixed(1);
+
+      const percentage = (rating / 5) * 100;
+      starsFill.style.width = `${percentage}%`;
+
+      this.saveRating(rating);
+    });
+  }
+
+  // Sauvegarder la note
+  saveRating(rating) {
+    if (!this.currentSeriesId) return;
+
+    const userPrefs = this.getUserPrefs();
+    userPrefs.seriesRatings[this.currentSeriesId] = rating;
+    this.saveUserPrefs(userPrefs);
+
+    // Mettre à jour l'affichage rapide sur le poster
+    const ratingQuick = document.getElementById('series-rating-quick');
+    if (ratingQuick) {
+      ratingQuick.textContent = this.getStarsDisplay(rating);
+    }
+
+    console.log(`⭐ Note sauvegardée: ${rating}/5 pour la série ${this.currentSeriesId}`);
+  }
+
+  // Afficher les étoiles selon la note
+  getStarsDisplay(rating) {
+    const fullStars = Math.floor(rating);
+    const halfStar = rating % 1 >= 0.5;
+    let stars = '★'.repeat(fullStars);
+    if (halfStar) stars += '⯨';
+    stars += '☆'.repeat(5 - fullStars - (halfStar ? 1 : 0));
+    return stars;
+  }
+
+  // Toggle statut vu/à voir
+  toggleWatchStatus() {
+    if (!this.currentSeriesId) return;
+
+    const userPrefs = this.getUserPrefs();
+    const watchToggle = document.getElementById('btn-watch-toggle-series');
+
+    if (userPrefs.watchedSeries[this.currentSeriesId]) {
+      delete userPrefs.watchedSeries[this.currentSeriesId];
+      watchToggle.textContent = 'À voir';
+      watchToggle.classList.remove('watched');
+    } else {
+      userPrefs.watchedSeries[this.currentSeriesId] = true;
+      watchToggle.textContent = 'Vu !';
+      watchToggle.classList.add('watched');
+    }
+
+    this.saveUserPrefs(userPrefs);
+    console.log(`👁️ Statut de visionnage modifié pour la série ${this.currentSeriesId}`);
+  }
+
+  // Sauvegarder l'avis
+  saveReview() {
+    if (!this.currentSeriesId) return;
+
+    const reviewInput = document.getElementById('series-review-input');
+    if (!reviewInput) return;
+
+    const review = reviewInput.value.trim();
+    const userPrefs = this.getUserPrefs();
+
+    if (review) {
+      userPrefs.seriesReviews[this.currentSeriesId] = review;
+    } else {
+      delete userPrefs.seriesReviews[this.currentSeriesId];
+    }
+
+    this.saveUserPrefs(userPrefs);
+
+    // Feedback visuel
+    const saveBtn = document.getElementById('series-review-save-btn');
+    if (saveBtn) {
+      const originalText = saveBtn.textContent;
+      saveBtn.textContent = 'Sauvegardé !';
+      saveBtn.style.background = 'rgba(76, 175, 80, 0.3)';
+
+      setTimeout(() => {
+        saveBtn.textContent = originalText;
+        saveBtn.style.background = '';
+      }, 2000);
+    }
+
+    console.log(`💬 Avis sauvegardé pour la série ${this.currentSeriesId}`);
   }
 
   async show(seriesId) {
     try {
       console.log('📺 Affichage de la série:', seriesId);
+      this.currentSeriesId = seriesId;
 
       // Récupérer les données de la série
       const result = await window.electronAPI.getSeriesById(seriesId);
@@ -52,6 +229,8 @@ class SeriesModal {
 
       this.currentSeries = result.series;
       this.populateModal(this.currentSeries);
+      this.loadUserPreferences();
+
       this.modal.style.display = 'flex';
 
       // Animation d'apparition
@@ -72,6 +251,49 @@ class SeriesModal {
       }, 400);
     }
     this.currentSeries = null;
+    this.currentSeriesId = null;
+  }
+
+  loadUserPreferences() {
+    if (!this.currentSeriesId) return;
+
+    const userPrefs = this.getUserPrefs();
+
+    // Charger le statut vu/à voir
+    const watchToggle = document.getElementById('btn-watch-toggle-series');
+    if (watchToggle) {
+      if (userPrefs.watchedSeries[this.currentSeriesId]) {
+        watchToggle.textContent = 'Vu !';
+        watchToggle.classList.add('watched');
+      } else {
+        watchToggle.textContent = 'À voir';
+        watchToggle.classList.remove('watched');
+      }
+    }
+
+    // Charger la note
+    const rating = userPrefs.seriesRatings[this.currentSeriesId] || 0;
+    const ratingInput = document.getElementById('series-rating-input');
+    const starsFill = document.getElementById('series-stars-fill');
+    const ratingQuick = document.getElementById('series-rating-quick');
+
+    if (ratingInput) {
+      ratingInput.value = rating.toFixed(1);
+    }
+    if (starsFill) {
+      const percentage = (rating / 5) * 100;
+      starsFill.style.width = `${percentage}%`;
+    }
+    if (ratingQuick) {
+      ratingQuick.textContent = this.getStarsDisplay(rating);
+    }
+
+    // Charger l'avis
+    const review = userPrefs.seriesReviews[this.currentSeriesId] || '';
+    const reviewInput = document.getElementById('series-review-input');
+    if (reviewInput) {
+      reviewInput.value = review;
+    }
   }
 
   populateModal(series) {
@@ -79,33 +301,208 @@ class SeriesModal {
     const titleElement = document.getElementById('series-title');
     const yearElement = document.getElementById('series-year');
     const episodeCountElement = document.getElementById('series-episode-count');
-    const descriptionElement = document.getElementById('series-description');
+    const synopsisElement = document.getElementById('series-synopsis-content');
     const posterElement = document.getElementById('series-poster');
+    const episodesQuick = document.getElementById('series-episodes-quick');
 
     if (titleElement) titleElement.textContent = series.name;
-    if (yearElement) yearElement.textContent = series.year || 'Année inconnue';
+
+    // Gérer l'année - extraire du titre si nécessaire
+    if (yearElement) {
+      if (series.year) {
+        yearElement.textContent = series.year;
+      } else {
+        // Essayer d'extraire l'année du titre
+        const yearMatch = series.name.match(/\((\d{4})\)$/);
+        const year = yearMatch ? yearMatch[1] : new Date().getFullYear();
+        yearElement.textContent = year;
+      }
+    }
+
+    const totalEpisodes = series.episodeCount || 0;
+    const totalSeasons = series.seasons ? series.seasons.length : 0;
+
     if (episodeCountElement) {
-      const totalEpisodes = series.episodeCount || 0;
       episodeCountElement.textContent = `${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''}`;
     }
-    if (descriptionElement) {
-      descriptionElement.textContent = series.description || 'Aucune description disponible.';
+    if (episodesQuick) {
+      episodesQuick.textContent = totalEpisodes;
     }
+
+    // Mise à jour de l'overlay saison/épisodes en haut à gauche de l'affiche
+    const seasonInfoElement = document.getElementById('series-season-info');
+    const episodeInfoOverlay = document.getElementById('series-episode-info-overlay');
+    const seasonsQuick = document.getElementById('series-seasons-quick');
+
+    if (seasonInfoElement) {
+      if (totalSeasons === 1) {
+        seasonInfoElement.textContent = 'S1';
+      } else {
+        seasonInfoElement.textContent = `${totalSeasons} saisons`;
+      }
+    }
+
+    if (episodeInfoOverlay) {
+      episodeInfoOverlay.textContent = `${totalEpisodes} ép.`;
+    }
+
+    if (seasonsQuick) {
+      seasonsQuick.textContent = totalSeasons;
+    }
+
+    if (synopsisElement) {
+      synopsisElement.textContent = series.description || 'Aucune description disponible.';
+    }
+
     if (posterElement) {
+      let posterSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+';
+
       // Utiliser la miniature du premier épisode comme poster de série
       if (series.seasons && series.seasons[0] && series.seasons[0].episodes && series.seasons[0].episodes[0]) {
         const firstEpisode = series.seasons[0].episodes[0];
         if (firstEpisode.thumbnail) {
-          posterElement.src = `../data/thumbnails/${firstEpisode.thumbnail}`;
+          const thumbnailName = firstEpisode.thumbnail.split('\\').pop().split('/').pop();
+          posterSrc = `data/thumbnails/${thumbnailName}`;
+          console.log('📸 Chargement du poster série depuis:', posterSrc);
         }
       }
+
+      posterElement.src = posterSrc;
+      posterElement.alt = series.name;
+
       posterElement.onerror = () => {
-        posterElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDIwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTZweCI+UE9TVEVSPC90ZXh0Pgo8L3N2Zz4K';
+        console.log('❌ Erreur de chargement du poster, utilisation du placeholder');
+        posterElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+';
       };
     }
 
+    // Afficher les tags
+    this.displayTags(series);
+
+    // Afficher les crédits
+    this.displayCredits(series);
+
+    // Afficher les informations techniques
+    this.displayTechnicalInfo(series);
+
+    // Afficher les statistiques de visionnage
+    this.displayViewingStats(series);
+
     // Générer les saisons et épisodes
     this.populateSeasons(series.seasons || []);
+  }
+
+  displayTags(series) {
+    // Genres
+    this.displayTagCategory('series-genres', series.genres, 'genre');
+    // Ambiance
+    this.displayTagCategory('series-mood', series.mood, 'mood');
+    // Technique
+    this.displayTagCategory('series-technical', series.technical, 'technical');
+    // Personnel
+    this.displayTagCategory('series-personal', series.personalTags, 'personal');
+  }
+
+  displayTagCategory(categoryId, tags, chipClass) {
+    const categoryElement = document.getElementById(`${categoryId}-category`);
+    const containerElement = document.getElementById(`${categoryId}-container`);
+
+    if (!categoryElement || !containerElement) return;
+
+    containerElement.innerHTML = '';
+
+    if (tags && tags.length > 0) {
+      tags.forEach(tag => {
+        if (tag && tag.trim()) {
+          const chip = document.createElement('span');
+          chip.className = `tag-chip ${chipClass}`;
+          chip.textContent = tag;
+          containerElement.appendChild(chip);
+        }
+      });
+      categoryElement.style.display = 'block';
+    } else {
+      // Masquer si vide
+      categoryElement.style.display = 'none';
+    }
+  }
+
+  displayCredits(series) {
+    // Créateur
+    const directorSection = document.getElementById('series-director-section');
+    const directorName = document.getElementById('series-director-name');
+    if (series.creator && series.creator.trim()) {
+      directorName.textContent = series.creator;
+      directorSection.style.display = 'flex';
+    } else {
+      directorSection.style.display = 'none';
+    }
+
+    // Acteurs principaux
+    const actorsSection = document.getElementById('series-actors-section');
+    const actorsList = document.getElementById('series-actors-list');
+    if (series.actors && series.actors.length > 0) {
+      const actorsText = series.actors.slice(0, 3).join(', ');
+      actorsList.textContent = actorsText;
+      actorsSection.style.display = 'flex';
+    } else {
+      actorsSection.style.display = 'none';
+    }
+
+    // Plateforme
+    const platformSection = document.getElementById('series-platform-section');
+    const platformName = document.getElementById('series-platform-name');
+    if (series.platform && series.platform.trim()) {
+      platformName.textContent = series.platform;
+      platformSection.style.display = 'flex';
+    } else {
+      platformSection.style.display = 'none';
+    }
+  }
+
+  displayTechnicalInfo(series) {
+    // Qualité vidéo
+    const techQuality = document.getElementById('series-tech-quality');
+    const techQualityValue = document.getElementById('series-tech-quality-value');
+    if (series.videoQuality) {
+      techQualityValue.textContent = series.videoQuality;
+      techQuality.style.display = 'flex';
+    } else {
+      techQuality.style.display = 'none';
+    }
+
+    // Nombre de saisons
+    const techSeasons = document.getElementById('series-tech-seasons');
+    const techSeasonsValue = document.getElementById('series-tech-seasons-value');
+    if (series.seasons && series.seasons.length > 0) {
+      techSeasonsValue.textContent = `${series.seasons.length} saison${series.seasons.length > 1 ? 's' : ''}`;
+      techSeasons.style.display = 'flex';
+    } else {
+      techSeasons.style.display = 'none';
+    }
+
+    // Date d'ajout
+    const techDateAdded = document.getElementById('series-tech-date-added');
+    const techDateAddedValue = document.getElementById('series-tech-date-added-value');
+    if (series.dateAdded) {
+      const date = new Date(series.dateAdded);
+      techDateAddedValue.textContent = date.toLocaleDateString('fr-FR');
+      techDateAdded.style.display = 'flex';
+    } else {
+      techDateAdded.style.display = 'none';
+    }
+  }
+
+  displayViewingStats(series) {
+    // Statistiques de visionnage (à implémenter avec les données réelles)
+    const statWatchCount = document.getElementById('series-stat-watch-count');
+    const statLastWatched = document.getElementById('series-stat-last-watched');
+    const statRating = document.getElementById('series-stat-rating-personal');
+
+    // Pour l'instant, masquer ces sections
+    if (statWatchCount) statWatchCount.style.display = 'none';
+    if (statLastWatched) statLastWatched.style.display = 'none';
+    if (statRating) statRating.style.display = 'none';
   }
 
   populateSeasons(seasons) {
@@ -179,9 +576,14 @@ class SeriesModal {
     const playBtn = episodeElement.querySelector('.episode-play-btn');
 
     if (thumbnail) {
-      thumbnail.src = episode.thumbnail ? `../data/thumbnails/${episode.thumbnail}` : '';
+      if (episode.thumbnail) {
+        const thumbnailName = episode.thumbnail.split('\\').pop().split('/').pop();
+        thumbnail.src = `data/thumbnails/${thumbnailName}`;
+      } else {
+        thumbnail.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDI4MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjI4MCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMyMjIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0cHgiPlRIVU1CTkFJTDwvdGV4dD48L3N2Zz4=';
+      }
       thumbnail.onerror = () => {
-        thumbnail.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDI4MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyODAiIGhlaWdodD0iMTUwIiBmaWxsPSIjMjIyIi8+Cjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTRweCI+VFVOTU5BSUw8L3RleHQ+Cjwvc3ZnPgo=';
+        thumbnail.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDI4MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjI4MCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMyMjIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0cHgiPlRIVU1CTkFJTDwvdGV4dD48L3N2Zz4=';
       };
     }
 
@@ -233,10 +635,12 @@ class SeriesModal {
     this.hide();
 
     // Utiliser le système de lecture existant
-    if (window.playVideo) {
+    if (window.openVideoPlayer) {
+      window.openVideoPlayer(episode.id, episode.title, episode.path);
+    } else if (window.playVideo) {
       window.playVideo(episode.path, episode.title);
     } else {
-      console.error('❌ Fonction playVideo non trouvée');
+      console.error('❌ Fonction de lecture vidéo non trouvée');
     }
   }
 
@@ -250,12 +654,6 @@ class SeriesModal {
       this.playEpisode(firstEpisode);
     }
   }
-
-  editSeries() {
-    console.log('✏️ Édition de la série:', this.currentSeries.name);
-    // TODO: Implémenter l'édition des séries
-    alert('Fonctionnalité d\'édition des séries à venir !');
-  }
 }
 
 // Initialiser le gestionnaire de modale série
@@ -263,6 +661,7 @@ let seriesModal;
 
 document.addEventListener('DOMContentLoaded', () => {
   seriesModal = new SeriesModal();
+  console.log('✅ Modale série initialisée');
 });
 
 // Fonction globale pour ouvrir une série

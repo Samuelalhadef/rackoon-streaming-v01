@@ -1,5 +1,5 @@
 /* ================================
-   MODAL SÉRIE
+   MODAL SÉRIE - Style similaire aux médias uniques
    ================================ */
 
 /* Overlay spécifique pour la modale série */
@@ -9,8 +9,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(5px);
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -26,18 +26,22 @@
 }
 
 .series-modal {
-  background: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
-  width: 95%;
-  max-width: 900px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  display: flex;
-  position: relative;
+  width: 95vw !important;
+  max-width: 1600px !important;
+  min-height: 85vh !important;
+  max-height: 90vh !important;
+  overflow: hidden !important;
+  display: block !important;
+  background: linear-gradient(135deg, #0a1b42 0%, #1a2b5d 50%, #0f1f4a 100%) !important;
+  border-radius: 20px !important;
+  position: relative !important;
+  padding: 30px !important;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   transform: translateY(30px);
   opacity: 0;
   transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.4s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Animation d'apparition pour la modale série */
@@ -49,241 +53,705 @@
 /* Bouton de fermeture pour la modale série */
 #series-modal-close {
   position: absolute;
-  top: 15px;
-  right: 15px;
-  background-color: rgba(0, 0, 0, 0.5);
+  top: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.6);
   color: white;
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 20px;
   z-index: 10;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  font-weight: 300;
 }
 
 #series-modal-close:hover {
   background-color: rgba(255, 255, 255, 0.2);
   transform: rotate(90deg);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* Layout en deux colonnes comme les modales de médias */
-.series-poster-section {
-  flex: 0 0 280px;
-  background-color: rgba(0, 0, 0, 0.3);
+/* Container unifié avec scroll unique (similaire aux médias) */
+.series-modal .unified-content {
+  display: flex !important;
+  gap: 40px !important;
+  padding: 20px 10px 20px 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  max-height: 95vh;
   overflow: hidden;
-  position: relative;
 }
 
-.series-poster {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.5s ease;
+/* Sidebar avec affiche et évaluation */
+.series-modal .modal-sidebar {
+  width: 350px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+  overflow-y: auto;
 }
 
-.series-poster-section:hover .series-poster {
-  transform: scale(1.05);
+/* Scrollbar pour la sidebar */
+.series-modal .modal-sidebar::-webkit-scrollbar {
+  width: 8px;
 }
 
-.series-content {
-  flex: 1;
-  padding: 30px;
+.series-modal .modal-sidebar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.series-modal .modal-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.series-modal .modal-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Poster de la série */
+.series-modal .modal-poster {
+  position: relative !important;
+  width: 100% !important;
+  height: 520px !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+  border: 3px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.series-modal .modal-poster img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  transition: transform 0.5s ease !important;
+}
+
+.series-modal .modal-poster:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+.series-modal .modal-poster:hover img {
+  transform: scale(1.05) !important;
+}
+
+/* Overlay sur le poster */
+.series-modal .poster-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+  padding: 20px 15px 15px;
   display: flex;
   flex-direction: column;
-  position: relative;
-  overflow-y: auto;
-  max-height: 90vh;
+  gap: 5px;
 }
 
-/* En-tête avec titre et année */
-.series-header {
-  margin-bottom: 15px;
-  position: relative;
+.series-modal .poster-quick-info {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Overlay info saison/épisodes en haut à gauche */
+.series-modal .poster-info-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 2;
 }
 
-.series-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #ffffff;
+.series-modal .poster-season-info,
+.series-modal .poster-episode-info {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Section d'évaluation (copiée de modal.css) */
+.series-modal .modal-sidebar .evaluation-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
   margin: 0;
 }
 
-.series-year {
-  font-size: 20px;
-  color: #a0a0a0;
-  margin-left: 10px;
-  font-weight: normal;
-}
-
-/* Métadonnées de la série */
-.series-meta {
-  display: flex;
-  gap: 20px;
-  color: #b0b0b0;
-  font-size: 16px;
-  margin-bottom: 20px;
-}
-
-.series-episode-count::before {
-  content: "📺 ";
-}
-
-.series-description {
-  color: #d0d0d0;
-  font-size: 16px;
-  line-height: 1.6;
-  margin-bottom: 25px;
-}
-
-/* Actions de la série */
-.series-actions {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 30px;
-}
-
-.btn-play-series,
-.btn-edit-series {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 6px;
+/* Bouton Vu/À voir */
+.series-modal .modal-sidebar .btn-watch-toggle-modal {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  padding: 14px 24px;
+  border-radius: 12px;
+  cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+.series-modal .modal-sidebar .btn-watch-toggle-modal:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15));
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.series-modal .modal-sidebar .btn-watch-toggle-modal.watched {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.2));
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.series-modal .modal-sidebar .btn-watch-toggle-modal.watched:hover {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.3));
+  border-color: rgba(76, 175, 80, 0.6);
+}
+
+/* Système d'étoiles */
+.series-modal .rating-compact {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
 }
 
-.btn-play-series {
-  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-  color: white;
+.series-modal .rating-title {
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.btn-play-series:hover {
-  background: linear-gradient(135deg, #e55a30 0%, #e8841a 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
+.series-modal .rating-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
-.btn-edit-series {
-  background: transparent;
-  color: #ff6b35;
-  border: 2px solid #ff6b35;
+.series-modal .progressive-stars {
+  position: relative;
+  width: 120px;
+  height: 24px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.btn-edit-series:hover {
-  background: #ff6b35;
-  color: white;
-  transform: translateY(-2px);
+.series-modal .stars-background,
+.series-modal .stars-fill,
+.series-modal .stars-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
 }
 
-/* Container des saisons dans la nouvelle structure */
-.seasons-container {
+.series-modal .stars-background i {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 20px;
+}
+
+.series-modal .stars-fill {
+  overflow: hidden;
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+.series-modal .stars-fill i {
+  color: #ffd700;
+  font-size: 20px;
+}
+
+.series-modal .stars-overlay {
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.series-modal .rating-input {
+  width: 60px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.series-modal .rating-input:focus {
+  outline: none;
+  border-color: #3474db;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Section Avis */
+.series-modal .review-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.series-modal .review-title {
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.series-modal .review-input {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 60px;
+  transition: all 0.3s;
+}
+
+.series-modal .review-input:focus {
+  outline: none;
+  border-color: #3474db;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.series-modal .review-save-btn {
+  padding: 8px 16px;
+  background: rgba(52, 116, 219, 0.2);
+  border: 1px solid #3474db;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.series-modal .review-save-btn:hover {
+  background: rgba(52, 116, 219, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Contenu principal */
+.series-modal .modal-content {
+  flex: 1 !important;
+  padding: 40px 50px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  min-height: 100% !important;
+  overflow-y: auto;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.series-modal .modal-content > * {
+  margin-bottom: 28px !important;
+}
+
+.series-modal .modal-content > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Scrollbar pour le contenu */
+.series-modal .modal-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.series-modal .modal-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.series-modal .modal-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+.series-modal .modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* En-tête avec titre et bouton édition */
+.series-modal .modal-header {
+  margin: 0;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.series-modal .title-section {
+  flex: 1;
+}
+
+.series-modal .modal-title {
+  font-size: 42px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+
+.series-modal .media-meta-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.series-modal .media-category {
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.15) 0%, rgba(41, 128, 185, 0.2) 100%);
+  border: 1.5px solid rgba(52, 152, 219, 0.4);
+  color: #5dade2;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+  transition: all 0.3s ease;
+}
+
+.series-modal .meta-separator {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 24px;
+  font-weight: 300;
+  margin: 0 2px;
+}
+
+.series-modal .movie-year {
+  color: #b0b0b0;
+  font-weight: 500;
+  font-size: 32px;
+  line-height: 1;
+}
+
+/* Boutons édition */
+.series-modal .edit-button-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  position: relative;
+}
+
+.series-modal .edit-button,
+.series-modal .edit-cancel-btn,
+.series-modal .edit-save-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  font-size: 16px;
+}
+
+.series-modal .edit-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.series-modal .edit-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(15deg);
+}
+
+.series-modal .edit-cancel-btn {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: #f44336;
+  color: #f44336;
+}
+
+.series-modal .edit-cancel-btn:hover {
+  background: rgba(244, 67, 54, 0.3);
+}
+
+.series-modal .edit-save-btn {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+.series-modal .edit-save-btn:hover {
+  background: rgba(76, 175, 80, 0.3);
+}
+
+/* Métadonnées */
+.series-modal .movie-meta {
+  display: flex;
+  gap: 20px;
+  color: #b0b0b0;
+  font-size: 15px;
+}
+
+.series-modal .series-episode-count {
+  font-weight: 500;
+}
+
+.series-modal .series-episode-count::before {
+  content: "📺 ";
+  margin-right: 5px;
+}
+
+/* Synopsis */
+.series-modal .synopsis {
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid #3474db;
+  padding: 20px 25px;
+  border-radius: 8px;
+}
+
+.series-modal .synopsis-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.series-modal .synopsis-content {
+  color: #d0d0d0;
+  font-size: 15px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Tags par catégories */
+.series-modal .tags-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.series-modal .tag-category {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 15px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.series-modal .tag-category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.series-modal .tag-category-header i {
+  font-size: 16px;
+  color: #3474db;
+}
+
+.series-modal .tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.series-modal .tag-chip {
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.series-modal .tag-chip.genre {
+  background: rgba(52, 116, 219, 0.2);
+  border: 1px solid rgba(52, 116, 219, 0.4);
+  color: #5fa3ff;
+}
+
+.series-modal .tag-chip.mood {
+  background: rgba(233, 30, 99, 0.2);
+  border: 1px solid rgba(233, 30, 99, 0.4);
+  color: #f06292;
+}
+
+.series-modal .tag-chip.technical {
+  background: rgba(156, 39, 176, 0.2);
+  border: 1px solid rgba(156, 39, 176, 0.4);
+  color: #ba68c8;
+}
+
+.series-modal .tag-chip.personal {
+  background: rgba(255, 152, 0, 0.2);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  color: #ffb74d;
+}
+
+/* Crédits */
+.series-modal .movie-credits {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.series-modal .credit-label {
+  color: #888;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 10px;
+}
+
+.series-modal .director-name,
+.series-modal .actors-list,
+.series-modal .platform-name {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Container des saisons */
+.series-modal .seasons-container {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
-.season-section {
+.series-modal .season-section {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(5px);
 }
 
-.season-header {
+.series-modal .season-header {
   background: rgba(255, 255, 255, 0.08);
-  padding: 20px 30px;
+  padding: 20px 25px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.season-title {
+.series-modal .season-title {
   color: #ffffff;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   margin: 0;
 }
 
-.season-episode-count {
+.series-modal .season-episode-count {
   color: #b0b0b0;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.episodes-grid {
+.series-modal .episodes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
   padding: 20px;
 }
 
-.episode-card {
+/* Cartes épisodes */
+.series-modal .episode-card {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(5px);
 }
 
-.episode-card:hover {
+.series-modal .episode-card:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: #ff6b35;
+  border-color: #3474db;
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
-.episode-thumbnail-container {
+.series-modal .episode-thumbnail-container {
   position: relative;
   width: 100%;
-  height: 120px;
+  aspect-ratio: 16/9;
   overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
 }
 
-.episode-thumbnail {
+.series-modal .episode-thumbnail {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s;
 }
 
-.episode-card:hover .episode-thumbnail {
-  transform: scale(1.05);
+.series-modal .episode-card:hover .episode-thumbnail {
+  transform: scale(1.1);
 }
 
-.episode-duration {
+.series-modal .episode-duration {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
-.episode-play-btn {
+.series-modal .episode-play-btn {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(255, 107, 53, 0.9);
+  background: rgba(52, 116, 219, 0.9);
   border: none;
   border-radius: 50%;
   width: 50px;
@@ -298,104 +766,253 @@
   justify-content: center;
 }
 
-.episode-card:hover .episode-play-btn {
+.series-modal .episode-card:hover .episode-play-btn {
   opacity: 1;
 }
 
-.episode-play-btn:hover {
-  background: #ff6b35;
+.series-modal .episode-play-btn:hover {
+  background: #3474db;
   transform: translate(-50%, -50%) scale(1.1);
 }
 
-.episode-info {
+.series-modal .episode-info {
   padding: 15px;
 }
 
-.episode-number {
-  color: #ff6b35;
-  font-size: 14px;
-  font-weight: 600;
+.series-modal .episode-number {
+  color: #3474db;
+  font-size: 13px;
+  font-weight: 700;
   margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.episode-title {
+.series-modal .episode-title {
   color: #ffffff;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   margin-bottom: 8px;
   line-height: 1.3;
 }
 
-.episode-meta {
+.series-modal .episode-meta {
   color: #b0b0b0;
   font-size: 12px;
 }
 
-.episode-date {
-  display: block;
+/* Statistiques de visionnage */
+.series-modal .viewing-stats {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.series-modal .viewing-stats-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 15px 0;
+}
+
+.series-modal .viewing-stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.series-modal .stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.series-modal .stat-item:last-child {
+  border-bottom: none;
+}
+
+.series-modal .stat-label {
+  color: #888;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.series-modal .stat-value {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Informations techniques */
+.series-modal .technical-info {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.series-modal .technical-info-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 15px 0;
+}
+
+.series-modal .technical-info-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.series-modal .tech-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.series-modal .tech-label {
+  color: #888;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.series-modal .tech-value {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Bouton flottant pour lire */
+.series-modal .floating-watch-btn {
+  position: sticky;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 40px);
+  max-width: 400px;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, #3474db 0%, #2a5db3 100%);
+  border: none;
+  border-radius: 50px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 8px 30px rgba(52, 116, 219, 0.5);
+  transition: all 0.3s ease;
+  z-index: 5;
+}
+
+.series-modal .floating-watch-btn:hover {
+  background: linear-gradient(135deg, #2a5db3 0%, #1e4a8f 100%);
+  transform: translateX(-50%) translateY(-3px);
+  box-shadow: 0 12px 40px rgba(52, 116, 219, 0.6);
+}
+
+.series-modal .floating-watch-btn i {
+  font-size: 18px;
 }
 
 /* Responsive pour les séries */
-@media (max-width: 768px) {
-  .series-modal {
-    width: 95vw;
-    max-width: none;
-    height: 95vh;
-    flex-direction: column;
+@media (max-width: 1200px) {
+  .series-modal .unified-content {
+    gap: 30px !important;
   }
 
-  .series-poster-section {
-    flex: 0 0 200px;
-    max-height: 200px;
+  .series-modal .modal-sidebar {
+    width: 320px !important;
   }
 
-  .series-content {
-    flex: 1;
-    padding: 20px;
-  }
-
-  .series-title {
-    font-size: 24px;
-  }
-
-  .series-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .series-year {
-    margin-left: 0;
-    margin-top: 5px;
-  }
-
-  .series-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .btn-play-series,
-  .btn-edit-series {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .episodes-grid {
-    grid-template-columns: 1fr;
-    gap: 15px;
-    padding: 15px;
-  }
-
-  .season-header {
-    padding: 15px 20px;
-  }
-
-  .season-title {
-    font-size: 20px;
+  .series-modal .modal-poster {
+    height: 480px !important;
   }
 }
 
-/* ================================
-   CARTES SÉRIE DANS LE DASHBOARD
-   ================================ */
+@media (max-width: 900px) {
+  .series-modal {
+    width: 98vw !important;
+    max-width: none !important;
+    min-height: 90vh !important;
+    padding: 20px !important;
+  }
 
-/* Styles déplacés vers dashboard.css pour éviter les conflits */
+  .series-modal .unified-content {
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+
+  .series-modal .modal-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    gap: 20px !important;
+  }
+
+  .series-modal .modal-poster {
+    width: 200px !important;
+    height: 300px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .series-modal .modal-content {
+    padding: 30px 20px !important;
+  }
+
+  .series-modal .modal-title {
+    font-size: 36px;
+  }
+
+  .series-modal .movie-year {
+    font-size: 24px;
+  }
+
+  .series-modal .episodes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    padding: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .series-modal .modal-title {
+    font-size: 28px;
+  }
+
+  .series-modal .movie-year {
+    font-size: 16px;
+  }
+
+  .series-modal .modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .series-modal .episodes-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .series-modal .season-header {
+    padding: 15px 20px;
+  }
+
+  .series-modal .season-title {
+    font-size: 18px;
+  }
+
+  .series-modal .floating-watch-btn {
+    font-size: 14px;
+    padding: 12px 24px;
+  }
+}

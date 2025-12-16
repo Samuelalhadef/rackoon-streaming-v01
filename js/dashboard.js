@@ -383,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!series || series.length === 0) {
       console.log('ℹ️ Aucune série à afficher');
-      seriesGrid.innerHTML = '<p class="no-media">Aucune série trouvée.</p>';
+      seriesGrid.innerHTML = '<div class="empty-state"><span class="icon">📺</span><p>Aucune série trouvée.</p></div>';
       return;
     }
 
@@ -401,35 +401,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = document.createElement('div');
     card.className = 'media-card series-card';
     card.dataset.seriesId = serie.id;
+    card.dataset.title = serie.name;
 
     // Utiliser le thumbnail du premier épisode ou une image par défaut
-    let thumbnailSrc = '../public/img/default-series-thumbnail.svg';
-    if (serie.episodes && serie.episodes.length > 0) {
-      const firstEpisode = serie.episodes[0];
+    let thumbnailSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjQwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwcHgiPlPDiVJJRTwvdGV4dD48L3N2Zz4=';
+
+    if (serie.seasons && serie.seasons[0] && serie.seasons[0].episodes && serie.seasons[0].episodes[0]) {
+      const firstEpisode = serie.seasons[0].episodes[0];
       if (firstEpisode.thumbnail) {
-        thumbnailSrc = `../data/thumbnails/${firstEpisode.thumbnail}`;
+        const thumbnailName = firstEpisode.thumbnail.split('\\').pop().split('/').pop();
+        thumbnailSrc = `data/thumbnails/${thumbnailName}`;
       }
     }
+
+    const totalEpisodes = serie.episodeCount || 0;
+    const totalSeasons = serie.seasons ? serie.seasons.length : 0;
 
     card.innerHTML = `
       <div class="media-thumbnail-container">
         <img src="${thumbnailSrc}" alt="${serie.name}" class="media-thumbnail" loading="lazy"
-             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDAwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjUwJSIgeT0iNDAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjY2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjBweCI+U8OJUKLPQT4KPC90ZXh0Pgo8L3N2Zz4K'">
-        <div class="media-overlay">
-          <button class="play-btn" onclick="openSeries('${serie.id}')">
+             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjQwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwcHgiPlPDiVJJRTwvdGV4dD48L3N2Zz4='">
+        <div class="play-overlay">
+          <button class="play-btn" title="Lancer la lecture">
             <i class="fas fa-play"></i>
           </button>
         </div>
-        <div class="media-badge series-badge">
-          <i class="fas fa-tv"></i>
-          ${serie.episodeCount || 0} ép.
-        </div>
       </div>
       <div class="media-info">
-        <h3 class="media-title">${serie.name}</h3>
-        <div class="media-meta">
-          <span class="media-year">${serie.year || 'Année inconnue'}</span>
-          <span class="media-duration">${serie.episodeCount || 0} épisodes</span>
+        <div class="media-title-container">
+          <h3 class="media-title">${serie.name}</h3>
+          <div class="watch-top">
+            <button class="btn-watch-toggle">à voir</button>
+          </div>
+        </div>
+        <div class="media-extended-info">
+          <div class="series-season-info">
+            Saison : <span class="season-value">${totalSeasons}</span>
+          </div>
+          <div class="media-duration series-episodes">
+            Épisodes : <span class="duration-value">${totalEpisodes}</span>
+          </div>
+          <div class="rating-container">
+            <div class="stars-container">
+              <span class="star" data-value="1"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="2"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="3"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="4"><i class="fas fa-star"></i></span>
+              <span class="star" data-value="5"><i class="fas fa-star"></i></span>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1314,6 +1334,8 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   window.loadMoviesFromDashboard = window.loadMovies;
   window.refreshDashboard = window.loadMovies;
   window.loadMediasFromDatabase = loadMediasFromDatabase;
+  window.displayMedias = displayMedias;
+  window.displaySeries = displaySeries;
 
   // Méthode pour réparer les épisodes orphelins
   window.repairOrphanedEpisodes = async function(orphanedEpisodes) {

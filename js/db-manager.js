@@ -17,6 +17,7 @@ class JSONDatabase {
       uniqueMedias: path.join(this.dbDir, 'medias_uniques.json'),
       seriesEpisodes: path.join(this.dbDir, 'series_episodes.json'),
       seriesMetadata: path.join(this.dbDir, 'series_metadata.json'),
+      seriesSeasons: path.join(this.dbDir, 'series_seasons.json'),
       appConfig: path.join(this.dbDir, 'app_config.json')
     };
 
@@ -32,6 +33,7 @@ class JSONDatabase {
       uniqueMedias: [],
       seriesEpisodes: [],
       seriesMetadata: [],
+      seriesSeasons: {},
       config: null
     };
 
@@ -150,6 +152,12 @@ class JSONDatabase {
     this.data.seriesMetadata = await this.loadFileWithBackup(
       this.paths.seriesMetadata,
       []
+    );
+
+    // Charger les saisons des séries
+    this.data.seriesSeasons = await this.loadFileWithBackup(
+      this.paths.seriesSeasons,
+      {}
     );
 
     // Charger la configuration
@@ -317,6 +325,15 @@ class JSONDatabase {
   }
 
   /**
+   * Sauvegarder uniquement les saisons des séries (throttled)
+   */
+  async saveSeriesSeasonsData() {
+    return this.saveThrottled('seriesSeasons', () =>
+      this.saveFileAtomic(this.paths.seriesSeasons, this.data.seriesSeasons)
+    );
+  }
+
+  /**
    * Sauvegarder uniquement la config (throttled)
    */
   async saveConfig() {
@@ -458,6 +475,11 @@ class JSONDatabase {
     // Sauvegarder le fichier approprié
     if (isEpisode) {
       await this.saveSeriesEpisodes();
+
+      // Si l'épisode a un seriesId, mettre à jour la saison par défaut
+      if (mediaData.seriesId) {
+        await this.addEpisodeToDefaultSeason(mediaData.seriesId);
+      }
     } else {
       await this.saveUniqueMedias();
     }
@@ -753,6 +775,9 @@ class JSONDatabase {
     await this.saveSeriesMetadata();
     await this.saveConfig();
 
+    // Ajouter automatiquement l'épisode à la saison "Non assignés"
+    await this.addEpisodeToDefaultSeason(episodeData.seriesId);
+
     console.log(`📺 Épisode ajouté à la série "${series.name}": ${episode.title}`);
     return { success: true, episode, series };
   }
@@ -813,6 +838,100 @@ class JSONDatabase {
     }
 
     return { success: true, cleaned: cleanedCount };
+  }
+
+  // ============================================
+  // GESTION DES SAISONS
+  // ============================================
+
+  /**
+   * Récupérer les saisons d'une série
+   */
+  async getSeriesSeasons(seriesId) {
+    if (!this.data.config) await this.load();
+
+    // Retourner les saisons de cette série ou un tableau vide
+    const seasons = this.data.seriesSeasons[seriesId] || [];
+    return { success: true, seasons };
+  }
+
+  /**
+   * Sauvegarder les saisons d'une série
+   */
+  async saveSeriesSeasons(seriesId, seasons) {
+    if (!this.data.config) await this.load();
+
+    // Vérifier que la série existe
+    const series = this.data.seriesMetadata.find(s => s.id === seriesId);
+    if (!series) {
+      return { success: false, message: 'Série non trouvée' };
+    }
+
+    // Sauvegarder les saisons pour cette série
+    this.data.seriesSeasons[seriesId] = seasons;
+    await this.saveSeriesSeasonsData();
+
+    console.log(`✅ Saisons sauvegardées pour la série "${series.name}": ${seasons.length} saison(s)`);
+    return { success: true };
+  }
+
+  /**
+   * Ajouter automatiquement les épisodes non assignés à la saison par défaut
+   */
+  async addEpisodeToDefaultSeason(seriesId) {
+    if (!this.data.config) await this.load();
+
+    // Récupérer ou initialiser les saisons de cette série
+    if (!this.data.seriesSeasons[seriesId]) {
+      this.data.seriesSeasons[seriesId] = [];
+    }
+
+    const seasons = this.data.seriesSeasons[seriesId];
+
+    // Chercher la saison par défaut (order = 0)
+    let defaultSeason = seasons.find(s => s.order === 0);
+
+    // Si elle n'existe pas, la créer
+    if (!defaultSeason) {
+      defaultSeason = {
+        id: 'season-0',
+        order: 0,
+        type: 'default',
+        name: 'Non assignés',
+        isEditable: false,
+        episodes: []
+      };
+      seasons.unshift(defaultSeason);
+      console.log(`📦 Création de la saison "Non assignés" pour la série ${seriesId}`);
+    }
+
+    // Récupérer tous les épisodes de cette série
+    const seriesEpisodes = this.data.seriesEpisodes.filter(ep => ep.seriesId === seriesId);
+
+    // Récupérer tous les épisodes déjà assignés à d'autres saisons
+    const assignedEpisodes = new Set();
+    seasons.forEach(season => {
+      if (season.order !== 0 && season.episodes) {
+        season.episodes.forEach(ep => {
+          if (ep !== null) {
+            assignedEpisodes.add(ep);
+          }
+        });
+      }
+    });
+
+    // Calculer les indices des épisodes non assignés
+    const unassignedIndices = seriesEpisodes
+      .map((_, index) => index)
+      .filter(index => !assignedEpisodes.has(index));
+
+    // Mettre à jour la saison par défaut
+    defaultSeason.episodes = unassignedIndices;
+
+    // Sauvegarder les saisons
+    await this.saveSeriesSeasonsData();
+
+    console.log(`📦 Saison "Non assignés" mise à jour: ${unassignedIndices.length} épisode(s)`);
   }
 
   // ============================================

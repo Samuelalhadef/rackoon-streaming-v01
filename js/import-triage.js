@@ -8,6 +8,7 @@ class ImportTriageSystem {
     this.isProcessing = false;
     this.series = []; // Liste des séries disponibles
     this.newlyScannedIds = []; // IDs des fichiers nouvellement scannés (pour nettoyage si annulé)
+    this.newlyCreatedSeriesIds = []; // IDs des séries créées durant l'import (pour nettoyage si annulé)
 
     this.init();
   }
@@ -457,9 +458,18 @@ class ImportTriageSystem {
       // Lancer la classification détaillée pour les fichiers sélectionnés
       console.log('🎯 Lancement de la classification détaillée');
 
-      // Appeler le système de classification avancé
+      // Appeler le système de classification avancé et passer les IDs trackés
       if (window.importClassificationSystem) {
-        window.importClassificationSystem.startClassification(filesToClassify, 'triage');
+        console.log('📋 Transfert des IDs trackés vers la classification:');
+        console.log('  - Médias:', this.newlyScannedIds.length);
+        console.log('  - Séries:', this.newlyCreatedSeriesIds.length);
+
+        window.importClassificationSystem.startClassification(
+          filesToClassify,
+          'triage',
+          this.newlyCreatedSeriesIds,
+          this.newlyScannedIds  // ← Passer les IDs des médias déjà sauvegardés
+        );
       } else {
         console.error('❌ Système de classification avancé non disponible');
         alert('Erreur: Système de classification non disponible');
@@ -1029,6 +1039,12 @@ class ImportTriageSystem {
 
       if (result.success) {
         console.log('✅ Série créée avec succès, ID:', result.series.id);
+
+        // Tracker l'ID de la série pour pouvoir la supprimer si annulé
+        if (!this.newlyCreatedSeriesIds.includes(result.series.id)) {
+          this.newlyCreatedSeriesIds.push(result.series.id);
+          console.log('📋 Série trackée pour nettoyage éventuel:', result.series.id);
+        }
 
         // Ajouter la série à la liste locale
         const newSeries = {

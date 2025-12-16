@@ -613,3 +613,131 @@
 .category-row[data-category="unsorted"] .category-stat {
   background: rgba(255, 152, 0, 0.1);
 }
+
+/* ========================================
+   MODE SÉLECTION
+   ======================================== */
+
+/* Lignes sélectionnées - style visuel fort */
+.file-row.selected,
+.child-file-row.selected,
+.category-file-row.selected {
+  background: linear-gradient(90deg, rgba(52, 116, 219, 0.25) 0%, rgba(52, 116, 219, 0.15) 100%) !important;
+  border-left: 4px solid #3474db !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 116, 219, 0.3);
+  position: relative;
+}
+
+/* Animation lors de la sélection */
+.file-row.selected,
+.child-file-row.selected,
+.category-file-row.selected {
+  animation: selectRow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes selectRow {
+  0% {
+    transform: scale(1);
+    background: rgba(52, 116, 219, 0.4);
+  }
+  100% {
+    transform: scale(1);
+    background: linear-gradient(90deg, rgba(52, 116, 219, 0.25) 0%, rgba(52, 116, 219, 0.15) 100%);
+  }
+}
+
+/* Hover sur les lignes sélectionnées */
+.file-row.selected:hover,
+.child-file-row.selected:hover,
+.category-file-row.selected:hover {
+  background: linear-gradient(90deg, rgba(52, 116, 219, 0.35) 0%, rgba(52, 116, 219, 0.2) 100%) !important;
+  cursor: pointer;
+}
+
+/* Checkbox personnalisée */
+.file-checkbox,
+.folder-checkbox,
+.category-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3474db;
+  transition: transform 0.2s ease;
+}
+
+.file-checkbox:hover,
+.folder-checkbox:hover,
+.category-checkbox:hover {
+  transform: scale(1.15);
+}
+
+/* Master checkbox avec style spécial */
+#master-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #3474db;
+  transition: all 0.2s ease;
+}
+
+#master-checkbox:hover {
+  transform: scale(1.2);
+}
+
+/* État indeterminate pour le master checkbox */
+#master-checkbox:indeterminate {
+  opacity: 0.7;
+}
+
+/* Barre d'actions bulk - améliorée */
+.bulk-actions {
+  display: none;
+  gap: 12px;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Le conteneur parent doit être en position relative */
+.files-header {
+  position: relative;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mode sélection actif - indicateur visuel sur le tableau */
+.files-table.selection-active {
+  border: 2px solid rgba(52, 116, 219, 0.4);
+  box-shadow: 0 0 20px rgba(52, 116, 219, 0.2);
+}
+
+/* Lignes cliquables - cursor pointer */
+.file-row,
+.child-file-row,
+.category-file-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Feedback visuel au clic */
+.file-row:active,
+.child-file-row:active,
+.category-file-row:active {
+  transform: scale(0.995);
+}

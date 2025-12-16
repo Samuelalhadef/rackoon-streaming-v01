@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test - Layout Séries</title>
+
+  <!-- CSS nécessaires -->
+  <link rel="stylesheet" href="css/import-classification.css">
+
+  <style>
+    /* Styles de base pour la page de test */
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0a0e27;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      color: #ffffff;
+    }
+
+    .test-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: #081029;
+      padding: 30px;
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    h1 {
+      color: #64b5f6;
+      margin-bottom: 30px;
+    }
+
+    .info-box {
+      background: rgba(100, 181, 246, 0.1);
+      border: 1px solid rgba(100, 181, 246, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 30px;
+    }
+
+    .info-box p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="test-container">
+    <h1>🧪 Test Layout - Médias en série</h1>
+
+    <div class="info-box">
+      <p><strong>Objectif :</strong> Tester l'affichage horizontal des cartes de séries</p>
+      <p><strong>Attendu :</strong> Les cartes doivent s'afficher de gauche à droite (horizontalement)</p>
+    </div>
+
+    <h2 style="color: #64b5f6; margin-top: 30px;">✅ Test 1 : Structure simple (fonctionne)</h2>
+    <div class="gallery-container" id="gallery-container-1" style="border: 2px solid #4caf50; padding: 20px; margin-bottom: 40px;">
+
+      <section class="media-section series-media-section" id="series-media-section">
+        <!-- Header de section -->
+        <div class="section-header">
+          <h3>📺 Médias en série</h3>
+          <span class="section-count">1 série(s)</span>
+        </div>
+
+        <!-- Groupe de série -->
+        <div class="series-group">
+          <!-- Header du groupe -->
+          <div class="series-group-header">
+            <h4>Dan.Da.Dan</h4>
+            <span class="series-episodes-count">12 épisode(s)</span>
+          </div>
+
+          <!-- Grille des épisodes -->
+          <div class="series-cards-grid">
+
+            <!-- Carte 1 -->
+            <div class="gallery-card" data-media-type="series">
+              <div class="gallery-card-header">
+                <div class="file-preview">
+                  <div class="file-icon">📺</div>
+                </div>
+                <div class="file-info-overlay">
+                  <span class="file-name">Episode 1</span>
+                  <span class="file-duration">24:00</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="form-group">
+                  <label>Titre</label>
+                  <input type="text" class="form-control" value="Episode 1" placeholder="Titre de l'épisode">
+                </div>
+              </div>
+            </div>
+
+            <!-- Carte 2 -->
+            <div class="gallery-card" data-media-type="series">
+              <div class="gallery-card-header">
+                <div class="file-preview">
+                  <div class="file-icon">📺</div>
+                </div>
+                <div class="file-info-overlay">
+                  <span class="file-name">Episode 2</span>
+                  <span class="file-duration">24:00</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="form-group">
+                  <label>Titre</label>
+                  <input type="text" class="form-control" value="Episode 2" placeholder="Titre de l'épisode">
+                </div>
+              </div>
+            </div>
+
+            <!-- Carte 3 -->
+            <div class="gallery-card" data-media-type="series">
+              <div class="gallery-card-header">
+                <div class="file-preview">
+                  <div class="file-icon">📺</div>
+                </div>
+                <div class="file-info-overlay">
+                  <span class="file-name">Episode 3</span>
+                  <span class="file-duration">24:00</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="form-group">
+                  <label>Titre</label>
+                  <input type="text" class="form-control" value="Episode 3" placeholder="Titre de l'épisode">
+                </div>
+              </div>
+            </div>
+
+            <!-- Carte 4 -->
+            <div class="gallery-card" data-media-type="series">
+              <div class="gallery-card-header">
+                <div class="file-preview">
+                  <div class="file-icon">📺</div>
+                </div>
+                <div class="file-info-overlay">
+                  <span class="file-name">Episode 4</span>
+                  <span class="file-duration">24:00</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="form-group">
+                  <label>Titre</label>
+                  <input type="text" class="form-control" value="Episode 4" placeholder="Titre de l'épisode">
+                </div>
+              </div>
+            </div>
+
+            <!-- Carte 5 -->
+            <div class="gallery-card" data-media-type="series">
+              <div class="gallery-card-header">
+                <div class="file-preview">
+                  <div class="file-icon">📺</div>
+                </div>
+                <div class="file-info-overlay">
+                  <span class="file-name">Episode 5</span>
+                  <span class="file-duration">24:00</span>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="form-group">
+                  <label>Titre</label>
+                  <input type="text" class="form-control" value="Episode 5" placeholder="Titre de l'épisode">
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+    <h2 style="color: #ff9800; margin-top: 30px;">🔬 Test 2 : Structure du modal (à tester)</h2>
+
+    <!-- Reproduire EXACTEMENT la structure du modal -->
+    <div class="import-modal" style="position: relative; display: block; background: none; z-index: 1;">
+      <div class="import-modal-content" style="border: 2px solid #ff9800;">
+        <div class="import-modal-header">
+          <h2>Classification des médias</h2>
+          <span class="import-modal-count">Test avec structure modal</span>
+        </div>
+
+        <div class="import-modal-body gallery-body" style="border: 2px solid #f44336;">
+          <div class="gallery-container" id="gallery-container-2">
+
+            <section class="media-section series-media-section">
+              <!-- Header de section -->
+              <div class="section-header">
+                <h3>📺 Médias en série</h3>
+                <span class="section-count">1 série(s)</span>
+              </div>
+
+              <!-- Groupe de série -->
+              <div class="series-group">
+                <!-- Header du groupe -->
+                <div class="series-group-header">
+                  <h4>Dan.Da.Dan (Test Modal)</h4>
+                  <span class="series-episodes-count">5 épisode(s)</span>
+                </div>
+
+                <!-- Grille des épisodes -->
+                <div class="series-cards-grid">
+
+                  <!-- Carte 1 -->
+                  <div class="gallery-card" data-media-type="series">
+                    <div class="gallery-card-header">
+                      <div class="file-preview">
+                        <div class="file-icon">📺</div>
+                      </div>
+                      <div class="file-info-overlay">
+                        <span class="file-name">Episode 1</span>
+                        <span class="file-duration">24:00</span>
+                      </div>
+                    </div>
+                    <div class="gallery-card-body">
+                      <div class="form-group">
+                        <label>Titre</label>
+                        <input type="text" class="form-control" value="Episode 1" placeholder="Titre de l'épisode">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Carte 2 -->
+                  <div class="gallery-card" data-media-type="series">
+                    <div class="gallery-card-header">
+                      <div class="file-preview">
+                        <div class="file-icon">📺</div>
+                      </div>
+                      <div class="file-info-overlay">
+                        <span class="file-name">Episode 2</span>
+                        <span class="file-duration">24:00</span>
+                      </div>
+                    </div>
+                    <div class="gallery-card-body">
+                      <div class="form-group">
+                        <label>Titre</label>
+                        <input type="text" class="form-control" value="Episode 2" placeholder="Titre de l'épisode">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Carte 3 -->
+                  <div class="gallery-card" data-media-type="series">
+                    <div class="gallery-card-header">
+                      <div class="file-preview">
+                        <div class="file-icon">📺</div>
+                      </div>
+                      <div class="file-info-overlay">
+                        <span class="file-name">Episode 3</span>
+                        <span class="file-duration">24:00</span>
+                      </div>
+                    </div>
+                    <div class="gallery-card-body">
+                      <div class="form-group">
+                        <label>Titre</label>
+                        <input type="text" class="form-control" value="Episode 3" placeholder="Titre de l'épisode">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Carte 4 -->
+                  <div class="gallery-card" data-media-type="series">
+                    <div class="gallery-card-header">
+                      <div class="file-preview">
+                        <div class="file-icon">📺</div>
+                      </div>
+                      <div class="file-info-overlay">
+                        <span class="file-name">Episode 4</span>
+                        <span class="file-duration">24:00</span>
+                      </div>
+                    </div>
+                    <div class="gallery-card-body">
+                      <div class="form-group">
+                        <label>Titre</label>
+                        <input type="text" class="form-control" value="Episode 4" placeholder="Titre de l'épisode">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Carte 5 -->
+                  <div class="gallery-card" data-media-type="series">
+                    <div class="gallery-card-header">
+                      <div class="file-preview">
+                        <div class="file-icon">📺</div>
+                      </div>
+                      <div class="file-info-overlay">
+                        <span class="file-name">Episode 5</span>
+                        <span class="file-duration">24:00</span>
+                      </div>
+                    </div>
+                    <div class="gallery-card-body">
+                      <div class="form-group">
+                        <label>Titre</label>
+                        <input type="text" class="form-control" value="Episode 5" placeholder="Titre de l'épisode">
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </section>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Debug : afficher les largeurs
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('='.repeat(60));
+      console.log('✅ TEST 1 : STRUCTURE SIMPLE');
+      console.log('='.repeat(60));
+
+      const container1 = document.getElementById('gallery-container-1');
+      const section1 = container1.querySelector('.media-section');
+      const group1 = container1.querySelector('.series-group');
+      const grid1 = container1.querySelector('.series-cards-grid');
+
+      console.log('📏 LARGEURS :');
+      console.log('  - gallery-container:', container1.offsetWidth + 'px');
+      console.log('  - media-section:', section1.offsetWidth + 'px');
+      console.log('  - series-group:', group1.offsetWidth + 'px');
+      console.log('  - series-cards-grid:', grid1.offsetWidth + 'px');
+
+      console.log('\n🎨 STYLES :');
+      console.log('  - grid display:', window.getComputedStyle(grid1).display);
+      console.log('  - grid grid-template-columns:', window.getComputedStyle(grid1).gridTemplateColumns);
+
+      const cards1 = grid1.querySelectorAll('.gallery-card');
+      console.log('\n📦 CARTES (' + cards1.length + ' total) :');
+      cards1.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect();
+        console.log(`  - Carte ${idx + 1}: left=${Math.round(rect.left)}, width=${card.offsetWidth}px`);
+      });
+
+      console.log('\n' + '='.repeat(60));
+      console.log('🔬 TEST 2 : STRUCTURE DU MODAL');
+      console.log('='.repeat(60));
+
+      const container2 = document.getElementById('gallery-container-2');
+      const section2 = container2.querySelector('.media-section');
+      const group2 = container2.querySelector('.series-group');
+      const grid2 = container2.querySelector('.series-cards-grid');
+
+      console.log('📏 LARGEURS :');
+      console.log('  - gallery-container:', container2.offsetWidth + 'px');
+      console.log('  - media-section:', section2.offsetWidth + 'px');
+      console.log('  - series-group:', group2.offsetWidth + 'px');
+      console.log('  - series-cards-grid:', grid2.offsetWidth + 'px');
+
+      console.log('\n🎨 STYLES :');
+      console.log('  - grid display:', window.getComputedStyle(grid2).display);
+      console.log('  - grid grid-template-columns:', window.getComputedStyle(grid2).gridTemplateColumns);
+
+      const cards2 = grid2.querySelectorAll('.gallery-card');
+      console.log('\n📦 CARTES (' + cards2.length + ' total) :');
+      cards2.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect();
+        console.log(`  - Carte ${idx + 1}: left=${Math.round(rect.left)}, width=${card.offsetWidth}px`);
+      });
+
+      console.log('\n' + '='.repeat(60));
+    });
+  </script>
+
+</body>
+</html>

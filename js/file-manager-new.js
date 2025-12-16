@@ -16,6 +16,10 @@ class FileManager {
     this.foldersInitialized = false; // Savoir si on a déjà initialisé les dossiers
     this.expandedCategories = new Set(); // Gérer l'état des catégories
 
+    // Gestion de la sélection
+    this.selectedFiles = new Set(); // IDs des fichiers sélectionnés
+    this.selectionMode = false; // Mode sélection actif ou non
+
     // Configuration des modes d'affichage
     this.viewModes = {
       flat: {
@@ -77,7 +81,46 @@ class FileManager {
 
   createViewModeSelector() {
     const existingButton = document.getElementById('toggle-view-btn');
+
+    // Si le bouton n'existe pas, chercher le container et ajouter le sélecteur
+    if (!existingButton) {
+      console.warn('⚠️ Bouton toggle-view-btn introuvable, tentative de création directe du sélecteur');
+
+      // Chercher le container de filtres
+      const filterControls = document.querySelector('.filter-controls');
+      if (!filterControls) {
+        console.warn('⚠️ Container filter-controls introuvable, sélecteur de mode non créé');
+        return;
+      }
+
+      // Créer et ajouter le sélecteur directement
+      const selector = document.createElement('div');
+      selector.className = 'view-mode-selector';
+      selector.innerHTML = `
+        <select id="view-mode-select" class="btn-secondary">
+          ${Object.entries(this.viewModes).map(([key, mode]) =>
+            `<option value="${key}" ${key === this.currentViewMode ? 'selected' : ''}>
+              ${mode.name}
+            </option>`
+          ).join('')}
+        </select>
+        <div class="view-mode-description" id="view-mode-description">
+          ${this.viewModes[this.currentViewMode].description}
+        </div>
+      `;
+
+      filterControls.appendChild(selector);
+      console.log('✅ Sélecteur de mode créé sans remplacer le bouton');
+      return;
+    }
+
     const controlsContainer = existingButton.parentElement;
+
+    // Sécurité: vérifier que le parent existe aussi
+    if (!controlsContainer) {
+      console.warn('⚠️ Container parent introuvable');
+      return;
+    }
 
     // Remplacer le bouton existant par un sélecteur de mode
     const selector = document.createElement('div');
@@ -162,11 +205,184 @@ class FileManager {
       });
     }
 
+    // Gestion des checkboxes et du mode sélection
+    this.setupSelectionHandlers();
+
     // Gestion du modal de suppression
     this.setupDeleteModal();
 
     // Gestion du modal Clear All
     this.setupClearAllModal();
+  }
+
+  setupSelectionHandlers() {
+    const tableBody = document.getElementById('files-table-body');
+    const masterCheckbox = document.getElementById('master-checkbox');
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+
+    // Gestion du checkbox maître (tout sélectionner)
+    if (masterCheckbox) {
+      masterCheckbox.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        this.toggleSelectAll(isChecked);
+      });
+    }
+
+    // Bouton "Tout sélectionner"
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        this.toggleSelectAll(true);
+      });
+    }
+
+    // Bouton "Supprimer sélectionnés"
+    if (deleteSelectedBtn) {
+      deleteSelectedBtn.addEventListener('click', () => {
+        this.deleteSelectedFiles();
+      });
+    }
+
+    // Délégation d'événements pour les checkboxes individuelles
+    if (tableBody) {
+      tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('file-checkbox')) {
+          const fileId = parseInt(e.target.dataset.fileId);
+          this.toggleFileSelection(fileId, e.target.checked);
+        }
+      });
+
+      // Gestion du clic sur la ligne pour sélectionner
+      tableBody.addEventListener('click', (e) => {
+        const row = e.target.closest('.file-row, .child-file-row, .category-file-row');
+        if (row && !e.target.closest('button') && !e.target.closest('input[type="checkbox"]')) {
+          const checkbox = row.querySelector('.file-checkbox');
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            const fileId = parseInt(checkbox.dataset.fileId);
+            this.toggleFileSelection(fileId, checkbox.checked);
+          }
+        }
+      });
+    }
+  }
+
+  toggleFileSelection(fileId, isSelected) {
+    if (isSelected) {
+      this.selectedFiles.add(fileId);
+    } else {
+      this.selectedFiles.delete(fileId);
+    }
+
+    // Activer/désactiver le mode sélection
+    this.updateSelectionMode();
+  }
+
+  toggleSelectAll(selectAll) {
+    this.selectedFiles.clear();
+
+    if (selectAll) {
+      // Sélectionner tous les fichiers visibles
+      this.filteredFiles.forEach(file => {
+        this.selectedFiles.add(file.id);
+      });
+    }
+
+    // Mettre à jour toutes les checkboxes
+    document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+      checkbox.checked = selectAll;
+    });
+
+    // Mettre à jour le master checkbox
+    const masterCheckbox = document.getElementById('master-checkbox');
+    if (masterCheckbox) {
+      masterCheckbox.checked = selectAll;
+      masterCheckbox.indeterminate = false;
+    }
+
+    this.updateSelectionMode();
+  }
+
+  updateSelectionMode() {
+    const selectedCount = this.selectedFiles.size;
+    const bulkActions = document.getElementById('bulk-actions');
+    const masterCheckbox = document.getElementById('master-checkbox');
+
+    // Activer le mode sélection si au moins un fichier est sélectionné
+    this.selectionMode = selectedCount > 0;
+
+    // Afficher/masquer la barre d'actions
+    if (bulkActions) {
+      bulkActions.style.display = this.selectionMode ? 'flex' : 'none';
+    }
+
+    // Mettre à jour l'état du master checkbox
+    if (masterCheckbox) {
+      const totalFiles = this.filteredFiles.length;
+      if (selectedCount === 0) {
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+      } else if (selectedCount === totalFiles) {
+        masterCheckbox.checked = true;
+        masterCheckbox.indeterminate = false;
+      } else {
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = true;
+      }
+    }
+
+    // Mettre à jour le style des lignes sélectionnées
+    this.updateRowStyles();
+
+    // Mettre à jour le compteur
+    const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+    if (deleteSelectedBtn && selectedCount > 0) {
+      deleteSelectedBtn.textContent = `Supprimer sélectionnés (${selectedCount})`;
+    }
+
+    console.log(`📋 Mode sélection: ${this.selectionMode ? 'ACTIF' : 'INACTIF'} - ${selectedCount} fichier(s) sélectionné(s)`);
+  }
+
+  updateRowStyles() {
+    // Appliquer le style aux lignes sélectionnées
+    document.querySelectorAll('.file-row, .child-file-row, .category-file-row').forEach(row => {
+      const checkbox = row.querySelector('.file-checkbox');
+      if (checkbox) {
+        const fileId = parseInt(checkbox.dataset.fileId);
+        if (this.selectedFiles.has(fileId)) {
+          row.classList.add('selected');
+        } else {
+          row.classList.remove('selected');
+        }
+      }
+    });
+  }
+
+  async deleteSelectedFiles() {
+    if (this.selectedFiles.size === 0) return;
+
+    const confirmMessage = `Êtes-vous sûr de vouloir supprimer ${this.selectedFiles.size} fichier(s) de la base de données ?`;
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      const fileIds = Array.from(this.selectedFiles);
+
+      for (const fileId of fileIds) {
+        await window.electronAPI.deleteMedia(fileId);
+      }
+
+      console.log(`✅ ${fileIds.length} fichier(s) supprimé(s) avec succès`);
+
+      // Réinitialiser la sélection
+      this.selectedFiles.clear();
+      this.updateSelectionMode();
+
+      // Recharger les données
+      await this.loadData();
+      this.render();
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+    }
   }
 
   setupDeleteModal() {

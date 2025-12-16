@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteSeries: (seriesId) => ipcRenderer.invoke('series:delete', seriesId),
   cleanupCorruptedSeries: () => ipcRenderer.invoke('series:cleanupCorrupted'),
 
+  // APIs pour la gestion des saisons
+  getSeriesSeasons: (seriesId) => ipcRenderer.invoke('seasons:get', seriesId),
+  saveSeriesSeasons: (seriesId, seasons) => ipcRenderer.invoke('seasons:save', seriesId, seasons),
+
   // APIs pour le système de tags
   migrateTags: () => ipcRenderer.invoke('tags:migrate'),
   getAllTags: () => ipcRenderer.invoke('tags:getAll'),

@@ -9,6 +9,9 @@
   <link rel="stylesheet" href="../css/video-player.css">
   <link rel="stylesheet" href="../css/import-classification.css">
   <link rel="stylesheet" href="../css/series-modal.css">
+  <link rel="stylesheet" href="../css/filters.css">
+  <link rel="stylesheet" href="../css/file-manager.css">
+  <link rel="stylesheet" href="../css/file-manager-new.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -16,12 +19,12 @@
   <nav class="navbar">
     <div class="navbar-left">
       <div class="logo">RACKOON</div>
-      <div class="nav-links">
-        <a href="#" class="nav-link active">
+      <div class="nav-links tabs-navigation" id="tabs-navigation">
+        <a href="#accueil" class="nav-link tab-link active" data-tab="accueil">
           <i class="fas fa-home"></i>
           Accueil
         </a>
-        <a href="file-manager-electron.html" class="nav-link">
+        <a href="#gestion-fichiers" class="nav-link tab-link" data-tab="gestion-fichiers">
           <i class="fas fa-folder-open"></i>
           Gestion des fichiers
         </a>
@@ -34,6 +37,10 @@
     </div>
   </nav>
 
+  <!-- Conteneur des sections avec swipe -->
+  <div class="tabs-container" id="tabs-container">
+    <!-- Section Accueil -->
+    <div class="tab-section active" id="section-accueil" data-section="accueil">
   <!-- Contenu principal -->
   <main class="main-content">
     <!-- Zone de chargement -->
@@ -54,6 +61,19 @@
           </span>
           <input type="text" id="filter-search" placeholder="Rechercher un titre...">
         </div>
+        <!-- Nouveau bouton toggle Vue Sections/Global -->
+        <button class="view-toggle-button" id="view-toggle-btn" data-view="global" title="Basculer l'affichage">
+          <span class="view-icon">
+            <i class="fas fa-list"></i>
+          </span>
+          <span class="view-label">Global</span>
+        </button>
+        <button class="sort-button" id="sort-btn">
+          <span class="sort-icon">
+            <i class="fas fa-sort-amount-down"></i>
+          </span>
+          Trier
+        </button>
         <button class="filter-button" id="filter-btn">
           <span class="filter-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -61,6 +81,7 @@
             </svg>
           </span>
           Filtres
+          <span class="filter-badge" id="filter-badge" style="display: none;">0</span>
         </button>
       </div>
     </div>
@@ -155,6 +176,142 @@
 
     </div>
   </main>
+    </div>
+    <!-- Fin Section Accueil -->
+
+    <!-- Section Gestion de fichiers -->
+    <div class="tab-section" id="section-gestion-fichiers" data-section="gestion-fichiers">
+      <main class="main-content">
+        <!-- Statistiques globales -->
+        <div class="stats-container">
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-video"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="total-files">0</div>
+              <div class="stat-label">Fichiers totaux</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-hdd"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="total-size">0 GB</div>
+              <div class="stat-label">Taille totale</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="total-duration">0h 0m</div>
+              <div class="stat-label">Durée totale</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-image"></i>
+            </div>
+            <div class="stat-content">
+              <div class="stat-number" id="files-with-thumbnails">0</div>
+              <div class="stat-label">Avec miniatures</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtres et recherche -->
+        <div class="filters-section">
+          <div class="search-container">
+            <div class="search-input-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input type="text" id="search-input" placeholder="Rechercher par nom ou chemin...">
+            </div>
+          </div>
+
+          <div class="filter-controls">
+            <select id="format-filter">
+              <option value="">Tous les formats</option>
+            </select>
+
+            <select id="sort-filter">
+              <option value="title">Trier par nom</option>
+              <option value="size_bytes">Trier par taille</option>
+              <option value="duration">Trier par durée</option>
+              <option value="last_scan">Trier par date</option>
+            </select>
+
+            <button id="toggle-view-btn" class="btn-secondary">
+              <i class="fas fa-list"></i>
+              Vue plate
+            </button>
+
+            <button id="expand-all-btn" class="btn-secondary">
+              <i class="fas fa-plus-square"></i>
+              Tout déplier
+            </button>
+
+            <button id="refresh-btn" class="btn-primary">
+              <i class="fas fa-sync-alt"></i>
+              Actualiser
+            </button>
+
+            <button id="clear-all-btn" class="btn-danger">
+              <i class="fas fa-trash-alt"></i>
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        <!-- Tableau des fichiers -->
+        <div class="files-section">
+          <div class="files-header">
+            <h2>Fichiers liés (<span id="files-count">0</span>)</h2>
+            <div class="bulk-actions" id="bulk-actions" style="display: none;">
+              <button id="select-all-btn" class="btn-secondary">Tout sélectionner</button>
+              <button id="delete-selected-btn" class="btn-danger">Supprimer sélectionnés</button>
+            </div>
+          </div>
+
+          <div class="files-table-container">
+            <table class="files-table">
+              <thead>
+                <tr>
+                  <th width="40">
+                    <input type="checkbox" id="master-checkbox">
+                  </th>
+                  <th width="80">Aperçu</th>
+                  <th>Nom</th>
+                  <th width="120">Format</th>
+                  <th width="100">Durée</th>
+                  <th width="100">Taille</th>
+                  <th width="120">Statut</th>
+                  <th width="120">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="files-table-body">
+                <tr class="loading-row">
+                  <td colspan="8">
+                    <div class="loading-spinner">
+                      <i class="fas fa-spinner fa-spin"></i>
+                      Chargement des fichiers...
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+    <!-- Fin Section Gestion de fichiers -->
+  </div>
+  <!-- Fin conteneur des onglets -->
 
   <!-- Bouton d'action flottant -->
   <div class="floating-action" id="add-btn">
@@ -173,6 +330,293 @@
         <span class="icon"><i class="fas fa-file-video"></i></span>
         Rechercher un fichier
       </button>
+    </div>
+  </div>
+
+  <!-- Sidebar de tri -->
+  <div class="filters-sidebar" id="sort-sidebar">
+    <div class="filters-sidebar-header">
+      <h3>Tri</h3>
+      <button class="filters-close-btn" id="sort-close-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="filters-sidebar-body">
+      <!-- Toggle de tri global A→Z / Z→A -->
+      <div class="sort-toggle-section">
+        <button class="sort-toggle-btn" id="sort-toggle-btn" data-order="asc">
+          <i class="fas fa-sort-alpha-down"></i>
+          <span>A → Z</span>
+        </button>
+      </div>
+
+      <div class="filters-divider"></div>
+
+      <!-- Section Trier par -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-sort"></i>
+          Trier par
+        </h4>
+        <div class="sort-options">
+          <label class="sort-option">
+            <input type="radio" name="sort-by" value="category" checked>
+            <span>Catégorie</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="sort-by" value="dateAdded">
+            <span>Date d'ajout</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="sort-by" value="title">
+            <span>Ordre alphabétique</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="sort-by" value="rating">
+            <span>Note</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="sort-by" value="year">
+            <span>Année</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="sort-by" value="duration">
+            <span>Durée</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="filters-sidebar-footer">
+      <button class="filters-reset-btn" id="sort-reset-btn">
+        <i class="fas fa-undo"></i>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- Sidebar de filtres -->
+  <div class="filters-sidebar" id="filters-sidebar">
+    <div class="filters-sidebar-header">
+      <h3>Filtres</h3>
+      <button class="filters-close-btn" id="filters-close-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="filters-sidebar-body">
+      <!-- Section Type de média -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-film"></i>
+          Type de média
+        </h4>
+        <div class="filter-checkboxes">
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="film" checked>
+            <span>Films</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="series" checked>
+            <span>Séries</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="short" checked>
+            <span>Courts métrages</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="other" checked>
+            <span>Autres</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="filters-divider"></div>
+
+      <!-- Section Genres -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-masks-theater"></i>
+          Genres
+        </h4>
+        <div class="genre-search-container">
+          <input type="text" class="genre-search-input" id="genre-search-input" placeholder="Rechercher un genre...">
+        </div>
+        <div class="filter-checkboxes" id="genre-checkboxes">
+          <!-- Les genres seront ajoutés dynamiquement -->
+        </div>
+      </div>
+
+      <div class="filters-divider"></div>
+
+      <!-- Section Année -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-calendar"></i>
+          Année
+        </h4>
+        <div class="year-range-container">
+          <div class="year-range-values">
+            <span id="year-min-value">1900</span>
+            <span>-</span>
+            <span id="year-max-value">2030</span>
+          </div>
+          <div class="year-range-slider">
+            <input type="range" id="year-min-slider" min="1900" max="2030" value="1900" step="1">
+            <input type="range" id="year-max-slider" min="1900" max="2030" value="2030" step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="filters-divider"></div>
+
+      <!-- Section Statut -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-eye"></i>
+          Statut de visionnage
+        </h4>
+        <div class="sort-options">
+          <label class="sort-option">
+            <input type="radio" name="watch-status" value="all" checked>
+            <span>Tous</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="watch-status" value="toWatch">
+            <span>À voir</span>
+          </label>
+          <label class="sort-option">
+            <input type="radio" name="watch-status" value="watched">
+            <span>Déjà vus</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="filters-divider"></div>
+
+      <!-- Section Note minimale -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-star"></i>
+          Note minimale
+        </h4>
+        <div class="rating-stars-filter" id="rating-stars-filter">
+          <span class="rating-star" data-rating="1"><i class="far fa-star"></i></span>
+          <span class="rating-star" data-rating="2"><i class="far fa-star"></i></span>
+          <span class="rating-star" data-rating="3"><i class="far fa-star"></i></span>
+          <span class="rating-star" data-rating="4"><i class="far fa-star"></i></span>
+          <span class="rating-star" data-rating="5"><i class="far fa-star"></i></span>
+        </div>
+        <div class="rating-label" id="rating-label">Aucune note minimale</div>
+      </div>
+    </div>
+
+    <div class="filters-sidebar-footer">
+      <button class="filters-reset-btn" id="filters-reset-btn">
+        <i class="fas fa-undo"></i>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- Overlays sombres pour les sidebars -->
+  <div class="filters-overlay" id="sort-overlay"></div>
+  <div class="filters-overlay" id="filters-overlay"></div>
+
+  <!-- Modals pour le gestionnaire de fichiers -->
+  <!-- Modal de confirmation de suppression -->
+  <div class="modal-overlay" id="delete-modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Confirmer la suppression</h3>
+        <button class="modal-close" id="close-delete-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="delete-message">Êtes-vous sûr de vouloir supprimer ce fichier de la base de données ?</p>
+        <p class="warning-text">⚠️ Cette action ne supprimera que l'entrée de la base de données, pas le fichier physique.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-delete-btn" class="btn-secondary">Annuler</button>
+        <button id="confirm-delete-btn" class="btn-danger">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de détails du fichier -->
+  <div class="modal-overlay" id="details-modal" style="display: none;">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h3>Détails du fichier</h3>
+        <button class="modal-close" id="close-details-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="file-details-grid">
+          <div class="detail-item">
+            <label>Nom:</label>
+            <span id="detail-title"></span>
+          </div>
+          <div class="detail-item">
+            <label>Chemin:</label>
+            <span id="detail-path" class="path-text"></span>
+          </div>
+          <div class="detail-item">
+            <label>Format:</label>
+            <span id="detail-format"></span>
+          </div>
+          <div class="detail-item">
+            <label>Durée:</label>
+            <span id="detail-duration"></span>
+          </div>
+          <div class="detail-item">
+            <label>Taille:</label>
+            <span id="detail-size"></span>
+          </div>
+          <div class="detail-item">
+            <label>Dernière analyse:</label>
+            <span id="detail-last-scan"></span>
+          </div>
+          <div class="detail-item">
+            <label>Miniature:</label>
+            <span id="detail-thumbnail-status"></span>
+          </div>
+        </div>
+        <div class="thumbnail-preview" id="thumbnail-preview">
+          <img id="detail-thumbnail-img" alt="Miniature">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="close-details-btn" class="btn-primary">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmation Clear All -->
+  <div class="modal-overlay" id="clear-all-modal" style="display: none;">
+    <div class="modal-content small-modal">
+      <div class="modal-header">
+        <h3>⚠️ Supprimer TOUS les médias</h3>
+        <button class="modal-close" id="close-clear-all-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>ATTENTION : Cette action est irréversible !</strong></p>
+        <p>Vous êtes sur le point de supprimer <strong>TOUS</strong> les médias de la base de données :</p>
+        <ul>
+          <li>📺 Tous les films et séries</li>
+          <li>🖼️ Toutes les miniatures</li>
+          <li>📊 Toutes les métadonnées</li>
+          <li>⭐ Toutes les notes et statuts</li>
+        </ul>
+        <p class="warning-text">⚠️ Cette action ne supprimera que les données de l'application, pas les fichiers physiques sur votre disque.</p>
+        <div class="confirmation-input" style="margin: 20px 0;">
+          <label for="clear-confirmation">Tapez "CLEAR ALL" pour confirmer :</label>
+          <input type="text" id="clear-confirmation" placeholder="CLEAR ALL" style="margin-top: 10px; padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancel-clear-all-btn" class="btn-secondary">Annuler</button>
+        <button id="confirm-clear-all-btn" class="btn-danger" disabled>Supprimer TOUT</button>
+      </div>
     </div>
   </div>
 
@@ -637,40 +1081,213 @@
     <div class="series-modal" id="series-modal">
       <button class="modal-close" id="series-modal-close">×</button>
 
-      <!-- Section poster (colonne gauche) -->
-      <div class="series-poster-section">
-        <img class="series-poster" id="series-poster" src="" alt="Poster de la série">
-      </div>
+      <!-- Mode visualisation -->
+      <div class="view-mode" id="series-view-mode">
+        <!-- Container unifié avec scroll unique -->
+        <div class="unified-content">
+          <!-- Sidebar avec affiche et évaluation -->
+          <div class="modal-sidebar">
+            <!-- Affiche -->
+            <div class="modal-poster">
+              <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+" alt="Poster de la série" id="series-poster">
+              <!-- Info saison/épisodes en haut à gauche -->
+              <div class="poster-info-overlay">
+                <div class="poster-season-info" id="series-season-info">S1</div>
+                <div class="poster-episode-info" id="series-episode-info-overlay">12 ép.</div>
+              </div>
+              <div class="poster-overlay">
+                <div class="poster-quick-info">Note : <span id="series-rating-quick">★★★★☆</span></div>
+                <div class="poster-quick-info">Saisons : <span id="series-seasons-quick">1</span></div>
+              </div>
+            </div>
 
-      <!-- Section contenu (colonne droite) -->
-      <div class="series-content">
-        <!-- En-tête avec titre et année -->
-        <div class="series-header">
-          <h2 class="series-title" id="series-title"></h2>
-          <span class="series-year" id="series-year"></span>
-        </div>
+            <!-- Système d'évaluation sous l'affiche -->
+            <div class="evaluation-section">
+              <!-- Bouton Vu/À voir -->
+              <button class="btn-watch-toggle-modal" id="btn-watch-toggle-series">À voir</button>
 
-        <!-- Métadonnées -->
-        <div class="series-meta">
-          <span class="series-episode-count" id="series-episode-count"></span>
-        </div>
+              <!-- Système d'étoiles progressif -->
+              <div class="rating-compact">
+                <div class="rating-title">Ma Note</div>
+                <div class="rating-controls">
+                  <div class="progressive-stars" id="series-progressive-stars">
+                    <div class="stars-background">
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stars-fill" id="series-stars-fill">
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                      <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stars-overlay" id="series-stars-overlay"></div>
+                  </div>
+                  <input type="number" id="series-rating-input" class="rating-input" min="0" max="5" step="0.1" value="0" placeholder="0.0">
+                </div>
+              </div>
 
-        <!-- Description -->
-        <div class="series-description" id="series-description"></div>
+              <!-- Éditeur d'avis -->
+              <div class="review-section">
+                <div class="review-title">Mon Avis</div>
+                <textarea class="review-input" id="series-review-input" placeholder="Partage ton avis sur cette série..." rows="3"></textarea>
+                <button class="review-save-btn" id="series-review-save-btn">Sauvegarder</button>
+              </div>
+            </div>
+          </div>
 
-        <!-- Actions -->
-        <div class="series-actions">
-          <button class="btn-play-series" id="btn-play-series">
-            <i class="fas fa-play"></i> Lire la série
+          <!-- Contenu principal -->
+          <div class="modal-content">
+          <div class="modal-header">
+            <div class="title-section">
+              <h2 class="modal-title" id="series-title">Titre de la série</h2>
+              <div class="media-meta-line">
+                <span class="media-category" id="series-category">Série</span>
+                <span class="meta-separator">•</span>
+                <span class="movie-year" id="series-year">2024</span>
+              </div>
+            </div>
+            <div class="action-buttons">
+              <!-- Système de boutons extensibles -->
+              <div class="edit-button-group" id="series-edit-button-group">
+                <!-- Bouton annuler (gauche) -->
+                <button class="edit-cancel-btn" id="series-edit-cancel-btn" style="display: none;">
+                  <i class="fas fa-undo"></i>
+                </button>
+
+                <!-- Bouton principal (crayon) -->
+                <button class="edit-button" id="series-edit-button">
+                  <i class="fas fa-pencil-alt"></i>
+                </button>
+
+                <!-- Bouton sauvegarder (droite) -->
+                <button class="edit-save-btn" id="series-edit-save-btn" style="display: none;">
+                  <i class="fas fa-check"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="movie-meta">
+            <div class="series-episode-count" id="series-episode-count">0 épisodes</div>
+            <div class="decade" id="series-decade"></div>
+          </div>
+
+          <!-- Synopsis remonté pour une meilleure logique de lecture -->
+          <div class="synopsis">
+            <h3 class="synopsis-title">Synopsis</h3>
+            <div class="synopsis-content" id="series-synopsis-content">Aucune description disponible.</div>
+          </div>
+
+          <!-- Tags déplacés avant les crédits -->
+          <div class="tags-container">
+            <!-- Genres -->
+            <div class="tag-category" id="series-genres-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-film"></i>
+                <span class="tag-category-title">Genres</span>
+              </div>
+              <div class="tag-chips" id="series-genres-container"></div>
+            </div>
+
+            <!-- Ambiance/Mood -->
+            <div class="tag-category" id="series-mood-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-heart"></i>
+                <span class="tag-category-title">Ambiance</span>
+              </div>
+              <div class="tag-chips" id="series-mood-container"></div>
+            </div>
+
+            <!-- Technique -->
+            <div class="tag-category" id="series-technical-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-cog"></i>
+                <span class="tag-category-title">Technique</span>
+              </div>
+              <div class="tag-chips" id="series-technical-container"></div>
+            </div>
+
+            <!-- Personnel -->
+            <div class="tag-category" id="series-personal-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-user"></i>
+                <span class="tag-category-title">Personnel</span>
+              </div>
+              <div class="tag-chips" id="series-personal-container"></div>
+            </div>
+          </div>
+
+          <!-- Crédits après les tags -->
+          <div class="movie-credits">
+            <div class="director-section" id="series-director-section" style="display: none;">
+              <span class="credit-label">Créateur :</span>
+              <span class="director-name" id="series-director-name"></span>
+            </div>
+            <div class="actors-section" id="series-actors-section" style="display: none;">
+              <span class="credit-label">Acteurs principaux :</span>
+              <span class="actors-list" id="series-actors-list"></span>
+            </div>
+            <div class="platform-section" id="series-platform-section" style="display: none;">
+              <span class="credit-label">Plateforme :</span>
+              <span class="platform-name" id="series-platform-name"></span>
+            </div>
+          </div>
+
+          <!-- Liste des saisons et épisodes -->
+          <div class="seasons-container" id="seasons-container">
+            <!-- Les saisons seront ajoutées dynamiquement -->
+          </div>
+
+          <!-- Section Visionnage -->
+          <div class="viewing-stats">
+            <h3 class="viewing-stats-title">Historique de Visionnage</h3>
+            <div class="viewing-stats-content">
+              <div class="stat-item" id="series-stat-watch-count" style="display: none;">
+                <span class="stat-label">Épisodes regardés :</span>
+                <span class="stat-value" id="series-stat-watch-count-value">0 / 0</span>
+              </div>
+              <div class="stat-item" id="series-stat-last-watched" style="display: none;">
+                <span class="stat-label">Dernier visionnage :</span>
+                <span class="stat-value" id="series-stat-last-watched-value"></span>
+              </div>
+              <div class="stat-item" id="series-stat-rating-personal" style="display: none;">
+                <span class="stat-label">Ma note :</span>
+                <span class="stat-value" id="series-stat-rating-personal-value"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Informations techniques (déplacées en bas) -->
+          <div class="technical-info">
+            <h3 class="technical-info-title">Informations Techniques</h3>
+            <div class="technical-info-content">
+              <div class="tech-item" id="series-tech-quality" style="display: none;">
+                <span class="tech-label">Qualité :</span>
+                <span class="tech-value" id="series-tech-quality-value"></span>
+              </div>
+              <div class="tech-item" id="series-tech-seasons" style="display: none;">
+                <span class="tech-label">Saisons :</span>
+                <span class="tech-value" id="series-tech-seasons-value"></span>
+              </div>
+              <div class="tech-item" id="series-tech-date-added" style="display: none;">
+                <span class="tech-label">Ajouté le :</span>
+                <span class="tech-value" id="series-tech-date-added-value"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bouton flottant pour regarder la série -->
+          <button class="btn-watch-film floating-watch-btn" id="btn-play-series">
+            <i class="fas fa-play"></i>
+            <span>Lire la série</span>
           </button>
-          <button class="btn-edit-series" id="btn-edit-series">
-            <i class="fas fa-edit"></i> Modifier
-          </button>
-        </div>
+          </div>
 
-        <!-- Liste des saisons et épisodes -->
-        <div class="seasons-container" id="seasons-container">
-          <!-- Les saisons seront ajoutées dynamiquement -->
         </div>
       </div>
     </div>
@@ -977,7 +1594,7 @@
         <div class="import-actions">
           <button class="btn-secondary" id="save-all-unsorted-btn">Tout enregistrer comme non triés</button>
           <button class="btn-primary" id="finish-classification-btn">Terminer la classification</button>
-          <button class="btn-danger" id="cancel-import-btn">
+          <button class="btn-danger" id="cancel-gallery-btn">
             <i class="fas fa-times"></i> Annuler l'import
           </button>
         </div>
@@ -1016,15 +1633,17 @@
             <small class="form-hint">Série définie lors du tri initial</small>
           </div>
 
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>Saison</label>
-              <input type="number" class="form-control season-input" placeholder="1" min="1">
-            </div>
-            <div class="form-group">
-              <label>Épisode</label>
-              <input type="number" class="form-control episode-input" placeholder="1" min="1">
-            </div>
+          <!-- Durée pour les épisodes -->
+          <div class="form-group">
+            <label>⏱️ Durée</label>
+            <input type="text" class="form-control duration-display" readonly placeholder="--:--">
+            <small class="form-hint">Durée de l'épisode</small>
+          </div>
+
+          <!-- Année pour les épisodes -->
+          <div class="form-group">
+            <label>📅 Année</label>
+            <input type="number" class="form-control year-input" placeholder="2024" min="1900" max="2030">
           </div>
         </div>
 
@@ -1231,6 +1850,143 @@
           <button class="btn-secondary" id="cancel-series-btn">Annuler</button>
           <button class="btn-primary" id="create-series-btn">Créer</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de gestion des saisons -->
+  <div id="seasons-manager-modal" class="import-modal" style="display: none;">
+    <div class="import-modal-content seasons-modal">
+      <div class="import-modal-header">
+        <button class="btn-back" id="close-seasons-manager" title="Fermer">
+          <i class="fas fa-times"></i>
+        </button>
+        <h2><i class="fas fa-layer-group"></i> Gestion des saisons</h2>
+        <div class="series-info">
+          <span id="seasons-series-name">Nom de la série</span>
+        </div>
+      </div>
+
+      <div class="import-modal-body seasons-body">
+        <!-- Vue d'ensemble des saisons -->
+        <div class="seasons-overview">
+          <div class="seasons-header-actions">
+            <h3>Saisons (<span id="seasons-count">0</span>)</h3>
+            <button class="btn-primary btn-small" id="add-season-btn">
+              <i class="fas fa-plus"></i> Ajouter une saison
+            </button>
+          </div>
+
+          <!-- Liste des saisons -->
+          <div class="seasons-list" id="seasons-list">
+            <!-- Les saisons seront ajoutées ici dynamiquement -->
+            <div class="no-seasons-message">
+              <i class="fas fa-inbox"></i>
+              <p>Aucune saison créée</p>
+              <p class="hint">Cliquez sur "Ajouter une saison" pour commencer</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone d'édition de saison -->
+        <div class="season-editor" id="season-editor" style="display: none;">
+          <div class="editor-header">
+            <h3 id="editor-title">Nouvelle saison</h3>
+            <button class="btn-icon" id="close-editor" title="Fermer l'éditeur">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+
+          <div class="editor-content">
+            <!-- Informations de la saison -->
+            <div class="form-group">
+              <label>Type de saison *</label>
+              <div class="season-type-selector">
+                <label class="radio-option">
+                  <input type="radio" name="season-type" value="standard" checked>
+                  <span class="radio-label">
+                    <i class="fas fa-list-ol"></i>
+                    <strong>Saison classique</strong>
+                    <small>Saison 1, Saison 2, etc.</small>
+                  </span>
+                </label>
+                <label class="radio-option">
+                  <input type="radio" name="season-type" value="custom">
+                  <span class="radio-label">
+                    <i class="fas fa-edit"></i>
+                    <strong>Saison personnalisée</strong>
+                    <small>OAV, Spéciaux, Hors série, etc.</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Numéro de saison (pour type standard) -->
+            <div class="form-group" id="standard-season-group">
+              <label for="season-number-standard">Numéro de saison *</label>
+              <input type="number" id="season-number-standard" class="form-control" min="1" placeholder="1" required>
+              <small class="form-hint">Le nom sera automatiquement "Saison X"</small>
+            </div>
+
+            <!-- Nom personnalisé (pour type custom) -->
+            <div class="form-group" id="custom-season-group" style="display: none;">
+              <label for="season-custom-name">Nom de la saison *</label>
+              <input type="text" id="season-custom-name" class="form-control" placeholder="Ex: OAV, Spéciaux, Hors série...">
+            </div>
+
+            <!-- Numéro d'ordre (commun aux deux types) -->
+            <div class="form-group">
+              <label for="season-order">Numéro d'ordre * (1-1000)</label>
+              <input type="number" id="season-order" class="form-control" min="1" max="1000" placeholder="1" required>
+              <small class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                Définit l'ordre d'affichage des saisons (peut avoir des trous: 1, 42, 100...)
+              </small>
+            </div>
+
+            <!-- Définition du nombre d'épisodes -->
+            <div class="episodes-definition">
+              <h4>Épisodes de cette saison</h4>
+
+              <div class="episodes-range-section">
+                <label>Plage d'épisodes</label>
+                <div class="range-inputs">
+                  <span class="range-label">De l'épisode</span>
+                  <input type="number" id="episode-from" class="form-control small" min="1" value="1">
+                  <span class="range-label">à l'épisode</span>
+                  <input type="number" id="episode-to" class="form-control small" min="1" placeholder="12">
+                </div>
+                <small class="form-hint">
+                  <i class="fas fa-info-circle"></i>
+                  Définit le nombre d'emplacements d'épisodes pour cette saison. L'assignation des fichiers se fera plus tard.
+                </small>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="editor-actions">
+              <button class="btn-danger" id="delete-season-btn" style="display: none;">
+                <i class="fas fa-trash"></i> Supprimer la saison
+              </button>
+              <div class="right-actions">
+                <button class="btn-secondary" id="cancel-season-btn">Annuler</button>
+                <button class="btn-primary" id="save-season-btn">
+                  <i class="fas fa-save"></i> Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="import-modal-footer">
+        <div class="footer-info">
+          <i class="fas fa-info-circle"></i>
+          <span>Les saisons organisent vos épisodes. Vous pouvez créer, modifier et supprimer des saisons à tout moment.</span>
+        </div>
+        <button class="btn-primary" id="finish-seasons-btn">
+          <i class="fas fa-check"></i> Terminer
+        </button>
       </div>
     </div>
   </div>
@@ -1703,6 +2459,12 @@
     transition: all 0.3s;
   }
 
+  .form-control option {
+    background-color: #1a1f35;
+    color: #ffffff;
+    padding: 8px 12px;
+  }
+
   .form-control:focus {
     outline: none;
     border-color: #3474db;
@@ -2148,13 +2910,123 @@
 
   <!-- Scripts -->
   <script src="../js/utils.js"></script>
+  <script src="../js/tabs-system.js"></script>
   <script src="../js/video-player.js"></script>
   <script src="../js/movie-modal.js"></script>
   <script src="../js/series-modal.js"></script>
   <script src="../js/import-triage.js"></script>
   <script src="../js/import-classification.js"></script>
+  <script src="../js/seasons-manager.js"></script>
   <script src="../js/dashboard.js"></script>
   <script src="../js/dashboard-categories.js"></script>
+  <script src="../js/filters.js"></script>
   <script src="../js/import-simple.js"></script>
+
+  <!-- Style pour petit modal Clear All -->
+  <style>
+    .small-modal {
+      max-width: 550px !important;
+      width: 90% !important;
+      max-height: 80vh !important;
+      margin: auto !important;
+    }
+  </style>
+
+  <!-- Système Clear All simple avec event delegation -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🎬 Initialisation système Clear All');
+
+      // Event delegation sur le document entier
+      document.addEventListener('click', (e) => {
+        // Bouton Clear All
+        if (e.target.id === 'clear-all-btn' || e.target.closest('#clear-all-btn')) {
+          e.preventDefault();
+          console.log('🗑️ Clic sur Clear All détecté');
+          const modal = document.getElementById('clear-all-modal');
+          if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+            console.log('✅ Modal ouvert');
+          } else {
+            console.error('❌ Modal introuvable');
+          }
+        }
+
+        // Fermer le modal
+        if (e.target.id === 'close-clear-all-modal' || e.target.id === 'cancel-clear-all-btn') {
+          const modal = document.getElementById('clear-all-modal');
+          const confirmationInput = document.getElementById('clear-confirmation');
+          const confirmBtn = document.getElementById('confirm-clear-all-btn');
+
+          if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => {
+              modal.style.display = 'none';
+            }, 300);
+          }
+          if (confirmationInput) confirmationInput.value = '';
+          if (confirmBtn) confirmBtn.disabled = true;
+        }
+
+        // Confirmer la suppression
+        if (e.target.id === 'confirm-clear-all-btn') {
+          handleClearAll();
+        }
+      });
+
+      // Validation de la saisie
+      document.addEventListener('input', (e) => {
+        if (e.target.id === 'clear-confirmation') {
+          const isValid = e.target.value.trim().toUpperCase() === 'CLEAR ALL';
+          const confirmBtn = document.getElementById('confirm-clear-all-btn');
+          if (confirmBtn) {
+            confirmBtn.disabled = !isValid;
+          }
+        }
+      });
+
+      // Fonction de suppression
+      async function handleClearAll() {
+        const confirmBtn = document.getElementById('confirm-clear-all-btn');
+        const modal = document.getElementById('clear-all-modal');
+
+        try {
+          console.log('🗑️ Suppression de tous les médias...');
+
+          if (confirmBtn) {
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Suppression...';
+            confirmBtn.disabled = true;
+          }
+
+          // Appeler l'API pour vider tous les médias
+          const result = await window.electronAPI.clearAllMedias();
+
+          if (result.success) {
+            console.log('✅ Tous les médias supprimés');
+            alert('✅ Tous les médias ont été supprimés !');
+
+            // Recharger la page pour rafraîchir toutes les données
+            window.location.reload();
+          } else {
+            console.error('❌ Erreur:', result.message);
+            alert('❌ Erreur: ' + result.message);
+            if (confirmBtn) confirmBtn.innerHTML = 'Supprimer TOUT';
+          }
+
+          if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => {
+              modal.style.display = 'none';
+            }, 300);
+          }
+        } catch (error) {
+          console.error('❌ Erreur:', error);
+          alert('❌ Erreur: ' + error.message);
+          if (confirmBtn) confirmBtn.innerHTML = 'Supprimer TOUT';
+        }
+      }
+    });
+  </script>
 </body>
 </html>
