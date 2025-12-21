@@ -111,6 +111,29 @@ class ImportClassificationSystem {
         cancelBtn.addEventListener('click', () => this.hideNewSeriesModal());
       }
     }
+
+    // Boutons d'annulation de Phase 2 (Classification)
+    // Note: cancel-import-btn est géré par import-triage.js (Phase 1)
+    const cancelClassificationBtn = document.getElementById('cancel-classification-btn');
+    if (cancelClassificationBtn) {
+      cancelClassificationBtn.addEventListener('click', () => this.showCancelConfirmation());
+    }
+
+    const cancelGalleryBtn = document.getElementById('cancel-gallery-btn');
+    if (cancelGalleryBtn) {
+      cancelGalleryBtn.addEventListener('click', () => this.showCancelConfirmation());
+    }
+
+    // Gestion de la modal de confirmation d'annulation
+    const cancelConfirmModal = document.getElementById('cancel-confirmation-modal');
+    if (cancelConfirmModal) {
+      // Empêcher la fermeture accidentelle
+      cancelConfirmModal.addEventListener('click', (e) => {
+        if (e.target === cancelConfirmModal) {
+          cancelConfirmModal.style.display = 'none';
+        }
+      });
+    }
   }
 
   attachKeyboardListeners() {
@@ -732,25 +755,7 @@ class ImportClassificationSystem {
       finishBtn.addEventListener('click', () => this.finishGalleryClassification());
     }
 
-    // Boutons Annuler (Phase 1 - Triage)
-    const cancelImportBtn = document.getElementById('cancel-import-btn');
-    if (cancelImportBtn) {
-      cancelImportBtn.addEventListener('click', () => this.showCancelConfirmation());
-    }
-
-    // Bouton Annuler (Phase 2 - Classification simple)
-    const cancelClassificationBtn = document.getElementById('cancel-classification-btn');
-    if (cancelClassificationBtn) {
-      cancelClassificationBtn.addEventListener('click', () => this.showCancelConfirmation());
-    }
-
-    // Bouton Annuler (Phase 2 - Galerie)
-    const cancelGalleryBtn = document.getElementById('cancel-gallery-btn');
-    if (cancelGalleryBtn) {
-      cancelGalleryBtn.addEventListener('click', () => this.showCancelConfirmation());
-    }
-
-    // Bouton Retour
+    // Bouton Retour (spécifique à la galerie)
     const backBtn = document.getElementById('back-to-triage-btn');
     if (backBtn) {
       backBtn.addEventListener('click', () => this.backToTriage());
@@ -769,17 +774,6 @@ class ImportClassificationSystem {
       this.importModal.addEventListener('click', (e) => {
         if (e.target === this.importModal) {
           this.showCancelConfirmation();
-        }
-      });
-    }
-
-    // Empêcher la fermeture accidentelle de la modal de confirmation
-    const cancelConfirmModal = document.getElementById('cancel-confirmation-modal');
-    if (cancelConfirmModal) {
-      cancelConfirmModal.addEventListener('click', (e) => {
-        // Ne fermer que si on clique sur le fond (pas sur le contenu)
-        if (e.target === cancelConfirmModal) {
-          cancelConfirmModal.style.display = 'none';
         }
       });
     }
