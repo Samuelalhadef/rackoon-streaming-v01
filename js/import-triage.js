@@ -693,17 +693,32 @@ class ImportTriageSystem {
     if (this.newlyScannedIds && this.newlyScannedIds.length > 0) {
       console.log(`🗑️ Suppression de ${this.newlyScannedIds.length} fichiers nouvellement scannés`);
 
+      let deletedCount = 0;
+      let notFoundCount = 0;
+
       try {
         // Supprimer chaque fichier nouvellement scanné de la base de données
         for (const movieId of this.newlyScannedIds) {
-          console.log(`🗑️ Suppression du média ${movieId}`);
-          const result = await window.electronAPI.deleteMedia(movieId);
-          if (result.success) {
-            console.log(`✅ Média ${movieId} supprimé avec succès`);
-          } else {
-            console.error(`❌ Erreur lors de la suppression du média ${movieId}:`, result.message);
+          try {
+            const result = await window.electronAPI.deleteMedia(movieId);
+            if (result.success) {
+              console.log(`✅ Média ${movieId} supprimé avec succès`);
+              deletedCount++;
+            } else {
+              // "Média non trouvé" n'est pas une erreur grave - le média n'a peut-être jamais été créé
+              if (result.message && result.message.includes('non trouvé')) {
+                console.log(`ℹ️ Média ${movieId} n'existe pas (probablement pas encore créé)`);
+                notFoundCount++;
+              } else {
+                console.warn(`⚠️ Impossible de supprimer le média ${movieId}:`, result.message);
+              }
+            }
+          } catch (error) {
+            console.warn(`⚠️ Erreur lors de la suppression du média ${movieId}:`, error.message);
           }
         }
+
+        console.log(`📊 Nettoyage terminé: ${deletedCount} supprimés, ${notFoundCount} non trouvés`);
       } catch (error) {
         console.error('❌ Erreur lors du nettoyage des données partielles:', error);
       }
