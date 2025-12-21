@@ -452,8 +452,8 @@ class ImportTriageSystem {
       // NOUVEAU : Sauvegarder immédiatement la catégorie choisie en Phase 1
       await this.saveTriageCategories(filesToClassify);
 
-      // Délai pour laisser le système se stabiliser après les sauvegardes par lots
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Délai minimal pour laisser le système se stabiliser
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Fermer la modale de tri
       this.closeTriageModal();
@@ -526,23 +526,18 @@ class ImportTriageSystem {
   async saveTriageCategories(filesToClassify) {
     try {
       console.log(`📋 Sauvegarde immédiate des catégories Phase 1 pour ${filesToClassify.length} fichiers`);
-      console.log(`⚡ Sauvegarde par LOTS de 2 fichiers avec délai entre lots...`);
+      console.log(`⚡ Sauvegarde SÉQUENTIELLE avec délai minimal...`);
 
-      // Traiter par lots de 2 pour équilibrer vitesse et stabilité
-      const BATCH_SIZE = 2;
-      const DELAY_BETWEEN_BATCHES = 250; // ms entre chaque lot
+      // Le backend ne peut pas gérer les requêtes parallèles, on doit sauvegarder 1 par 1
+      const DELAY_BETWEEN_FILES = 50; // ms entre chaque fichier (optimisé pour vitesse)
       let savedCount = 0;
 
-      for (let i = 0; i < filesToClassify.length; i += BATCH_SIZE) {
-        const batch = filesToClassify.slice(i, i + BATCH_SIZE);
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(filesToClassify.length / BATCH_SIZE);
+      for (let i = 0; i < filesToClassify.length; i++) {
+        const file = filesToClassify[i];
+        console.log(`📦 ${i + 1}/${filesToClassify.length}: ${file.title || file.name}`);
 
-        console.log(`📦 Lot ${batchNum}/${totalBatches} (${batch.length} fichiers)`);
-
-        // Traiter ce lot en parallèle
-        const batchPromises = batch.map(file => {
-          return window.electronAPI.saveClassifiedFile({
+        try {
+          const result = await window.electronAPI.saveClassifiedFile({
             filePath: file.path,
             title: file.title || file.name,
             category: file.triageType || 'unsorted',
@@ -554,34 +549,27 @@ class ImportTriageSystem {
             seriesName: file.seriesName || null,
             season_number: null,
             episode_number: null
-          })
-          .then(result => {
-            if (result.success) {
-              console.log(`✅ ${file.title || file.name} → ${file.triageType}`);
-              savedCount++;
-
-              // Tracker l'ID du film nouvellement créé
-              if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
-                this.newlyScannedIds.push(result.movieId);
-              }
-            } else {
-              console.error(`❌ Erreur pour ${file.title || file.name}: ${result.message}`);
-            }
-            return result;
-          })
-          .catch(error => {
-            console.error(`❌ Erreur pour ${file.title || file.name}:`, error.message);
-            return { success: false, error };
           });
-        });
 
-        // Attendre que ce lot soit terminé
-        await Promise.all(batchPromises);
-        console.log(`✅ Lot ${batchNum} terminé (${savedCount}/${filesToClassify.length})`);
+          if (result.success) {
+            console.log(`✅ ${file.title || file.name} → ${file.triageType}`);
+            savedCount++;
 
-        // Délai avant le prochain lot (sauf pour le dernier)
-        if (i + BATCH_SIZE < filesToClassify.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+            // Tracker l'ID du film nouvellement créé
+            if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+              this.newlyScannedIds.push(result.movieId);
+            }
+          } else {
+            console.error(`❌ Erreur: ${result.message}`);
+          }
+
+          // Petit délai avant le prochain fichier (sauf pour le dernier)
+          if (i < filesToClassify.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_FILES));
+          }
+
+        } catch (error) {
+          console.error(`❌ Erreur pour ${file.title || file.name}:`, error.message);
         }
       }
 
