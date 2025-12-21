@@ -443,35 +443,6 @@ class ImportClassificationSystem {
       });
 
       section.appendChild(group);
-
-      // DEBUG: Afficher les infos après ajout au DOM
-      setTimeout(() => {
-        console.log('🔍 DEBUG après ajout au DOM:');
-        console.log('  - Largeur du series-group:', group.offsetWidth + 'px');
-        console.log('  - Largeur du grid:', grid.offsetWidth + 'px');
-        console.log('  - Display du grid:', window.getComputedStyle(grid).display);
-
-        const section = group.parentElement;
-        if (section) {
-          console.log('  - Largeur de media-section:', section.offsetWidth + 'px');
-          const container = section.parentElement;
-          if (container) {
-            console.log('  - Largeur du gallery-container:', container.offsetWidth + 'px');
-          }
-        }
-
-        const debugCards = grid.querySelectorAll('.gallery-card');
-        console.log('  - Nombre de cartes:', debugCards.length);
-        debugCards.forEach((c, idx) => {
-          const rect = c.getBoundingClientRect();
-          console.log(`  - Carte ${idx + 1}:`, {
-            width: c.offsetWidth + 'px',
-            left: Math.round(rect.left),
-            top: Math.round(rect.top),
-            display: window.getComputedStyle(c).display
-          });
-        });
-      }, 100);
     });
 
     container.appendChild(section);
@@ -2026,62 +1997,25 @@ class ImportClassificationSystem {
     }
   }
 
-  async quickAddSeason(seriesId) {
-    // Récupérer les données de la série
+  quickAddSeason(seriesId) {
+    // Ouvrir le gestionnaire de saisons avec l'éditeur de nouvelle saison
     const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
     const seriesName = seriesGroup ? seriesGroup.dataset.seriesName : 'Série inconnue';
 
-    // Demander le nombre d'épisodes
-    const episodeCount = prompt(`Nombre d'épisodes pour la nouvelle saison:`, '12');
-    if (!episodeCount || isNaN(episodeCount) || episodeCount <= 0) {
-      return;
-    }
+    console.log(`🎬 Ouverture rapide du gestionnaire pour "${seriesName}"`);
 
-    try {
-      // Récupérer les saisons existantes depuis le backend
-      const response = await window.electronAPI.getSeriesSeasons(seriesId);
-      let seasons = [];
+    // Utiliser le gestionnaire de saisons existant
+    if (window.seasonsManager) {
+      // Ouvrir le modal
+      window.seasonsManager.openModal(seriesId, seriesName);
 
-      if (response && response.success && response.seasons) {
-        seasons = response.seasons.filter(s => s.order !== 0); // Exclure "Non assignés"
-      }
-
-      // Déterminer le prochain numéro de saison
-      const nextSeasonNumber = seasons.length > 0
-        ? Math.max(...seasons.map(s => s.seasonNumber || s.order)) + 1
-        : 1;
-
-      const nextOrder = seasons.length > 0
-        ? Math.max(...seasons.map(s => s.order)) + 1
-        : 1;
-
-      // Créer la nouvelle saison
-      const newSeason = {
-        id: `season-${nextOrder}`,
-        order: nextOrder,
-        type: 'standard',
-        name: `Saison ${nextSeasonNumber}`,
-        seasonNumber: nextSeasonNumber,
-        episodeRange: { from: 1, to: parseInt(episodeCount) },
-        episodes: Array(parseInt(episodeCount)).fill(null)
-      };
-
-      // Ajouter et sauvegarder
-      seasons.push(newSeason);
-
-      const saveResponse = await window.electronAPI.saveSeriesSeasons(seriesId, seasons);
-
-      if (saveResponse && saveResponse.success) {
-        console.log(`✅ Saison ${nextSeasonNumber} créée avec ${episodeCount} épisodes`);
-
-        // Rafraîchir l'affichage
-        await this.refreshSeriesDisplay(seriesId);
-      } else {
-        alert('Erreur lors de la création de la saison: ' + (saveResponse?.message || 'Erreur inconnue'));
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors de la création de la saison:', error);
-      alert('Erreur lors de la création de la saison: ' + error.message);
+      // Attendre que le modal soit ouvert, puis déclencher la création d'une nouvelle saison
+      setTimeout(() => {
+        window.seasonsManager.createNewSeason();
+      }, 300);
+    } else {
+      console.error('❌ SeasonsManager non disponible');
+      alert('Le gestionnaire de saisons n\'est pas disponible. Veuillez utiliser le bouton "Gérer les saisons".');
     }
   }
 
