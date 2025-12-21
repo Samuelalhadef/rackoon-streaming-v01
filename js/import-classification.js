@@ -2098,12 +2098,31 @@ class ImportClassificationSystem {
     const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
     if (!seriesGroup) return;
 
-    // Sauvegarder la position de scroll de la modal
-    const galleryModal = document.getElementById('gallery-modal');
-    const galleryBody = galleryModal ? galleryModal.querySelector('.import-modal-body') : null;
-    const scrollPosition = galleryBody ? galleryBody.scrollTop : 0;
+    // Trouver l'élément qui scrolle réellement
+    // Essayer plusieurs possibilités
+    let scrollContainer = null;
+    let scrollPosition = 0;
 
-    console.log(`📍 Position de scroll sauvegardée: ${scrollPosition}px`);
+    const galleryModal = document.getElementById('gallery-modal');
+    if (galleryModal) {
+      const modalBody = galleryModal.querySelector('.import-modal-body');
+      const galleryContainer = document.getElementById('gallery-container');
+
+      // Déterminer quel élément a du scroll
+      if (modalBody && modalBody.scrollTop > 0) {
+        scrollContainer = modalBody;
+        scrollPosition = modalBody.scrollTop;
+        console.log(`📍 Scroll détecté sur .import-modal-body: ${scrollPosition}px`);
+      } else if (galleryContainer && galleryContainer.scrollTop > 0) {
+        scrollContainer = galleryContainer;
+        scrollPosition = galleryContainer.scrollTop;
+        console.log(`📍 Scroll détecté sur #gallery-container: ${scrollPosition}px`);
+      } else if (modalBody) {
+        scrollContainer = modalBody;
+        scrollPosition = modalBody.scrollTop;
+        console.log(`📍 Utilisation de .import-modal-body par défaut: ${scrollPosition}px`);
+      }
+    }
 
     // Récupérer les données de la série
     const seriesData = {
@@ -2122,11 +2141,11 @@ class ImportClassificationSystem {
     await this.renderSeasonsForSeries(seriesGroup, seriesData);
 
     // Restaurer la position de scroll après un court délai (pour laisser le DOM se mettre à jour)
-    if (galleryBody) {
+    if (scrollContainer) {
       setTimeout(() => {
-        galleryBody.scrollTop = scrollPosition;
-        console.log(`📍 Position de scroll restaurée: ${scrollPosition}px`);
-      }, 50);
+        scrollContainer.scrollTop = scrollPosition;
+        console.log(`📍 Scroll restauré à ${scrollPosition}px sur`, scrollContainer.className || scrollContainer.id);
+      }, 100);
     }
   }
 
