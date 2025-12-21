@@ -544,10 +544,15 @@ class SeasonsManager {
    */
   finishManagement() {
     console.log('✅ Gestion des saisons terminée');
-    this.closeModal();
 
     // Rafraîchir l'affichage de la classification si nécessaire
-    // TODO: Implémenter le rafraîchissement de la vue principale
+    if (this.currentSeriesId && window.importClassificationSystem) {
+      window.importClassificationSystem.refreshSeriesDisplay(this.currentSeriesId)
+        .then(() => console.log('✅ Affichage de la série rafraîchi'))
+        .catch(err => console.error('❌ Erreur lors du rafraîchissement:', err));
+    }
+
+    this.closeModal();
   }
 }
 

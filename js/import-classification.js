@@ -437,8 +437,10 @@ class ImportClassificationSystem {
       `;
       group.appendChild(groupHeader);
 
-      // NOUVELLE STRUCTURE: Organiser par saisons
-      this.renderSeasonsForSeries(group, seriesData);
+      // NOUVELLE STRUCTURE: Organiser par saisons (async)
+      this.renderSeasonsForSeries(group, seriesData).catch(err => {
+        console.error('❌ Erreur lors du rendu des saisons:', err);
+      });
 
       section.appendChild(group);
 
@@ -520,11 +522,11 @@ class ImportClassificationSystem {
     }, 100);
   }
 
-  renderSeasonsForSeries(groupElement, seriesData) {
+  async renderSeasonsForSeries(groupElement, seriesData) {
     console.log(`🎬 Rendu des saisons pour série "${seriesData.seriesName}"`);
 
     // Récupérer ou initialiser les saisons pour cette série
-    const seasons = this.getSeasonsForSeries(seriesData.seriesId) || [];
+    const seasons = await this.getSeasonsForSeries(seriesData.seriesId) || [];
 
     // Séparer les épisodes assignés vs non assignés
     const unassignedEpisodes = [];
@@ -1960,17 +1962,51 @@ class ImportClassificationSystem {
   // GESTION DES SAISONS ET SLOTS
   // ========================================
 
-  getSeasonsForSeries(seriesId) {
-    // Récupérer les saisons depuis localStorage ou initialiser
-    const seasonsData = localStorage.getItem(`seasons_${seriesId}`);
-    if (seasonsData) {
-      return JSON.parse(seasonsData);
+  async getSeasonsForSeries(seriesId) {
+    // Récupérer les saisons depuis le backend
+    try {
+      const response = await window.electronAPI.getSeriesSeasons(seriesId);
+      if (response && response.success && response.seasons) {
+        // Filtrer la saison "Non assignés" (order = 0) et convertir au format attendu
+        return response.seasons
+          .filter(s => s.order !== 0) // Exclure "Non assignés"
+          .map(s => ({
+            number: s.seasonNumber || s.order,
+            episodeCount: s.episodeRange ? (s.episodeRange.to - s.episodeRange.from + 1) : 0,
+            name: s.name
+          }));
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des saisons:', error);
     }
     return []; // Aucune saison par défaut
   }
 
-  saveSeasonsForSeries(seriesId, seasons) {
-    localStorage.setItem(`seasons_${seriesId}`, JSON.stringify(seasons));
+  async saveSeasonsForSeries(seriesId, seasons) {
+    // Convertir au format backend et sauvegarder
+    const backendSeasons = seasons.map((s, index) => ({
+      id: `season-${s.number}`,
+      order: s.number,
+      type: 'standard',
+      name: s.name || `Saison ${s.number}`,
+      seasonNumber: s.number,
+      episodeRange: { from: 1, to: s.episodeCount },
+      episodes: Array(s.episodeCount).fill(null)
+    }));
+
+    try {
+      const response = await window.electronAPI.saveSeriesSeasons(seriesId, backendSeasons);
+      if (response && response.success) {
+        console.log('✅ Saisons sauvegardées');
+        return true;
+      } else {
+        console.error('❌ Erreur lors de la sauvegarde:', response?.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde des saisons:', error);
+      return false;
+    }
   }
 
   toggleSeasonZone(zoneElement) {
@@ -1990,69 +2026,140 @@ class ImportClassificationSystem {
     }
   }
 
-  quickAddSeason(seriesId) {
-    // Demander le numéro de saison et le nombre d'épisodes
-    const seasons = this.getSeasonsForSeries(seriesId);
-    const nextSeasonNumber = seasons.length > 0 ? Math.max(...seasons.map(s => s.number)) + 1 : 1;
+  async quickAddSeason(seriesId) {
+    // Récupérer les données de la série
+    const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
+    const seriesName = seriesGroup ? seriesGroup.dataset.seriesName : 'Série inconnue';
 
-    const episodeCount = prompt(`Nombre d'épisodes pour la saison ${nextSeasonNumber}:`, '12');
+    // Demander le nombre d'épisodes
+    const episodeCount = prompt(`Nombre d'épisodes pour la nouvelle saison:`, '12');
     if (!episodeCount || isNaN(episodeCount) || episodeCount <= 0) {
       return;
     }
 
-    // Ajouter la nouvelle saison
-    seasons.push({
-      number: nextSeasonNumber,
-      episodeCount: parseInt(episodeCount)
-    });
+    try {
+      // Récupérer les saisons existantes depuis le backend
+      const response = await window.electronAPI.getSeriesSeasons(seriesId);
+      let seasons = [];
 
-    this.saveSeasonsForSeries(seriesId, seasons);
-
-    // Rafraîchir l'affichage
-    this.refreshSeriesDisplay(seriesId);
-  }
-
-  addSlotToSeason(seriesId, seasonNumber) {
-    const seasons = this.getSeasonsForSeries(seriesId);
-    const season = seasons.find(s => s.number === seasonNumber);
-
-    if (season) {
-      season.episodeCount++;
-      this.saveSeasonsForSeries(seriesId, seasons);
-      this.refreshSeriesDisplay(seriesId);
-    }
-  }
-
-  removeSlotFromSeason(seriesId, seasonNumber) {
-    const seasons = this.getSeasonsForSeries(seriesId);
-    const season = seasons.find(s => s.number === seasonNumber);
-
-    if (season && season.episodeCount > 0) {
-      // Vérifier si le dernier slot contient un épisode
-      const lastSlotNumber = season.episodeCount;
-      const episodeInLastSlot = this.currentFiles.find(
-        f => f.seriesId === seriesId && f.seasonNumber === seasonNumber && f.episodeNumber === lastSlotNumber
-      );
-
-      if (episodeInLastSlot) {
-        // Demander confirmation
-        if (!confirm(`Le slot ${lastSlotNumber} contient un épisode. Il sera renvoyé dans "Non assignés". Continuer?`)) {
-          return;
-        }
-
-        // Retirer l'assignation de saison/épisode
-        episodeInLastSlot.seasonNumber = null;
-        episodeInLastSlot.episodeNumber = null;
+      if (response && response.success && response.seasons) {
+        seasons = response.seasons.filter(s => s.order !== 0); // Exclure "Non assignés"
       }
 
-      // Retirer le slot
-      season.episodeCount--;
-      this.saveSeasonsForSeries(seriesId, seasons);
-      this.refreshSeriesDisplay(seriesId);
+      // Déterminer le prochain numéro de saison
+      const nextSeasonNumber = seasons.length > 0
+        ? Math.max(...seasons.map(s => s.seasonNumber || s.order)) + 1
+        : 1;
+
+      const nextOrder = seasons.length > 0
+        ? Math.max(...seasons.map(s => s.order)) + 1
+        : 1;
+
+      // Créer la nouvelle saison
+      const newSeason = {
+        id: `season-${nextOrder}`,
+        order: nextOrder,
+        type: 'standard',
+        name: `Saison ${nextSeasonNumber}`,
+        seasonNumber: nextSeasonNumber,
+        episodeRange: { from: 1, to: parseInt(episodeCount) },
+        episodes: Array(parseInt(episodeCount)).fill(null)
+      };
+
+      // Ajouter et sauvegarder
+      seasons.push(newSeason);
+
+      const saveResponse = await window.electronAPI.saveSeriesSeasons(seriesId, seasons);
+
+      if (saveResponse && saveResponse.success) {
+        console.log(`✅ Saison ${nextSeasonNumber} créée avec ${episodeCount} épisodes`);
+
+        // Rafraîchir l'affichage
+        await this.refreshSeriesDisplay(seriesId);
+      } else {
+        alert('Erreur lors de la création de la saison: ' + (saveResponse?.message || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de la saison:', error);
+      alert('Erreur lors de la création de la saison: ' + error.message);
     }
   }
 
-  refreshSeriesDisplay(seriesId) {
+  async addSlotToSeason(seriesId, seasonNumber) {
+    try {
+      const response = await window.electronAPI.getSeriesSeasons(seriesId);
+      if (!response || !response.success) {
+        alert('Erreur lors du chargement des saisons');
+        return;
+      }
+
+      const seasons = response.seasons.filter(s => s.order !== 0);
+      const season = seasons.find(s => s.seasonNumber === seasonNumber);
+
+      if (season) {
+        season.episodeRange.to++;
+        season.episodes.push(null);
+
+        const saveResponse = await window.electronAPI.saveSeriesSeasons(seriesId, seasons);
+
+        if (saveResponse && saveResponse.success) {
+          console.log(`✅ Slot ajouté à la saison ${seasonNumber}`);
+          await this.refreshSeriesDisplay(seriesId);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      alert('Erreur lors de l\'ajout du slot');
+    }
+  }
+
+  async removeSlotFromSeason(seriesId, seasonNumber) {
+    try {
+      const response = await window.electronAPI.getSeriesSeasons(seriesId);
+      if (!response || !response.success) {
+        alert('Erreur lors du chargement des saisons');
+        return;
+      }
+
+      const seasons = response.seasons.filter(s => s.order !== 0);
+      const season = seasons.find(s => s.seasonNumber === seasonNumber);
+
+      if (season && season.episodeRange.to > season.episodeRange.from) {
+        const lastSlotNumber = season.episodeRange.to;
+
+        // Vérifier si le dernier slot contient un épisode
+        const episodeInLastSlot = this.currentFiles.find(
+          f => f.seriesId === seriesId && f.seasonNumber === seasonNumber && f.episodeNumber === lastSlotNumber
+        );
+
+        if (episodeInLastSlot) {
+          if (!confirm(`Le slot ${lastSlotNumber} contient un épisode. Il sera renvoyé dans "Non assignés". Continuer?`)) {
+            return;
+          }
+
+          // Retirer l'assignation
+          episodeInLastSlot.seasonNumber = null;
+          episodeInLastSlot.episodeNumber = null;
+        }
+
+        // Retirer le slot
+        season.episodeRange.to--;
+        season.episodes.pop();
+
+        const saveResponse = await window.electronAPI.saveSeriesSeasons(seriesId, seasons);
+
+        if (saveResponse && saveResponse.success) {
+          console.log(`✅ Slot retiré de la saison ${seasonNumber}`);
+          await this.refreshSeriesDisplay(seriesId);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      alert('Erreur lors du retrait du slot');
+    }
+  }
+
+  async refreshSeriesDisplay(seriesId) {
     // Trouver le groupe de série et le rafraîchir
     const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
     if (!seriesGroup) return;
@@ -2071,7 +2178,7 @@ class ImportClassificationSystem {
     }
 
     // Recréer le conteneur
-    this.renderSeasonsForSeries(seriesGroup, seriesData);
+    await this.renderSeasonsForSeries(seriesGroup, seriesData);
   }
 
   // ========================================
