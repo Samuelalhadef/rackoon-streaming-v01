@@ -452,8 +452,8 @@ class ImportTriageSystem {
       // NOUVEAU : Sauvegarder immédiatement la catégorie choisie en Phase 1
       await this.saveTriageCategories(filesToClassify);
 
-      // Petit délai pour laisser le système se stabiliser après les sauvegardes parallèles
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Délai pour laisser le système se stabiliser après les sauvegardes séquentielles
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Fermer la modale de tri
       this.closeTriageModal();
@@ -526,19 +526,17 @@ class ImportTriageSystem {
   async saveTriageCategories(filesToClassify) {
     try {
       console.log(`📋 Sauvegarde immédiate des catégories Phase 1 pour ${filesToClassify.length} fichiers`);
-      console.log(`⚡ Sauvegarde par LOTS de ${filesToClassify.length} fichiers (max 2 par lot)...`);
+      console.log(`⚡ Sauvegarde SÉQUENTIELLE (1 par 1) pour éviter les erreurs IPC...`);
 
-      // Traiter par lots de 2 pour éviter de surcharger le backend
-      const BATCH_SIZE = 2;
+      // Traiter 1 fichier à la fois pour éviter l'erreur "reply was never sent"
       let savedCount = 0;
 
-      for (let i = 0; i < filesToClassify.length; i += BATCH_SIZE) {
-        const batch = filesToClassify.slice(i, i + BATCH_SIZE);
-        console.log(`📦 Traitement du lot ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filesToClassify.length / BATCH_SIZE)} (${batch.length} fichiers)`);
+      for (let i = 0; i < filesToClassify.length; i++) {
+        const file = filesToClassify[i];
+        console.log(`📦 Traitement fichier ${i + 1}/${filesToClassify.length}: ${file.title || file.name}`);
 
-        // Créer les promesses pour ce lot
-        const batchPromises = batch.map(file => {
-          return window.electronAPI.saveClassifiedFile({
+        try {
+          const result = await window.electronAPI.saveClassifiedFile({
             filePath: file.path,
             title: file.title || file.name,
             category: file.triageType || 'unsorted',
@@ -550,31 +548,29 @@ class ImportTriageSystem {
             seriesName: file.seriesName || null,
             season_number: null,
             episode_number: null
-          })
-          .then(result => {
-            if (result.success) {
-              console.log(`✅ Phase 1: ${file.title || file.name} → catégorie: ${file.triageType}`);
-              savedCount++;
-
-              // Tracker l'ID du film nouvellement créé
-              if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
-                this.newlyScannedIds.push(result.movieId);
-                console.log('📋 ID ajouté à la liste des films trackés (validation triage):', result.movieId);
-              }
-            } else {
-              console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}: ${result.message}`);
-            }
-            return result;
-          })
-          .catch(error => {
-            console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}:`, error);
-            return { success: false, error };
           });
-        });
 
-        // Attendre que ce lot soit terminé avant de passer au suivant
-        await Promise.all(batchPromises);
-        console.log(`✅ Lot traité (${savedCount}/${filesToClassify.length} fichiers sauvegardés)`);
+          if (result.success) {
+            console.log(`✅ Phase 1: ${file.title || file.name} → catégorie: ${file.triageType}`);
+            savedCount++;
+
+            // Tracker l'ID du film nouvellement créé
+            if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+              this.newlyScannedIds.push(result.movieId);
+              console.log('📋 ID ajouté à la liste des films trackés (validation triage):', result.movieId);
+            }
+          } else {
+            console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}: ${result.message}`);
+          }
+
+          // Petit délai entre chaque fichier pour éviter de surcharger le backend
+          if (i < filesToClassify.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+
+        } catch (error) {
+          console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}:`, error);
+        }
       }
 
       console.log(`✅ ${savedCount} fichiers sauvegardés avec succès !`);
@@ -1104,13 +1100,14 @@ class ImportTriageSystem {
       // Valider seulement les fichiers qui ne sont pas passés
       if (file && file.action === 'classify') {
         if (file.triageType === 'series') {
+          const fileName = file.title || file.name || 'Fichier inconnu';
           console.log(`🔍 Validation série fichier ${index}: seriesId="${file.seriesId}", seriesName="${file.seriesName}", triageType="${file.triageType}"`);
           if (!file.seriesId || !file.seriesName) {
-            console.log(`❌ Validation échouée pour fichier ${index}: ${file.name}`);
+            console.log(`❌ Validation échouée pour fichier ${index}: ${fileName}`);
             this.showValidationError(row);
             hasErrors = true;
           } else {
-            console.log(`✅ Validation réussie pour fichier ${index}: ${file.name}`);
+            console.log(`✅ Validation réussie pour fichier ${index}: ${fileName}`);
             this.hideValidationError(row);
           }
         }
