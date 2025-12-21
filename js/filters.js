@@ -50,6 +50,14 @@
     // Charger les filtres sauvegardés
     loadFiltersFromStorage();
 
+    // S'assurer que sortBy est défini (par défaut: 'category')
+    if (!filtersState.sortBy) {
+      filtersState.sortBy = 'category';
+      console.log('📁 sortBy initialisé à "category"');
+    }
+
+    console.log('📊 État initial des filtres:', filtersState);
+
     // Attacher les événements
     attachEvents();
 
@@ -299,18 +307,11 @@
   }
 
   function updateViewToggleAvailability() {
-    // Le toggle est disponible pour TOUS les tris sauf "Catégorie"
-    if (filtersState.sortBy === 'category') {
-      viewToggleBtn.disabled = true;
-      viewToggleBtn.style.opacity = '0.3';
-      viewToggleBtn.style.cursor = 'not-allowed';
-      viewToggleBtn.title = 'Non disponible en mode Catégorie';
-    } else {
-      viewToggleBtn.disabled = false;
-      viewToggleBtn.style.opacity = '1';
-      viewToggleBtn.style.cursor = 'pointer';
-      viewToggleBtn.title = 'Basculer entre affichage par sections ou liste continue';
-    }
+    // Le toggle est maintenant disponible pour TOUS les tris (y compris "Catégorie")
+    viewToggleBtn.disabled = false;
+    viewToggleBtn.style.opacity = '1';
+    viewToggleBtn.style.cursor = 'pointer';
+    viewToggleBtn.title = 'Basculer entre affichage par sections ou liste continue';
   }
 
   // ========================================
@@ -524,20 +525,22 @@
   }
 
   function displayFilteredMedias(medias) {
+    console.log('🎯 displayFilteredMedias - État actuel:', {
+      sortBy: filtersState.sortBy,
+      viewMode: filtersState.viewMode,
+      mediasCount: medias.length
+    });
+
     // Masquer toutes les sections existantes
     hideAllSections();
 
-    // Mode CATÉGORIE : Affiche par sections (Films / Séries / Courts métrages / Autres)
-    if (filtersState.sortBy === 'category') {
-      displayByCategories(medias);
-    }
-    // Tous les autres tris : Modes Sections ou Global selon le toggle
-    else {
-      if (filtersState.viewMode === 'sections') {
-        displayMediasSections(medias);
-      } else {
-        displayMediasGlobalSort(medias);
-      }
+    // TOUS les tris utilisent maintenant le système Sections/Global
+    console.log(`📊 Affichage en mode "${filtersState.viewMode}" avec tri "${filtersState.sortBy}"`);
+
+    if (filtersState.viewMode === 'sections') {
+      displayMediasSections(medias);
+    } else {
+      displayMediasGlobalSort(medias);
     }
   }
 
@@ -664,6 +667,18 @@
       let key;
 
       switch (sortBy) {
+        case 'category':
+          // Grouper par catégorie
+          const categoryMap = {
+            'film': 'Films',
+            'series': 'Séries',
+            'short': 'Courts métrages',
+            'other': 'Autres',
+            'unsorted': 'Non triés'
+          };
+          key = categoryMap[media.category] || 'Autres';
+          break;
+
         case 'title':
           // Grouper par première lettre
           const title = media.title || media.name || '';
@@ -735,6 +750,16 @@
       if (aIsSpecial && !bIsSpecial) return 1;
       if (!aIsSpecial && bIsSpecial) return -1;
       if (aIsSpecial && bIsSpecial) return 0;
+
+      // Tri spécifique pour les catégories
+      if (sortBy === 'category') {
+        const categoryOrder = ['Films', 'Séries', 'Courts métrages', 'Autres', 'Non triés'];
+        const indexA = categoryOrder.indexOf(a);
+        const indexB = categoryOrder.indexOf(b);
+        // Note: Le tri par catégorie ne respecte pas sortOrder (asc/desc)
+        // car l'ordre logique est toujours Films → Séries → Courts → Autres
+        return indexA - indexB;
+      }
 
       // Tri numérique pour les années
       if (sortBy === 'year' || sortBy === 'dateAdded') {
@@ -819,48 +844,144 @@
     allMediasCount.textContent = allMediasToDisplay.length;
   }
 
-  // Créer une carte de média (simplifié, basé sur le template)
+  // Créer une carte de média en utilisant le template HTML
   function createMediaCard(media) {
-    const card = document.createElement('div');
-    card.className = 'media-card';
-    card.dataset.id = media.id;
+    // Utiliser le template HTML si disponible, sinon créer manuellement
+    const template = document.getElementById('media-card-template');
+    let card;
 
+    if (template) {
+      // Cloner le template
+      card = template.content.cloneNode(true).querySelector('.media-card');
+    } else {
+      // Créer manuellement si le template n'est pas disponible
+      card = document.createElement('div');
+      card.className = 'media-card';
+      card.innerHTML = `
+        <div class="media-thumbnail-container">
+          <img src="" alt="" class="media-thumbnail">
+          <div class="play-overlay">
+            <button class="play-btn" title="Lancer la lecture">
+              <i class="fas fa-play"></i>
+            </button>
+          </div>
+        </div>
+        <div class="media-info">
+          <div class="media-title-container">
+            <h3 class="media-title"></h3>
+            <div class="watch-top">
+              <button class="btn-watch-toggle">à voir</button>
+            </div>
+          </div>
+          <div class="media-extended-info">
+            <div class="media-duration">
+              Durée: <span class="duration-value"></span>
+            </div>
+            <div class="rating-container">
+              <div class="stars-container">
+                <span class="star" data-value="1"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="2"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="3"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="4"><i class="fas fa-star"></i></span>
+                <span class="star" data-value="5"><i class="fas fa-star"></i></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Configurer les données de la carte
+    card.dataset.id = media.id;
+    card.dataset.title = (media.title || media.name || '').toLowerCase();
+
+    // Configurer l'image
     const thumbnailSrc = media.thumbnail
       ? `../data/thumbnails/${media.thumbnail}`
       : '../public/img/default-thumbnail.svg';
 
-    card.innerHTML = `
-      <div class="media-thumbnail-container">
-        <img src="${thumbnailSrc}" alt="${media.title}" class="media-thumbnail"
-             onerror="this.src='../public/img/default-thumbnail.svg'">
-        <div class="play-overlay">
-          <button class="play-btn" title="Lancer la lecture">
-            <i class="fas fa-play"></i>
-          </button>
-        </div>
-      </div>
-      <div class="media-info">
-        <div class="media-title-container">
-          <h3 class="media-title">${media.title || 'Sans titre'}</h3>
-        </div>
-      </div>
-    `;
+    const img = card.querySelector('.media-thumbnail');
+    img.src = thumbnailSrc;
+    img.alt = media.title || media.name || 'Sans titre';
+    img.onerror = () => { img.src = '../public/img/default-thumbnail.svg'; };
 
-    // Ajouter les event listeners
-    card.querySelector('.play-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (window.playMedia) window.playMedia(media.path);
-    });
+    // Configurer le titre
+    card.querySelector('.media-title').textContent = media.title || media.name || 'Sans titre';
 
+    // Configurer la durée
+    const durationValue = card.querySelector('.duration-value');
+    if (durationValue) {
+      durationValue.textContent = window.formatTime ? window.formatTime(media.duration || 0) : '0min';
+    }
+
+    // Configurer le statut "vu/à voir"
+    const userPrefs = JSON.parse(localStorage.getItem('userPrefs_global') || '{"watchedMovies":{},"ratings":{}}');
+    const isWatched = userPrefs.watchedMovies[media.id] === true;
+    const watchButton = card.querySelector('.btn-watch-toggle');
+
+    if (watchButton) {
+      watchButton.textContent = isWatched ? 'vu !' : 'à voir';
+      if (isWatched) {
+        watchButton.classList.add('watched');
+      }
+
+      watchButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleWatchStatus(media.id, watchButton);
+      });
+    }
+
+    // Configurer les étoiles de notation
+    const rating = userPrefs.ratings[media.id] || 0;
+    if (window.updateStarsDisplay) {
+      window.updateStarsDisplay(card, rating);
+    }
+    if (window.setupStarsInteraction) {
+      window.setupStarsInteraction(card, (newRating) => rateMedia(media.id, newRating));
+    }
+
+    // Event listener pour le bouton play
+    const playBtn = card.querySelector('.play-btn');
+    if (playBtn) {
+      playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.playMedia) window.playMedia(media.path);
+      });
+    }
+
+    // Event listener pour la carte entière
     card.addEventListener('click', () => {
-      if (media.category === 'series' && window.showSeriesModal) {
-        window.showSeriesModal(media.seriesId);
-      } else if (window.showMovieModal) {
-        window.showMovieModal(media.id);
+      if (media.category === 'series' && window.openSeries) {
+        window.openSeries(media.seriesId || media.id);
+      } else if (window.openMovieModal) {
+        window.openMovieModal(media.id);
       }
     });
 
     return card;
+  }
+
+  // Fonctions helper pour les préférences utilisateur
+  function toggleWatchStatus(mediaId, button) {
+    let userPrefs = JSON.parse(localStorage.getItem('userPrefs_global') || '{"watchedMovies":{},"ratings":{}}');
+
+    if (userPrefs.watchedMovies[mediaId]) {
+      delete userPrefs.watchedMovies[mediaId];
+      button.textContent = 'à voir';
+      button.classList.remove('watched');
+    } else {
+      userPrefs.watchedMovies[mediaId] = true;
+      button.textContent = 'vu !';
+      button.classList.add('watched');
+    }
+
+    localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
+  }
+
+  function rateMedia(mediaId, rating) {
+    let userPrefs = JSON.parse(localStorage.getItem('userPrefs_global') || '{"watchedMovies":{},"ratings":{}}');
+    userPrefs.ratings[mediaId] = rating;
+    localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
   }
 
   // Fonction pour trier les groupes de séries
@@ -1022,7 +1143,18 @@
     try {
       const saved = localStorage.getItem('filtersState');
       if (saved) {
-        filtersState = JSON.parse(saved);
+        const savedState = JSON.parse(saved);
+
+        // Fusionner avec l'état par défaut pour s'assurer qu'on a toutes les propriétés
+        filtersState = {
+          ...filtersState,
+          ...savedState
+        };
+
+        // S'assurer que sortBy a une valeur valide
+        if (!filtersState.sortBy) {
+          filtersState.sortBy = 'category';
+        }
 
         // Restaurer l'UI
         restoreUIFromState();

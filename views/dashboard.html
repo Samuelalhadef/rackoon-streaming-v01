@@ -1562,29 +1562,6 @@
       </div>
 
       <div class="import-modal-body gallery-body">
-        <!-- Contrôles globaux -->
-        <div class="gallery-global-controls">
-          <div class="global-controls-section">
-            <h4>Appliquer à tous :</h4>
-            <div class="global-controls-row">
-              <div class="global-control-group" id="global-series-group" style="display: none;">
-                <div class="series-info-notice">
-                  <i class="fas fa-info-circle"></i>
-                  <span>Les séries sont définies lors du triage initial et ne peuvent pas être modifiées ici.</span>
-                </div>
-              </div>
-
-              <div class="global-control-group">
-                <label>Année</label>
-                <div class="global-input-container">
-                  <input type="number" class="form-control" id="global-year-input" placeholder="2024" min="1900" max="2030">
-                  <button type="button" class="btn-small btn-primary" id="apply-global-year">Appliquer</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div class="gallery-container" id="gallery-container">
           <!-- Les cartes de fichiers seront ajoutées ici -->
         </div>
@@ -1605,19 +1582,6 @@
   <!-- Template pour les cartes de la galerie -->
   <template id="gallery-card-template">
     <div class="gallery-card" data-file-index="">
-      <div class="gallery-card-header">
-        <div class="file-preview">
-          <img src="../public/img/default-thumbnail.svg" alt="" class="preview-image">
-          <div class="file-info-overlay">
-            <span class="file-name"></span>
-            <span class="file-duration"></span>
-          </div>
-          <div class="file-category-badge">
-            <span class="category-badge"></span>
-          </div>
-        </div>
-      </div>
-
       <div class="gallery-card-body">
         <!-- Titre (obligatoire) -->
         <div class="form-group">
@@ -1630,20 +1594,24 @@
           <div class="form-group">
             <label>📺 Série</label>
             <input type="text" class="form-control series-name-readonly" readonly>
-            <small class="form-hint">Série définie lors du tri initial</small>
+          </div>
+
+          <!-- Saison (auto via drag&drop) -->
+          <div class="form-group">
+            <label>🎬 Saison</label>
+            <input type="text" class="form-control season-display" readonly placeholder="--">
+          </div>
+
+          <!-- Épisode (auto via drag&drop) -->
+          <div class="form-group">
+            <label>📺 Épisode</label>
+            <input type="text" class="form-control episode-display" readonly placeholder="--">
           </div>
 
           <!-- Durée pour les épisodes -->
           <div class="form-group">
             <label>⏱️ Durée</label>
             <input type="text" class="form-control duration-display" readonly placeholder="--:--">
-            <small class="form-hint">Durée de l'épisode</small>
-          </div>
-
-          <!-- Année pour les épisodes -->
-          <div class="form-group">
-            <label>📅 Année</label>
-            <input type="number" class="form-control year-input" placeholder="2024" min="1900" max="2030">
           </div>
         </div>
 
@@ -1721,16 +1689,6 @@
               </div>
             </div>
           </details>
-        </div>
-      </div>
-
-      <div class="gallery-card-footer">
-        <div class="card-status">
-          <span class="status-indicator" data-status="pending">En attente</span>
-        </div>
-        <div class="card-actions">
-          <button class="btn-small btn-outline skip-btn">Passer</button>
-          <button class="btn-small btn-primary save-btn">Enregistrer</button>
         </div>
       </div>
     </div>
@@ -2917,9 +2875,9 @@
   <script src="../js/import-triage.js"></script>
   <script src="../js/import-classification.js"></script>
   <script src="../js/seasons-manager.js"></script>
+  <script src="../js/filters.js"></script>
   <script src="../js/dashboard.js"></script>
   <script src="../js/dashboard-categories.js"></script>
-  <script src="../js/filters.js"></script>
   <script src="../js/import-simple.js"></script>
 
   <!-- Style pour petit modal Clear All -->

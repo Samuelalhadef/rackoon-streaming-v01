@@ -540,55 +540,51 @@ class ImportClassificationSystem {
     const mediaType = file.triageType === 'series' ? 'series' : 'unique';
     card.dataset.mediaType = mediaType;
 
-    // Remplir les informations du fichier
-    const fileName = card.querySelector('.file-name');
-    const fileDuration = card.querySelector('.file-duration');
-    const titleInput = card.querySelector('.title-input');
-    const categoryBadge = card.querySelector('.category-badge');
-
-    fileName.textContent = file.name;
-    fileDuration.textContent = file.duration ? this.formatDuration(file.duration) : '--:--';
-
-    titleInput.value = file.title || file.name;
-
     // Ajouter le nom du fichier comme data attribute pour backup
     card.setAttribute('data-file-name', file.name || '');
 
-    // Afficher le badge de catégorie
-    if (categoryBadge && file.triageType) {
-      const categoryNames = {
-        'film': '🎬 Film',
-        'series': '📺 Série',
-        'short': '🎞️ Court',
-        'other': '📁 Autre',
-        'unsorted': '❓ Non trié'
-      };
-      categoryBadge.textContent = categoryNames[file.triageType] || file.triageType;
-      categoryBadge.className = `category-badge ${file.triageType}`;
+    // Remplir le titre
+    const titleInput = card.querySelector('.title-input');
+    if (titleInput) {
+      titleInput.value = file.title || file.name;
     }
 
     // Afficher automatiquement les champs série si c'est une série
     if (file.triageType === 'series') {
+      // Afficher la section des champs série
+      const seriesFields = card.querySelector('.series-fields');
+      const uniqueFields = card.querySelector('.unique-fields');
+
+      if (seriesFields) {
+        seriesFields.style.display = 'block';
+      }
+      if (uniqueFields) {
+        uniqueFields.style.display = 'none';
+      }
+
       // Remplir le nom de la série (lecture seule)
       const seriesNameInput = card.querySelector('.series-name-readonly');
       if (seriesNameInput && file.seriesName) {
         seriesNameInput.value = file.seriesName;
       }
 
+      // Remplir la saison (TODO: sera géré par le drag&drop)
+      const seasonDisplay = card.querySelector('.season-display');
+      if (seasonDisplay) {
+        seasonDisplay.value = file.seasonNumber || '--';
+      }
+
+      // Remplir l'épisode (TODO: sera géré par le drag&drop)
+      const episodeDisplay = card.querySelector('.episode-display');
+      if (episodeDisplay) {
+        episodeDisplay.value = file.episodeNumber || '--';
+      }
+
       // Remplir la durée (lecture seule)
       const durationDisplay = card.querySelector('.duration-display');
-      console.log('🔍 Debug durée:', {
-        found: !!durationDisplay,
-        duration: file.duration,
-        formatted: file.duration ? this.formatDuration(file.duration) : '--:--'
-      });
-
       if (durationDisplay) {
         const formattedDuration = file.duration ? this.formatDuration(file.duration) : '--:--';
         durationDisplay.value = formattedDuration;
-        console.log('✅ Durée définie à:', formattedDuration);
-      } else {
-        console.warn('❌ Element .duration-display non trouvé dans la carte');
       }
     }
 
@@ -1122,24 +1118,24 @@ class ImportClassificationSystem {
     // Traiter tous les fichiers non encore sauvegardés
     const pendingFiles = this.currentFiles.filter(f => !f.classified && !f.skipped);
 
-    for (let i = 0; i < pendingFiles.length; i++) {
-      const file = pendingFiles[i];
+    console.log(`⚡ Sauvegarde PARALLÈLE de ${pendingFiles.length} fichiers...`);
 
-      try {
-        const result = await window.electronAPI.saveClassifiedFile({
-          filePath: file.path,
-          title: file.title || file.name,
-          category: 'unsorted',
-          mediaType: 'unique',
-          description: '',
-          releaseDate: null,
-          year: null,
-          seriesId: null,
-          seriesName: null,
-          season_number: null,
-          episode_number: null
-        });
-
+    // Créer toutes les promesses de sauvegarde
+    const savePromises = pendingFiles.map(file =>
+      window.electronAPI.saveClassifiedFile({
+        filePath: file.path,
+        title: file.title || file.name,
+        category: 'unsorted',
+        mediaType: 'unique',
+        description: '',
+        releaseDate: null,
+        year: null,
+        seriesId: null,
+        seriesName: null,
+        season_number: null,
+        episode_number: null
+      })
+      .then(result => {
         if (result.success) {
           file.classified = true;
           this.classifiedFiles.push(file);
@@ -1150,10 +1146,17 @@ class ImportClassificationSystem {
             console.log('📋 ID ajouté à la liste des films trackés (tout passer):', result.movieId);
           }
         }
-      } catch (error) {
+        return result;
+      })
+      .catch(error => {
         console.error('❌ Erreur pour', file.name, ':', error);
-      }
-    }
+        return { success: false, error };
+      })
+    );
+
+    // Attendre que TOUTES les sauvegardes soient terminées
+    await Promise.all(savePromises);
+    console.log(`✅ ${pendingFiles.length} fichiers sauvegardés en parallèle !`);
 
     this.finishGalleryClassification();
   }
@@ -1164,54 +1167,61 @@ class ImportClassificationSystem {
     // Sauvegarder automatiquement tous les fichiers non encore sauvegardés
     const pendingFiles = this.currentFiles.filter(f => !f.classified && !f.skipped);
 
-    console.log(`💾 Sauvegarde automatique de ${pendingFiles.length} fichiers restants`);
+    console.log(`⚡ Sauvegarde automatique PARALLÈLE de ${pendingFiles.length} fichiers restants`);
 
-    for (let i = 0; i < pendingFiles.length; i++) {
-      const file = pendingFiles[i];
+    // Créer toutes les promesses de sauvegarde
+    const savePromises = pendingFiles.map(file => {
+      // Trouver la carte correspondante
+      const card = document.querySelector(`[data-file-index="${this.currentFiles.indexOf(file)}"]`);
 
-      try {
-        // Trouver la carte correspondante
-        const card = document.querySelector(`[data-file-index="${this.currentFiles.indexOf(file)}"]`);
-        if (card) {
-          const fileName = file.name || file.title || file.path || 'Fichier inconnu';
-          console.log(`💾 Sauvegarde automatique de: ${fileName}`);
-
-          // Récupérer les données de la carte
-          const formData = this.getGalleryCardData(card);
-
-          const result = await window.electronAPI.saveClassifiedFile({
-            filePath: file.path,
-            title: formData.title.trim(),
-            category: formData.category,
-            mediaType: formData.mediaType,
-            description: '',
-            releaseDate: null,
-            year: formData.year || null,
-            seriesId: formData.seriesId || null,
-            seriesName: formData.seriesName || null,
-            season_number: formData.seasonNumber || null,
-            episode_number: formData.episodeNumber || null
-          });
-
-          if (result.success) {
-            file.classified = true;
-            this.classifiedFiles.push(file);
-            console.log(`✅ ${fileName} sauvegardé automatiquement avec catégorie: ${formData.category}`);
-
-            // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
-            if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
-              this.newlyScannedIds.push(result.movieId);
-              console.log('📋 ID ajouté à la liste des films trackés (finir):', result.movieId);
-            }
-          } else {
-            console.error(`❌ Erreur lors de la sauvegarde automatique de ${fileName}:`, result.message);
-          }
-        }
-      } catch (error) {
-        const fileName = file.name || file.title || file.path || 'Fichier inconnu';
-        console.error('❌ Erreur pour', fileName, ':', error);
+      if (!card) {
+        return Promise.resolve({ success: false, error: 'Carte non trouvée' });
       }
-    }
+
+      const fileName = file.name || file.title || file.path || 'Fichier inconnu';
+      console.log(`💾 Préparation sauvegarde de: ${fileName}`);
+
+      // Récupérer les données de la carte
+      const formData = this.getGalleryCardData(card);
+
+      return window.electronAPI.saveClassifiedFile({
+        filePath: file.path,
+        title: formData.title.trim(),
+        category: formData.category,
+        mediaType: formData.mediaType,
+        description: '',
+        releaseDate: null,
+        year: formData.year || null,
+        seriesId: formData.seriesId || null,
+        seriesName: formData.seriesName || null,
+        season_number: formData.seasonNumber || null,
+        episode_number: formData.episodeNumber || null
+      })
+      .then(result => {
+        if (result.success) {
+          file.classified = true;
+          this.classifiedFiles.push(file);
+          console.log(`✅ ${fileName} sauvegardé automatiquement avec catégorie: ${formData.category}`);
+
+          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
+          if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+            this.newlyScannedIds.push(result.movieId);
+            console.log('📋 ID ajouté à la liste des films trackés (finir):', result.movieId);
+          }
+        } else {
+          console.error(`❌ Erreur lors de la sauvegarde automatique de ${fileName}:`, result.message);
+        }
+        return result;
+      })
+      .catch(error => {
+        console.error('❌ Erreur pour', fileName, ':', error);
+        return { success: false, error };
+      });
+    });
+
+    // Attendre que TOUTES les sauvegardes soient terminées
+    await Promise.all(savePromises);
+    console.log(`✅ ${pendingFiles.length} fichiers sauvegardés en parallèle !`);
 
     console.log('🎉 Classification galerie terminée!');
 
