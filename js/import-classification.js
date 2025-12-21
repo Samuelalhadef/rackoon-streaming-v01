@@ -2098,6 +2098,13 @@ class ImportClassificationSystem {
     const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
     if (!seriesGroup) return;
 
+    // Sauvegarder la position de scroll de la modal
+    const galleryModal = document.getElementById('gallery-modal');
+    const galleryBody = galleryModal ? galleryModal.querySelector('.import-modal-body') : null;
+    const scrollPosition = galleryBody ? galleryBody.scrollTop : 0;
+
+    console.log(`📍 Position de scroll sauvegardée: ${scrollPosition}px`);
+
     // Récupérer les données de la série
     const seriesData = {
       seriesId: seriesId,
@@ -2113,6 +2120,14 @@ class ImportClassificationSystem {
 
     // Recréer le conteneur
     await this.renderSeasonsForSeries(seriesGroup, seriesData);
+
+    // Restaurer la position de scroll après un court délai (pour laisser le DOM se mettre à jour)
+    if (galleryBody) {
+      setTimeout(() => {
+        galleryBody.scrollTop = scrollPosition;
+        console.log(`📍 Position de scroll restaurée: ${scrollPosition}px`);
+      }, 50);
+    }
   }
 
   // ========================================
