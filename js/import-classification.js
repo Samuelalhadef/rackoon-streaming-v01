@@ -402,7 +402,6 @@ class ImportClassificationSystem {
     const section = document.createElement('section');
     section.className = 'media-section series-media-section';
     section.id = 'series-media-section';
-    // FORCER LA LARGEUR COMPLÈTE EN INLINE - OCCUPER TOUTES LES COLONNES DE LA GRILLE PARENT !
     section.style.cssText = 'grid-column: 1 / -1 !important; width: 100% !important; max-width: none !important; display: block !important; float: none !important; clear: both !important; position: relative !important;';
 
     // Header de section
@@ -422,7 +421,6 @@ class ImportClassificationSystem {
       group.className = 'series-group';
       group.dataset.seriesId = seriesData.seriesId;
       group.dataset.seriesName = seriesData.seriesName;
-      // FORCER LA LARGEUR COMPLÈTE EN INLINE - VERSION HARDCORE
       group.style.cssText = 'width: 100% !important; max-width: none !important; display: block !important; float: none !important; clear: both !important; box-sizing: border-box !important; position: relative !important;';
 
       // Header du groupe (nom de la série)
@@ -439,34 +437,9 @@ class ImportClassificationSystem {
       `;
       group.appendChild(groupHeader);
 
-      // Grille des épisodes
-      const grid = document.createElement('div');
-      grid.className = 'series-cards-grid';
-      // FORCER FLEXBOX HORIZONTAL EN INLINE - VERSION HARDCORE
-      grid.style.cssText = 'display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 12px !important; width: 100% !important; box-sizing: border-box !important; justify-content: flex-start !important;';
+      // NOUVELLE STRUCTURE: Organiser par saisons
+      this.renderSeasonsForSeries(group, seriesData);
 
-      console.log(`🔧 Création grille pour série "${seriesData.seriesName}" avec ${seriesData.files.length} épisodes`);
-
-      seriesData.files.forEach((file, idx) => {
-        const globalIndex = this.currentFiles.indexOf(file);
-        const card = this.createGalleryCard(file, globalIndex);
-
-        console.log(`  📌 Épisode ${idx + 1}:`, {
-          cardCreated: !!card,
-          cardClassName: card?.className,
-          dataMediaType: card?.dataset?.mediaType
-        });
-
-        grid.appendChild(card);
-      });
-
-      console.log(`✅ Grid créée:`, {
-        className: grid.className,
-        childCount: grid.children.length,
-        computedStyle: window.getComputedStyle ? 'disponible' : 'non disponible'
-      });
-
-      group.appendChild(grid);
       section.appendChild(group);
 
       // DEBUG: Afficher les infos après ajout au DOM
@@ -545,6 +518,187 @@ class ImportClassificationSystem {
         });
       });
     }, 100);
+  }
+
+  renderSeasonsForSeries(groupElement, seriesData) {
+    console.log(`🎬 Rendu des saisons pour série "${seriesData.seriesName}"`);
+
+    // Récupérer ou initialiser les saisons pour cette série
+    const seasons = this.getSeasonsForSeries(seriesData.seriesId) || [];
+
+    // Séparer les épisodes assignés vs non assignés
+    const unassignedEpisodes = [];
+    const assignedEpisodes = {};
+
+    seriesData.files.forEach(file => {
+      if (!file.seasonNumber || file.seasonNumber === null) {
+        // Épisode non assigné
+        unassignedEpisodes.push(file);
+      } else {
+        // Épisode assigné à une saison
+        if (!assignedEpisodes[file.seasonNumber]) {
+          assignedEpisodes[file.seasonNumber] = [];
+        }
+        assignedEpisodes[file.seasonNumber].push(file);
+      }
+    });
+
+    // Conteneur pour toutes les saisons
+    const seasonsContainer = document.createElement('div');
+    seasonsContainer.className = 'seasons-container';
+    seasonsContainer.dataset.seriesId = seriesData.seriesId;
+
+    // 1. Zone "Non assignés" (toujours affichée)
+    this.renderUnassignedZone(seasonsContainer, unassignedEpisodes, seriesData.seriesId);
+
+    // 2. Afficher chaque saison
+    seasons.forEach(season => {
+      this.renderSeasonZone(seasonsContainer, season, assignedEpisodes[season.number] || [], seriesData.seriesId);
+    });
+
+    // 3. Bouton "Ajouter une saison"
+    const addSeasonBtn = document.createElement('button');
+    addSeasonBtn.className = 'btn-add-season';
+    addSeasonBtn.innerHTML = '<i class="fas fa-plus"></i> Ajouter une saison';
+    addSeasonBtn.dataset.seriesId = seriesData.seriesId;
+    addSeasonBtn.addEventListener('click', () => this.quickAddSeason(seriesData.seriesId));
+    seasonsContainer.appendChild(addSeasonBtn);
+
+    groupElement.appendChild(seasonsContainer);
+  }
+
+  renderUnassignedZone(container, episodes, seriesId) {
+    const zone = document.createElement('div');
+    zone.className = 'season-zone unassigned-zone';
+    zone.dataset.seriesId = seriesId;
+    zone.dataset.seasonNumber = 'unassigned';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'season-zone-header';
+    header.innerHTML = `
+      <div class="season-title">
+        <i class="fas fa-box-open"></i>
+        <span>Non assignés</span>
+        <span class="season-episode-count">${episodes.length} épisode(s)</span>
+      </div>
+      <button class="btn-toggle-season" data-expanded="true">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+    `;
+    zone.appendChild(header);
+
+    // Grille des épisodes
+    const slotsGrid = document.createElement('div');
+    slotsGrid.className = 'season-slots-grid';
+    slotsGrid.dataset.seasonNumber = 'unassigned';
+
+    episodes.forEach(file => {
+      const slot = this.createEpisodeSlot(file, seriesId, 'unassigned', null);
+      slotsGrid.appendChild(slot);
+    });
+
+    zone.appendChild(slotsGrid);
+
+    // Event listener pour toggle
+    header.querySelector('.btn-toggle-season').addEventListener('click', (e) => {
+      this.toggleSeasonZone(zone);
+    });
+
+    container.appendChild(zone);
+  }
+
+  renderSeasonZone(container, season, assignedEpisodes, seriesId) {
+    const zone = document.createElement('div');
+    zone.className = 'season-zone';
+    zone.dataset.seriesId = seriesId;
+    zone.dataset.seasonNumber = season.number;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'season-zone-header';
+    header.innerHTML = `
+      <div class="season-title">
+        <i class="fas fa-film"></i>
+        <span>Saison ${season.number}</span>
+        <span class="season-episode-count">${season.episodeCount} épisode(s)</span>
+      </div>
+      <button class="btn-toggle-season" data-expanded="true">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+    `;
+    zone.appendChild(header);
+
+    // Grille des slots
+    const slotsGrid = document.createElement('div');
+    slotsGrid.className = 'season-slots-grid';
+    slotsGrid.dataset.seasonNumber = season.number;
+
+    // Créer les slots (vides ou remplis)
+    for (let i = 1; i <= season.episodeCount; i++) {
+      const episodeInSlot = assignedEpisodes.find(ep => ep.episodeNumber === i);
+      const slot = this.createEpisodeSlot(episodeInSlot, seriesId, season.number, i);
+      slotsGrid.appendChild(slot);
+    }
+
+    zone.appendChild(slotsGrid);
+
+    // Boutons +/-
+    const controls = document.createElement('div');
+    controls.className = 'season-controls';
+    controls.innerHTML = `
+      <button class="btn-add-slot" data-series-id="${seriesId}" data-season-number="${season.number}" title="Ajouter un slot">
+        <i class="fas fa-plus"></i>
+      </button>
+      <button class="btn-remove-slot" data-series-id="${seriesId}" data-season-number="${season.number}" title="Retirer le dernier slot">
+        <i class="fas fa-minus"></i>
+      </button>
+    `;
+    zone.appendChild(controls);
+
+    // Event listeners
+    header.querySelector('.btn-toggle-season').addEventListener('click', () => this.toggleSeasonZone(zone));
+    controls.querySelector('.btn-add-slot').addEventListener('click', () => this.addSlotToSeason(seriesId, season.number));
+    controls.querySelector('.btn-remove-slot').addEventListener('click', () => this.removeSlotFromSeason(seriesId, season.number));
+
+    container.appendChild(zone);
+  }
+
+  createEpisodeSlot(file, seriesId, seasonNumber, slotNumber) {
+    const slot = document.createElement('div');
+    slot.className = file ? 'episode-slot filled' : 'episode-slot empty';
+    slot.dataset.seriesId = seriesId;
+    slot.dataset.seasonNumber = seasonNumber;
+    slot.dataset.slotNumber = slotNumber || 'auto';
+
+    // Rendre le slot droppable
+    slot.addEventListener('dragover', (e) => this.onSlotDragOver(e));
+    slot.addEventListener('drop', (e) => this.onSlotDrop(e));
+
+    if (file) {
+      // Slot rempli avec un épisode
+      const globalIndex = this.currentFiles.indexOf(file);
+      const card = this.createGalleryCard(file, globalIndex);
+
+      if (card) {
+        // Rendre la carte draggable
+        card.setAttribute('draggable', 'true');
+        card.addEventListener('dragstart', (e) => this.onEpisodeDragStart(e, file));
+        card.addEventListener('dragend', (e) => this.onEpisodeDragEnd(e));
+
+        slot.appendChild(card);
+      }
+    } else {
+      // Slot vide
+      slot.innerHTML = `
+        <div class="empty-slot-placeholder">
+          <i class="fas fa-plus-circle"></i>
+          <span>Slot ${slotNumber}</span>
+        </div>
+      `;
+    }
+
+    return slot;
   }
 
   createGalleryCard(file, globalIndex) {
@@ -1800,6 +1954,203 @@ class ImportClassificationSystem {
         option.classList.remove('disabled');
       }
     });
+  }
+
+  // ========================================
+  // GESTION DES SAISONS ET SLOTS
+  // ========================================
+
+  getSeasonsForSeries(seriesId) {
+    // Récupérer les saisons depuis localStorage ou initialiser
+    const seasonsData = localStorage.getItem(`seasons_${seriesId}`);
+    if (seasonsData) {
+      return JSON.parse(seasonsData);
+    }
+    return []; // Aucune saison par défaut
+  }
+
+  saveSeasonsForSeries(seriesId, seasons) {
+    localStorage.setItem(`seasons_${seriesId}`, JSON.stringify(seasons));
+  }
+
+  toggleSeasonZone(zoneElement) {
+    const header = zoneElement.querySelector('.season-zone-header');
+    const grid = zoneElement.querySelector('.season-slots-grid');
+    const toggleBtn = header.querySelector('.btn-toggle-season');
+    const icon = toggleBtn.querySelector('i');
+
+    if (grid.style.display === 'none') {
+      grid.style.display = 'flex';
+      icon.className = 'fas fa-chevron-down';
+      toggleBtn.dataset.expanded = 'true';
+    } else {
+      grid.style.display = 'none';
+      icon.className = 'fas fa-chevron-right';
+      toggleBtn.dataset.expanded = 'false';
+    }
+  }
+
+  quickAddSeason(seriesId) {
+    // Demander le numéro de saison et le nombre d'épisodes
+    const seasons = this.getSeasonsForSeries(seriesId);
+    const nextSeasonNumber = seasons.length > 0 ? Math.max(...seasons.map(s => s.number)) + 1 : 1;
+
+    const episodeCount = prompt(`Nombre d'épisodes pour la saison ${nextSeasonNumber}:`, '12');
+    if (!episodeCount || isNaN(episodeCount) || episodeCount <= 0) {
+      return;
+    }
+
+    // Ajouter la nouvelle saison
+    seasons.push({
+      number: nextSeasonNumber,
+      episodeCount: parseInt(episodeCount)
+    });
+
+    this.saveSeasonsForSeries(seriesId, seasons);
+
+    // Rafraîchir l'affichage
+    this.refreshSeriesDisplay(seriesId);
+  }
+
+  addSlotToSeason(seriesId, seasonNumber) {
+    const seasons = this.getSeasonsForSeries(seriesId);
+    const season = seasons.find(s => s.number === seasonNumber);
+
+    if (season) {
+      season.episodeCount++;
+      this.saveSeasonsForSeries(seriesId, seasons);
+      this.refreshSeriesDisplay(seriesId);
+    }
+  }
+
+  removeSlotFromSeason(seriesId, seasonNumber) {
+    const seasons = this.getSeasonsForSeries(seriesId);
+    const season = seasons.find(s => s.number === seasonNumber);
+
+    if (season && season.episodeCount > 0) {
+      // Vérifier si le dernier slot contient un épisode
+      const lastSlotNumber = season.episodeCount;
+      const episodeInLastSlot = this.currentFiles.find(
+        f => f.seriesId === seriesId && f.seasonNumber === seasonNumber && f.episodeNumber === lastSlotNumber
+      );
+
+      if (episodeInLastSlot) {
+        // Demander confirmation
+        if (!confirm(`Le slot ${lastSlotNumber} contient un épisode. Il sera renvoyé dans "Non assignés". Continuer?`)) {
+          return;
+        }
+
+        // Retirer l'assignation de saison/épisode
+        episodeInLastSlot.seasonNumber = null;
+        episodeInLastSlot.episodeNumber = null;
+      }
+
+      // Retirer le slot
+      season.episodeCount--;
+      this.saveSeasonsForSeries(seriesId, seasons);
+      this.refreshSeriesDisplay(seriesId);
+    }
+  }
+
+  refreshSeriesDisplay(seriesId) {
+    // Trouver le groupe de série et le rafraîchir
+    const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
+    if (!seriesGroup) return;
+
+    // Récupérer les données de la série
+    const seriesData = {
+      seriesId: seriesId,
+      seriesName: seriesGroup.dataset.seriesName,
+      files: this.currentFiles.filter(f => f.seriesId === seriesId)
+    };
+
+    // Supprimer l'ancien conteneur de saisons
+    const oldContainer = seriesGroup.querySelector('.seasons-container');
+    if (oldContainer) {
+      oldContainer.remove();
+    }
+
+    // Recréer le conteneur
+    this.renderSeasonsForSeries(seriesGroup, seriesData);
+  }
+
+  // ========================================
+  // DRAG & DROP
+  // ========================================
+
+  onEpisodeDragStart(event, file) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/json', JSON.stringify({
+      fileId: file.id || file.path,
+      seriesId: file.seriesId,
+      currentSeasonNumber: file.seasonNumber,
+      currentEpisodeNumber: file.episodeNumber
+    }));
+
+    // Ajouter une classe visuelle
+    event.target.classList.add('dragging');
+  }
+
+  onEpisodeDragEnd(event) {
+    event.target.classList.remove('dragging');
+  }
+
+  onSlotDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+
+    // Highlight du slot
+    event.currentTarget.classList.add('drag-over');
+  }
+
+  onSlotDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+
+    const dragData = JSON.parse(event.dataTransfer.getData('application/json'));
+    const targetSlot = event.currentTarget;
+
+    const targetSeriesId = targetSlot.dataset.seriesId;
+    const targetSeasonNumber = targetSlot.dataset.seasonNumber === 'unassigned' ? null : parseInt(targetSlot.dataset.seasonNumber);
+    const targetSlotNumber = targetSlot.dataset.slotNumber === 'auto' ? null : parseInt(targetSlot.dataset.slotNumber);
+
+    // Trouver le fichier dragué
+    const draggedFile = this.currentFiles.find(
+      f => (f.id || f.path) === dragData.fileId
+    );
+
+    if (!draggedFile) {
+      console.error('Fichier dragué introuvable');
+      return;
+    }
+
+    // Vérifier si le slot cible contient déjà un épisode
+    const targetFile = this.currentFiles.find(
+      f => f.seriesId === targetSeriesId &&
+           f.seasonNumber === targetSeasonNumber &&
+           f.episodeNumber === targetSlotNumber
+    );
+
+    if (targetFile) {
+      // Swap: échanger les deux épisodes
+      const tempSeason = draggedFile.seasonNumber;
+      const tempEpisode = draggedFile.episodeNumber;
+
+      draggedFile.seasonNumber = targetFile.seasonNumber;
+      draggedFile.episodeNumber = targetFile.episodeNumber;
+
+      targetFile.seasonNumber = tempSeason;
+      targetFile.episodeNumber = tempEpisode;
+    } else {
+      // Déplacer simplement
+      draggedFile.seasonNumber = targetSeasonNumber;
+      draggedFile.episodeNumber = targetSlotNumber;
+    }
+
+    // Rafraîchir l'affichage
+    this.refreshSeriesDisplay(targetSeriesId);
+
+    console.log(`✅ Épisode déplacé vers Saison ${targetSeasonNumber || 'Non assignés'}, Épisode ${targetSlotNumber || 'auto'}`);
   }
 }
 
