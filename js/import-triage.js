@@ -452,6 +452,9 @@ class ImportTriageSystem {
       // NOUVEAU : Sauvegarder immédiatement la catégorie choisie en Phase 1
       await this.saveTriageCategories(filesToClassify);
 
+      // Petit délai pour laisser le système se stabiliser après les sauvegardes parallèles
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Fermer la modale de tri
       this.closeTriageModal();
 
@@ -523,42 +526,58 @@ class ImportTriageSystem {
   async saveTriageCategories(filesToClassify) {
     try {
       console.log(`📋 Sauvegarde immédiate des catégories Phase 1 pour ${filesToClassify.length} fichiers`);
+      console.log(`⚡ Sauvegarde par LOTS de ${filesToClassify.length} fichiers (max 2 par lot)...`);
 
-      for (const file of filesToClassify) {
-        console.log(`🔍 Sauvegarde Phase 1 pour: ${file.name}`);
-        console.log(`   - category: ${file.triageType}`);
-        console.log(`   - seriesId: ${file.seriesId}`);
-        console.log(`   - seriesName: ${file.seriesName}`);
+      // Traiter par lots de 2 pour éviter de surcharger le backend
+      const BATCH_SIZE = 2;
+      let savedCount = 0;
 
-        const result = await window.electronAPI.saveClassifiedFile({
-          filePath: file.path,
-          title: file.title || file.name,
-          category: file.triageType || 'unsorted',
-          mediaType: file.mediaType || (file.triageType === 'series' ? 'series' : 'unique'),
-          description: '',
-          releaseDate: '',
-          year: null,
-          seriesId: file.seriesId || null,
-          seriesName: file.seriesName || null,
-          season_number: null,
-          episode_number: null
+      for (let i = 0; i < filesToClassify.length; i += BATCH_SIZE) {
+        const batch = filesToClassify.slice(i, i + BATCH_SIZE);
+        console.log(`📦 Traitement du lot ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filesToClassify.length / BATCH_SIZE)} (${batch.length} fichiers)`);
+
+        // Créer les promesses pour ce lot
+        const batchPromises = batch.map(file => {
+          return window.electronAPI.saveClassifiedFile({
+            filePath: file.path,
+            title: file.title || file.name,
+            category: file.triageType || 'unsorted',
+            mediaType: file.mediaType || (file.triageType === 'series' ? 'series' : 'unique'),
+            description: '',
+            releaseDate: '',
+            year: null,
+            seriesId: file.seriesId || null,
+            seriesName: file.seriesName || null,
+            season_number: null,
+            episode_number: null
+          })
+          .then(result => {
+            if (result.success) {
+              console.log(`✅ Phase 1: ${file.title || file.name} → catégorie: ${file.triageType}`);
+              savedCount++;
+
+              // Tracker l'ID du film nouvellement créé
+              if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+                this.newlyScannedIds.push(result.movieId);
+                console.log('📋 ID ajouté à la liste des films trackés (validation triage):', result.movieId);
+              }
+            } else {
+              console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}: ${result.message}`);
+            }
+            return result;
+          })
+          .catch(error => {
+            console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}:`, error);
+            return { success: false, error };
+          });
         });
 
-        if (result.success) {
-          console.log(`✅ Phase 1: ${file.title || file.name} → catégorie: ${file.triageType}`);
-
-          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
-          if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
-            this.newlyScannedIds.push(result.movieId);
-            console.log('📋 ID ajouté à la liste des films trackés (validation triage):', result.movieId);
-          }
-        } else {
-          console.error(`❌ Erreur Phase 1 pour ${file.title || file.name}: ${result.message}`);
-        }
+        // Attendre que ce lot soit terminé avant de passer au suivant
+        await Promise.all(batchPromises);
+        console.log(`✅ Lot traité (${savedCount}/${filesToClassify.length} fichiers sauvegardés)`);
       }
 
-      // Forcer le rechargement pour voir les changements immédiatement
-      await this.forceReloadMovies();
+      console.log(`✅ ${savedCount} fichiers sauvegardés avec succès !`);
 
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde des catégories Phase 1:', error);

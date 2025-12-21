@@ -343,9 +343,16 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('🎬 Variable films avant displayMedias:', films.length, 'éléments');
       console.log('🎬 Détail films:', films.map(f => ({title: f.title, category: f.category})));
 
-      // Afficher les films et séries
-      displayMedias(films);
-      displaySeries(series);
+      // Utiliser le système de filtres unifié dès le démarrage
+      if (window.filtersSystem && window.filtersSystem.applyFiltersAndSort) {
+        console.log('✅ Utilisation du système de filtres unifié');
+        await window.filtersSystem.applyFiltersAndSort();
+      } else {
+        // Fallback si le système de filtres n'est pas encore initialisé
+        console.warn('⚠️ Système de filtres non disponible, utilisation du système legacy');
+        displayMedias(films);
+        displaySeries(series);
+      }
 
       if (totalCount > 0) {
         statusMessage.textContent = `${totalCount} médias dans la bibliothèque`;
