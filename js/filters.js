@@ -943,9 +943,16 @@
     // Event listener pour le bouton play
     const playBtn = card.querySelector('.play-btn');
     if (playBtn) {
-      playBtn.addEventListener('click', (e) => {
+      playBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (window.playMedia) window.playMedia(media.path);
+
+        // Pour les séries, lire directement le premier épisode
+        if (media.category === 'series' && window.playSeriesFirstEpisode) {
+          await window.playSeriesFirstEpisode(media.seriesId || media.id);
+        } else {
+          // Pour les médias uniques, lire directement
+          if (window.playMedia) window.playMedia(media.id);
+        }
       });
     }
 

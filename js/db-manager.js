@@ -307,12 +307,26 @@ class JSONDatabase {
   }
 
   /**
+   * Sauvegarder uniquement les médias uniques (SANS throttling, pour import en masse)
+   */
+  async saveUniqueMediasImmediate() {
+    return this.saveFileAtomic(this.paths.uniqueMedias, this.data.uniqueMedias);
+  }
+
+  /**
    * Sauvegarder uniquement les épisodes (throttled)
    */
   async saveSeriesEpisodes() {
     return this.saveThrottled('seriesEpisodes', () =>
       this.saveFileAtomic(this.paths.seriesEpisodes, this.data.seriesEpisodes)
     );
+  }
+
+  /**
+   * Sauvegarder uniquement les épisodes (SANS throttling, pour import en masse)
+   */
+  async saveSeriesEpisodesImmediate() {
+    return this.saveFileAtomic(this.paths.seriesEpisodes, this.data.seriesEpisodes);
   }
 
   /**
@@ -436,7 +450,8 @@ class JSONDatabase {
     this.data.config.settings.totalMedias = this.data.uniqueMedias.length + this.data.seriesEpisodes.length;
     this.data.config.settings.lastScan = new Date().toISOString();
 
-    await this.saveUniqueMedias();
+    // Utiliser la sauvegarde immédiate pour éviter les problèmes de throttling lors d'imports en masse
+    await this.saveUniqueMediasImmediate();
     await this.saveConfig();
 
     return { success: true, media };
@@ -472,16 +487,16 @@ class JSONDatabase {
       dateAdded: existingMedia.dateAdded
     };
 
-    // Sauvegarder le fichier approprié
+    // Sauvegarder le fichier approprié (utiliser les méthodes immédiates pour éviter le throttling)
     if (isEpisode) {
-      await this.saveSeriesEpisodes();
+      await this.saveSeriesEpisodesImmediate();
 
       // Si l'épisode a un seriesId, mettre à jour la saison par défaut
       if (mediaData.seriesId) {
         await this.addEpisodeToDefaultSeason(mediaData.seriesId);
       }
     } else {
-      await this.saveUniqueMedias();
+      await this.saveUniqueMediasImmediate();
     }
 
     return { success: true, media: targetArray[existingIndex] };
@@ -771,7 +786,8 @@ class JSONDatabase {
     this.data.config.settings.totalMedias = this.data.uniqueMedias.length + this.data.seriesEpisodes.length;
     this.data.config.settings.lastScan = new Date().toISOString();
 
-    await this.saveSeriesEpisodes();
+    // Utiliser la sauvegarde immédiate pour éviter les problèmes de throttling lors d'imports en masse
+    await this.saveSeriesEpisodesImmediate();
     await this.saveSeriesMetadata();
     await this.saveConfig();
 

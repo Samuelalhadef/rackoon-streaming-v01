@@ -1243,30 +1243,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!currentMovieId) {
         throw new Error('ID du film manquant');
       }
-      
-      // Obtenir le chemin du fichier vidéo via l'API Electron
-      const result = await window.electronAPI.getMediaPath(currentMovieId);
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Échec de la récupération du chemin du fichier');
+
+      if (!currentMovieData || !currentMovieData.path) {
+        throw new Error('Chemin du fichier vidéo manquant');
       }
-      
-      const videoUrl = `file://${result.path}`;
+
+      // Vérifier que le fichier existe toujours sur le disque
+      const fileExists = await window.electronAPI.checkFileExists(currentMovieData.path);
+      if (!fileExists) {
+        throw new Error('Fichier vidéo introuvable sur le disque');
+      }
+
       const title = currentMovieData.title || 'Film sans titre';
-      
-      // Déterminer l'URL de la miniature
-      let thumbnailUrl = null;
-      if (currentMovieData.posterUrl) {
-        thumbnailUrl = currentMovieData.posterUrl;
-      } else if (currentMovieData.thumbnail) {
-        thumbnailUrl = `file://${currentMovieData.thumbnail}`;
-      }
-      
+
       // Fermer la modal
       closeMovieModal();
-      
-      // Ouvrir le lecteur vidéo
-      window.openVideoPlayer(videoUrl, title, thumbnailUrl);
+
+      // Ouvrir le lecteur vidéo (le lecteur s'occupe de formater l'URL)
+      // Les paramètres sont : (movieId, title, path)
+      window.openVideoPlayer(currentMovieId, title, currentMovieData.path);
     } catch (error) {
       console.error('Erreur lors de la lecture du film:', error);
       alert('Erreur lors de la lecture de la vidéo: ' + error.message);

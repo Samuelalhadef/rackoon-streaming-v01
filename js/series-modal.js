@@ -631,28 +631,66 @@ class SeriesModal {
 
   playEpisode(episode) {
     console.log('🎬 Lecture de l\'épisode:', episode.title);
+
+    if (!episode.path) {
+      console.error('❌ Chemin de l\'épisode manquant');
+      alert('Impossible de lire l\'épisode : chemin du fichier manquant');
+      return;
+    }
+
     // Fermer la modale et lancer la lecture
     this.hide();
 
+    const title = episode.title || 'Épisode sans titre';
+
     // Utiliser le système de lecture existant
+    // Les paramètres sont : (episodeId, title, path)
     if (window.openVideoPlayer) {
-      window.openVideoPlayer(episode.id, episode.title, episode.path);
-    } else if (window.playVideo) {
-      window.playVideo(episode.path, episode.title);
+      window.openVideoPlayer(episode.id, title, episode.path);
     } else {
       console.error('❌ Fonction de lecture vidéo non trouvée');
+      alert('Impossible de lire l\'épisode : lecteur vidéo non disponible');
     }
   }
 
   playFirstEpisode() {
     if (!this.currentSeries || !this.currentSeries.seasons) return;
 
-    // Trouver le premier épisode de la première saison
-    const firstSeason = this.currentSeries.seasons[0];
-    if (firstSeason && firstSeason.episodes && firstSeason.episodes.length > 0) {
-      const firstEpisode = firstSeason.episodes[0];
-      this.playEpisode(firstEpisode);
+    // Collecter tous les épisodes triés (qui ont un episode_number)
+    const sortedEpisodes = [];
+
+    for (const season of this.currentSeries.seasons) {
+      if (season.episodes && season.episodes.length > 0) {
+        for (const episode of season.episodes) {
+          if (episode.episode_number !== null && episode.episode_number !== undefined) {
+            sortedEpisodes.push({
+              ...episode,
+              seasonNumber: season.number
+            });
+          }
+        }
+      }
     }
+
+    // Vérifier s'il y a des épisodes triés
+    if (sortedEpisodes.length === 0) {
+      alert('Aucun épisode trié trouvé.\n\nVeuillez d\'abord trier les épisodes de cette série avant de pouvoir la lire.');
+      console.warn('⚠️ Aucun épisode trié disponible pour la série:', this.currentSeries.name);
+      return;
+    }
+
+    // Trier les épisodes par saison puis par numéro d'épisode
+    sortedEpisodes.sort((a, b) => {
+      if (a.seasonNumber !== b.seasonNumber) {
+        return a.seasonNumber - b.seasonNumber;
+      }
+      return a.episode_number - b.episode_number;
+    });
+
+    // Lire le premier épisode trié
+    const firstEpisode = sortedEpisodes[0];
+    console.log('▶️ Lecture du premier épisode trié:', firstEpisode.title);
+    this.playEpisode(firstEpisode);
   }
 }
 
@@ -673,5 +711,77 @@ window.openSeries = function(seriesId) {
     seriesModal.show(seriesId);
   } else {
     console.error('❌ seriesModal non initialisé');
+  }
+};
+
+// Fonction globale pour lire directement le premier épisode d'une série
+window.playSeriesFirstEpisode = async function(seriesId) {
+  try {
+    console.log('▶️ Lecture du premier épisode de la série:', seriesId);
+
+    // Récupérer les données de la série
+    const result = await window.electronAPI.getSeriesById(seriesId);
+
+    if (!result.success) {
+      console.error('❌ Erreur lors du chargement de la série:', result.message);
+      alert('Impossible de charger la série');
+      return;
+    }
+
+    const series = result.series;
+
+    // Collecter tous les épisodes triés
+    const sortedEpisodes = [];
+
+    for (const season of series.seasons || []) {
+      if (season.episodes && season.episodes.length > 0) {
+        for (const episode of season.episodes) {
+          if (episode.episode_number !== null && episode.episode_number !== undefined) {
+            sortedEpisodes.push({
+              ...episode,
+              seasonNumber: season.number
+            });
+          }
+        }
+      }
+    }
+
+    // Vérifier s'il y a des épisodes triés
+    if (sortedEpisodes.length === 0) {
+      alert('Aucun épisode trié trouvé.\n\nVeuillez d\'abord trier les épisodes de cette série avant de pouvoir la lire.');
+      console.warn('⚠️ Aucun épisode trié disponible pour la série:', series.name);
+      return;
+    }
+
+    // Trier les épisodes par saison puis par numéro d'épisode
+    sortedEpisodes.sort((a, b) => {
+      if (a.seasonNumber !== b.seasonNumber) {
+        return a.seasonNumber - b.seasonNumber;
+      }
+      return a.episode_number - b.episode_number;
+    });
+
+    // Lire le premier épisode trié
+    const firstEpisode = sortedEpisodes[0];
+    console.log('▶️ Lecture du premier épisode trié:', firstEpisode.title);
+
+    if (!firstEpisode.path) {
+      console.error('❌ Chemin de l\'épisode manquant');
+      alert('Impossible de lire l\'épisode : chemin du fichier manquant');
+      return;
+    }
+
+    const title = firstEpisode.title || 'Épisode sans titre';
+
+    // Lancer la lecture
+    if (window.openVideoPlayer) {
+      window.openVideoPlayer(firstEpisode.id, title, firstEpisode.path);
+    } else {
+      console.error('❌ Fonction de lecture vidéo non trouvée');
+      alert('Impossible de lire l\'épisode : lecteur vidéo non disponible');
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la lecture du premier épisode:', error);
+    alert('Erreur lors de la lecture : ' + error.message);
   }
 };

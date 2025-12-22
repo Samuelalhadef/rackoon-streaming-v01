@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="media-thumbnail-container">
           <img src="${thumbnailSrc}" alt="${movie.title}" class="media-thumbnail" onerror="this.src='../public/img/default-thumbnail.svg'">
           <div class="media-overlay">
-            <button class="play-btn" onclick="playMedia('${movie.path.replace(/'/g, "\\'")}')">
+            <button class="play-btn" onclick="playMedia('${movie.id}')">
               <i class="fas fa-play"></i>
             </button>
           </div>
@@ -235,16 +235,39 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Fonction pour jouer un film
-  window.playMedia = async function(moviePath) {
+  window.playMedia = async function(mediaId) {
     try {
-      const result = await window.electronAPI.getMediaPath(moviePath);
-      if (result.success) {
-        window.openVideoPlayer(result.path);
-      } else {
-        console.error('Erreur:', result.message);
+      // Récupérer les informations complètes du média
+      const allMedias = await window.electronAPI.getAllMedias();
+      let media = null;
+
+      // Chercher le média dans la liste
+      if (allMedias.success && allMedias.medias) {
+        media = allMedias.medias.find(m => m.id === mediaId);
       }
+
+      // Vérifier que le média existe
+      if (!media) {
+        console.error('Média non trouvé avec l\'ID:', mediaId);
+        alert('Impossible de lire le média : média introuvable');
+        return;
+      }
+
+      // Vérifier que le fichier existe toujours sur le disque
+      if (media.path && !await window.electronAPI.checkFileExists(media.path)) {
+        console.error('Fichier vidéo introuvable:', media.path);
+        alert('Impossible de lire le média : fichier introuvable sur le disque');
+        return;
+      }
+
+      const title = media.title || 'Média sans titre';
+
+      // Ouvrir le lecteur vidéo (le lecteur s'occupe de formater l'URL)
+      // Les paramètres sont : (movieId, title, path)
+      window.openVideoPlayer(mediaId, title, media.path);
     } catch (error) {
       console.error('Erreur lors du lancement de la vidéo:', error);
+      alert('Erreur lors du lancement de la vidéo: ' + error.message);
     }
   };
   
@@ -468,6 +491,18 @@ document.addEventListener('DOMContentLoaded', () => {
         openSeries(serie.id);
       }
     });
+
+    // Ajouter l'événement pour le bouton play
+    const playBtn = card.querySelector('.play-btn');
+    if (playBtn) {
+      playBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        // Lire directement le premier épisode
+        if (window.playSeriesFirstEpisode) {
+          await window.playSeriesFirstEpisode(serie.id);
+        }
+      });
+    }
 
     return card;
   }

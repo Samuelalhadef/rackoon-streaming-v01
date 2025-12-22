@@ -300,16 +300,25 @@ class VideoPlayer {
   
   async open(movieId, movieTitle, moviePath) {
     try {
+      // Validation des paramètres
+      if (!movieTitle || typeof movieTitle !== 'string') {
+        movieTitle = 'Vidéo sans titre';
+      }
+
+      if (!moviePath || typeof moviePath !== 'string') {
+        throw new Error('Chemin de la vidéo manquant');
+      }
+
       this.currentMovie = { id: movieId, title: movieTitle, path: moviePath };
-      
+
       // Afficher la modal
       this.modal.classList.add('active');
-      
+
       // Mettre à jour les informations
       const truncatedTitle = movieTitle.length > 20 ? movieTitle.substring(0, 20) + '...' : movieTitle;
       this.elements.title.textContent = truncatedTitle;
       this.elements.details.textContent = 'Chargement...';
-      
+
       // Charger la vidéo
       this.showLoading();
       
@@ -317,7 +326,10 @@ class VideoPlayer {
       if (!moviePath) {
         throw new Error('Chemin de la vidéo non fourni');
       }
-      const videoUrl = `file:///${moviePath.replace(/\\\\/g, '/')}`;
+      // Convertir les backslashes Windows en slashes et formater pour Electron
+      const normalizedPath = moviePath.replace(/\\/g, '/');
+      const videoUrl = `file:///${normalizedPath}`;
+      console.log('🎬 URL vidéo formatée:', videoUrl);
       this.video.src = videoUrl;
       
       // Initialiser les propriétés audio

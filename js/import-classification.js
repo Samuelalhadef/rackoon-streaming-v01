@@ -1144,9 +1144,9 @@ class ImportClassificationSystem {
       // Champs pour séries
       seriesId: file?.seriesId || null,
       seriesName: file?.seriesName || null,
-      // Les numéros de saison/épisode seront gérés par le système de drag & drop (plus tard)
-      seasonNumber: null,
-      episodeNumber: null
+      // Récupérer les numéros de saison/épisode depuis le fichier (mis à jour par drag & drop)
+      seasonNumber: file?.seasonNumber || null,
+      episodeNumber: file?.episodeNumber || null
     };
 
     console.log(`   - Données finales:`, result);
