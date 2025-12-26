@@ -1218,6 +1218,9 @@ class VideoPlayer {
     this.duration = this.video.duration;
     this.updateProgress();
     this.updateVolumeDisplay();
+
+    // Démarrer automatiquement la lecture
+    this.play();
   }
   
   onVideoEnded() {
