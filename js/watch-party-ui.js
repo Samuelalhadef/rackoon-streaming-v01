@@ -118,7 +118,13 @@ class WatchPartyUI {
 
   async showCreateModal(videoInfo) {
     const modal = document.getElementById('watchparty-create-modal');
+    const statusDiv = modal.querySelector('.watchparty-status');
     modal.classList.add('active');
+
+    statusDiv.innerHTML = `
+      <i class="fas fa-spinner fa-spin"></i>
+      <span>Création de la session en cours...</span>
+    `;
 
     try {
       // Créer la session via IPC
@@ -133,6 +139,11 @@ class WatchPartyUI {
           videoInfo
         };
 
+        statusDiv.innerHTML = `
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>Connexion au serveur...</span>
+        `;
+
         // Connecter au serveur Socket.io
         await watchPartyClient.connect(result.code, 'host');
 
@@ -141,15 +152,26 @@ class WatchPartyUI {
           this.onGuestJoined();
         };
 
+        statusDiv.innerHTML = `
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>En attente de l'invité...</span>
+        `;
+
         console.log('✅ Watch Party créée:', result.code);
       } else {
-        alert('Échec de la création de la Watch Party');
-        this.closeCreateModal();
+        statusDiv.innerHTML = `
+          <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
+          <span style="color: #f44336;">Échec de la création de la Watch Party</span>
+        `;
+        setTimeout(() => this.closeCreateModal(), 3000);
       }
     } catch (error) {
       console.error('Erreur création Watch Party:', error);
-      alert('Erreur lors de la création de la Watch Party');
-      this.closeCreateModal();
+      statusDiv.innerHTML = `
+        <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
+        <span style="color: #f44336;">${error.message || 'Erreur de connexion au serveur'}</span>
+      `;
+      setTimeout(() => this.closeCreateModal(), 3000);
     }
   }
 
@@ -163,14 +185,21 @@ class WatchPartyUI {
   async handleJoinParty() {
     const code = document.getElementById('watchparty-code-input').value.toUpperCase();
     const errorDiv = document.getElementById('watchparty-join-error');
+    const joinBtn = document.getElementById('watchparty-join-btn');
 
     console.log('🔍 Tentative de join avec le code:', code);
 
     if (code.length !== 6) {
       console.error('❌ Code invalide - longueur:', code.length);
       errorDiv.textContent = 'Le code doit contenir 6 caractères';
+      errorDiv.style.color = '#f44336';
       return;
     }
+
+    // Afficher état de chargement
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Connexion en cours...';
+    errorDiv.textContent = '';
 
     try {
       console.log('📞 Appel IPC joinWatchParty...');
@@ -189,11 +218,16 @@ class WatchPartyUI {
           videoInfo: result.session.video
         };
 
+        errorDiv.textContent = 'Connexion au serveur...';
+        errorDiv.style.color = '#4CAF50';
+
         console.log('🔌 Connexion Socket.io en tant que guest...');
         // Connecter au serveur Socket.io
         await watchPartyClient.connect(code, 'guest');
 
         console.log('✅ Connecté ! Fermeture modale et ouverture vidéo...');
+        errorDiv.textContent = 'Connecté ! Ouverture de la vidéo...';
+
         // Fermer la modale et ouvrir le lecteur vidéo
         this.closeJoinModal();
 
@@ -209,10 +243,16 @@ class WatchPartyUI {
       } else {
         console.error('❌ Échec join:', result.message);
         errorDiv.textContent = result.message || 'Code invalide';
+        errorDiv.style.color = '#f44336';
       }
     } catch (error) {
       console.error('❌ Erreur pour rejoindre Watch Party:', error);
-      errorDiv.textContent = 'Erreur de connexion: ' + error.message;
+      errorDiv.textContent = error.message || 'Erreur de connexion au serveur';
+      errorDiv.style.color = '#f44336';
+    } finally {
+      // Réactiver le bouton
+      joinBtn.disabled = false;
+      joinBtn.textContent = 'Rejoindre la Watch Party';
     }
   }
 

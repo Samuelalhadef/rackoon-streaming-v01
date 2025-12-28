@@ -38,7 +38,8 @@
       "Bash(findstr:*)",
       "Bash(curl:*)",
       "Bash(netstat:*)",
-      "Bash(wmic process:*)"
+      "Bash(wmic process:*)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []

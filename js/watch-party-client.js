@@ -13,26 +13,51 @@ class WatchPartyClient {
   }
 
   async connect(code, role) {
-    this.socket = io('http://localhost:3001');
+    this.socket = io('http://localhost:3001', {
+      timeout: 10000,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5
+    });
     this.sessionCode = code;
     this.role = role;
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.socket.disconnect();
+        reject(new Error('Timeout: Impossible de se connecter au serveur Watch Party. Vérifiez que le serveur est démarré.'));
+      }, 10000);
+
       this.socket.on('connect', () => {
         console.log('🔌 Connecté au serveur Watch Party');
         this.socket.emit('join-room', { code, role });
       });
 
       this.socket.on(`joined-as-${role}`, (data) => {
+        clearTimeout(timeout);
         console.log(`✅ Rejoint en tant que ${role}:`, data);
         this.isActive = true;
         this.setupEventListeners();
         resolve(data.session);
       });
 
+      this.socket.on('connect_error', (err) => {
+        clearTimeout(timeout);
+        console.error('❌ Erreur de connexion Socket.io:', err);
+        reject(new Error('Impossible de se connecter au serveur Watch Party. Vérifiez que le serveur est en cours d\'exécution sur le port 3001.'));
+      });
+
       this.socket.on('error', (err) => {
+        clearTimeout(timeout);
         console.error('❌ Erreur Watch Party:', err);
         reject(err);
+      });
+
+      this.socket.on('room-error', (err) => {
+        clearTimeout(timeout);
+        console.error('❌ Erreur de session:', err);
+        reject(new Error(err.message || 'Code de session invalide ou session expirée.'));
       });
     });
   }
