@@ -1588,17 +1588,24 @@ function setupIPCHandlers() {
   // Créer une session Watch Party
   ipcMain.handle('watchparty:create', async (event, videoInfo) => {
     try {
+      console.log(`🔍 IPC watchparty:create appelé`);
+      console.log(`   watchPartyManager est ${watchPartyManager ? 'DÉFINI' : 'NULL'}`);
+
       if (!watchPartyManager) {
+        console.log(`❌ Cette instance est CLIENT - impossible de créer une session`);
         return {
           success: false,
           message: 'Cette instance ne peut pas créer de session. Le serveur Watch Party est sur une autre instance de l\'application.'
         };
       }
+
+      console.log(`✅ Cette instance est SERVEUR - création de session`);
       const result = watchPartyManager.createSession(videoInfo);
       // Ajouter les informations réseau
       if (result.success) {
         result.localIP = getLocalIPAddress();
         result.port = 3001;
+        console.log(`   Session créée: ${result.code} - IP: ${result.localIP}`);
       }
       return result;
     } catch (error) {
@@ -1610,10 +1617,13 @@ function setupIPCHandlers() {
   // Rejoindre une session Watch Party
   ipcMain.handle('watchparty:join', async (event, code) => {
     try {
+      console.log(`🔍 IPC watchparty:join appelé avec code: ${code}`);
+      console.log(`   watchPartyManager est ${watchPartyManager ? 'DÉFINI' : 'NULL'}`);
+
       // Si cette instance n'a pas le serveur, on retourne success
       // La validation réelle se fera lors de la connexion Socket.io au serveur
       if (!watchPartyManager) {
-        console.log(`📝 Tentative de join session: ${code} (validation via Socket.io)`);
+        console.log(`📝 Cette instance est CLIENT - validation déléguée à Socket.io`);
         return {
           success: true,
           session: {
@@ -1624,7 +1634,10 @@ function setupIPCHandlers() {
         };
       }
 
+      console.log(`📝 Cette instance est SERVEUR - validation locale`);
+      console.log(`   Sessions actives:`, Array.from(watchPartyManager.activeSessions.keys()));
       const result = watchPartyManager.joinSession(code);
+      console.log(`   Résultat validation:`, result);
       return result;
     } catch (error) {
       console.error('Erreur pour rejoindre Watch Party:', error);
@@ -1722,17 +1735,6 @@ app.whenReady().then(async () => {
     res.end('Rackoon Streaming Watch Party Server');
   });
 
-  // Initialiser le serveur Socket.io pour Watch Party
-  io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
-  });
-
-  watchPartyManager = new WatchPartyManager(io, db);
-  watchPartyManager.initialize();
-
   // Démarrer le serveur HTTP sur le port 3001 (toutes les interfaces)
   const PORT = 3001;
   httpServer.listen(PORT, '0.0.0.0', (err) => {
@@ -1740,16 +1742,30 @@ app.whenReady().then(async () => {
       if (err.code === 'EADDRINUSE') {
         console.log('ℹ️  Serveur Watch Party déjà actif sur le port 3001 (instance existante)');
         console.log('   Cette instance se connectera au serveur existant comme client');
-        // Ne pas créer de nouveau serveur, utiliser celui qui existe déjà
+        // Ne pas créer de serveur ni de gestionnaire
         httpServer = null;
         io = null;
         watchPartyManager = null;
       } else {
         console.error('❌ Erreur démarrage serveur Watch Party:', err);
+        httpServer = null;
+        io = null;
+        watchPartyManager = null;
       }
     } else {
       console.log('🎬 Serveur Watch Party démarré sur le port 3001');
       console.log('   ℹ️  Les informations réseau seront affichées lors de la création d\'une session');
+
+      // Initialiser Socket.io UNIQUEMENT si le serveur a démarré
+      io = new Server(httpServer, {
+        cors: {
+          origin: "*",
+          methods: ["GET", "POST"]
+        }
+      });
+
+      watchPartyManager = new WatchPartyManager(io, db);
+      watchPartyManager.initialize();
     }
   });
 
