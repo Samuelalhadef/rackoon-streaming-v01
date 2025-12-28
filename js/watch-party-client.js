@@ -42,7 +42,7 @@ class WatchPartyClient {
         console.log(`✅ Rejoint en tant que ${role}:`, data);
         this.isActive = true;
         this.setupEventListeners();
-        resolve(data.session);
+        resolve(data); // Retourner toutes les données incluant session
       });
 
       this.socket.on('connect_error', (err) => {

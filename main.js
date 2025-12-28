@@ -1588,6 +1588,12 @@ function setupIPCHandlers() {
   // Créer une session Watch Party
   ipcMain.handle('watchparty:create', async (event, videoInfo) => {
     try {
+      if (!watchPartyManager) {
+        return {
+          success: false,
+          message: 'Cette instance ne peut pas créer de session. Le serveur Watch Party est sur une autre instance de l\'application.'
+        };
+      }
       const result = watchPartyManager.createSession(videoInfo);
       // Ajouter les informations réseau
       if (result.success) {
@@ -1604,6 +1610,20 @@ function setupIPCHandlers() {
   // Rejoindre une session Watch Party
   ipcMain.handle('watchparty:join', async (event, code) => {
     try {
+      // Si cette instance n'a pas le serveur, on retourne success
+      // La validation réelle se fera lors de la connexion Socket.io au serveur
+      if (!watchPartyManager) {
+        console.log(`📝 Tentative de join session: ${code} (validation via Socket.io)`);
+        return {
+          success: true,
+          session: {
+            sessionId: `temp_${code}`,
+            code: code,
+            video: { id: '', title: '', path: '' }
+          }
+        };
+      }
+
       const result = watchPartyManager.joinSession(code);
       return result;
     } catch (error) {
@@ -1715,9 +1735,22 @@ app.whenReady().then(async () => {
 
   // Démarrer le serveur HTTP sur le port 3001 (toutes les interfaces)
   const PORT = 3001;
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log('🎬 Serveur Watch Party démarré sur le port 3001');
-    console.log('   ℹ️  Les informations réseau seront affichées lors de la création d\'une session');
+  httpServer.listen(PORT, '0.0.0.0', (err) => {
+    if (err) {
+      if (err.code === 'EADDRINUSE') {
+        console.log('ℹ️  Serveur Watch Party déjà actif sur le port 3001 (instance existante)');
+        console.log('   Cette instance se connectera au serveur existant comme client');
+        // Ne pas créer de nouveau serveur, utiliser celui qui existe déjà
+        httpServer = null;
+        io = null;
+        watchPartyManager = null;
+      } else {
+        console.error('❌ Erreur démarrage serveur Watch Party:', err);
+      }
+    } else {
+      console.log('🎬 Serveur Watch Party démarré sur le port 3001');
+      console.log('   ℹ️  Les informations réseau seront affichées lors de la création d\'une session');
+    }
   });
 
   // Vérifier si ffmpeg est installé

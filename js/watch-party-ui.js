@@ -217,7 +217,7 @@ class WatchPartyUI {
         `;
 
         // Connecter au serveur Socket.io (localhost pour le host)
-        await watchPartyClient.connect(result.code, 'host', 'localhost');
+        const sessionData = await watchPartyClient.connect(result.code, 'host', 'localhost');
 
         // Configurer les callbacks
         watchPartyClient.onGuestJoined = () => {
@@ -230,6 +230,7 @@ class WatchPartyUI {
         `;
 
         console.log('✅ Watch Party créée:', result.code, 'IP:', result.localIP);
+        console.log('   Session data:', sessionData);
       } else {
         statusDiv.innerHTML = `
           <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
@@ -303,29 +304,33 @@ class WatchPartyUI {
       if (result.success) {
         console.log('✅ Session trouvée:', result.session);
 
-        this.currentSession = {
-          code,
-          sessionId: result.session.sessionId,
-          role: 'guest',
-          videoInfo: result.session.video,
-          serverHost
-        };
-
         errorDiv.textContent = `Connexion au serveur ${serverHost}...`;
         errorDiv.style.color = '#4CAF50';
 
         console.log(`🔌 Connexion Socket.io en tant que guest sur ${serverHost}...`);
-        // Connecter au serveur Socket.io avec l'IP spécifiée
-        await watchPartyClient.connect(code, 'guest', serverHost);
 
-        console.log('✅ Connecté ! Fermeture modale et ouverture vidéo...');
+        // Connecter au serveur Socket.io avec l'IP spécifiée
+        const sessionData = await watchPartyClient.connect(code, 'guest', serverHost);
+
+        console.log('✅ Connecté ! Données reçues:', sessionData);
+
+        // Récupérer les infos vidéo depuis le serveur Socket.io
+        const video = sessionData.session.video;
+
+        this.currentSession = {
+          code,
+          sessionId: sessionData.session.sessionId,
+          role: 'guest',
+          videoInfo: video,
+          serverHost
+        };
+
         errorDiv.textContent = 'Connecté ! Ouverture de la vidéo...';
 
-        // Fermer la modale et ouvrir le lecteur vidéo
+        // Fermer la modale
         this.closeJoinModal();
 
         // Ouvrir la vidéo avec les infos de la session
-        const video = result.session.video;
         console.log('📹 Ouverture vidéo:', video);
         await window.videoPlayer.open(video.id, video.title, video.path);
         window.videoPlayer.enableWatchParty();
