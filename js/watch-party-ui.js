@@ -105,7 +105,7 @@ class WatchPartyUI {
             </div>
 
             <div class="watchparty-error" id="watchparty-join-error"></div>
-            <button class="watchparty-join-btn" id="watchparty-join-btn">
+            <button class="watchparty-join-btn" id="watchparty-join-submit-btn">
               Rejoindre la Watch Party
             </button>
           </div>
@@ -151,7 +151,7 @@ class WatchPartyUI {
       .querySelector('.close-modal-btn')
       .addEventListener('click', () => this.closeJoinModal());
 
-    document.getElementById('watchparty-join-btn')
+    document.getElementById('watchparty-join-submit-btn')
       .addEventListener('click', () => this.handleJoinParty());
 
     document.getElementById('watchparty-code-input')
@@ -248,10 +248,15 @@ class WatchPartyUI {
   }
 
   showJoinModal() {
+    console.log('📖 Ouverture de la modale Join');
     const modal = document.getElementById('watchparty-join-modal');
     modal.classList.add('active');
     document.getElementById('watchparty-code-input').value = '';
     document.getElementById('watchparty-join-error').textContent = '';
+
+    // Initialiser le mode de connexion
+    const connectionMode = document.getElementById('watchparty-connection-mode').value;
+    this.handleConnectionModeChange(connectionMode);
   }
 
   async handleJoinParty() {
@@ -259,7 +264,7 @@ class WatchPartyUI {
     const connectionMode = document.getElementById('watchparty-connection-mode').value;
     const hostIP = document.getElementById('watchparty-host-ip').value.trim();
     const errorDiv = document.getElementById('watchparty-join-error');
-    const joinBtn = document.getElementById('watchparty-join-btn');
+    const joinBtn = document.getElementById('watchparty-join-submit-btn');
 
     console.log('🔍 Tentative de join avec le code:', code);
 
@@ -471,6 +476,7 @@ class WatchPartyUI {
   }
 
   handleConnectionModeChange(mode) {
+    console.log('🔄 Mode de connexion changé:', mode);
     const ipContainer = document.getElementById('ip-input-container');
     if (mode === 'localhost') {
       ipContainer.style.display = 'none';
