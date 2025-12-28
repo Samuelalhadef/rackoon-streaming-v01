@@ -1,5 +1,6 @@
 
 // dashboard.js - Logique pour l'interface principale style Netflix simplifiée
+
 document.addEventListener('DOMContentLoaded', () => {
   // Plus de système de connexion - application directe
   console.log('Application Rackoon Streaming démarrée');
@@ -190,31 +191,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchTerm = filterSearch.value.toLowerCase().trim();
     filterMedias(searchTerm);
   });
-  
+
   // Fonction pour afficher les films avec miniatures
   function displayMedias(movies) {
     const mediaGrid = document.getElementById('media-grid');
     mediaGrid.innerHTML = '';
-    
+
     if (!movies || movies.length === 0) {
       mediaGrid.innerHTML = '<p class="no-movies">Aucun film trouvé. Utilisez le bouton + pour scanner un dossier.</p>';
       return;
     }
-    
+
     movies.forEach(movie => {
       const movieCard = document.createElement('div');
       movieCard.className = 'media-card movie-card';
-      
+
       // Gérer l'affichage des miniatures
-      let thumbnailSrc = '../public/img/default-thumbnail.svg';
+      let thumbnailSrc = window.DEFAULT_THUMBNAIL;
       if (movie.thumbnail) {
         // Utiliser le chemin local de la miniature
         thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
       }
-      
+
       movieCard.innerHTML = `
         <div class="media-thumbnail-container">
-          <img src="${thumbnailSrc}" alt="${movie.title}" class="media-thumbnail" onerror="this.src='../public/img/default-thumbnail.svg'">
+          <img src="${thumbnailSrc}" alt="${movie.title}" class="media-thumbnail" onerror="this.src='${window.DEFAULT_THUMBNAIL}'">
           <div class="media-overlay">
             <button class="play-btn" onclick="playMedia('${movie.id}')">
               <i class="fas fa-play"></i>
@@ -963,13 +964,13 @@ function setupMediaCard(mediaCard, movie) {
   } else if (movie.thumbnail) {
     thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
   } else {
-    thumbnailSrc = '../public/img/default-thumbnail.svg';
+    thumbnailSrc = window.DEFAULT_THUMBNAIL;
   }
 
   const thumbnailImg = mediaCard.querySelector('.media-thumbnail');
   thumbnailImg.src = thumbnailSrc;
   thumbnailImg.alt = movie.title;
-  thumbnailImg.onerror = () => { thumbnailImg.src = '../public/img/default-thumbnail.svg'; };
+  thumbnailImg.onerror = () => { thumbnailImg.src = window.DEFAULT_THUMBNAIL; };
 
   // Configurer le titre
   mediaCard.querySelector('.media-title').textContent = movie.title;
@@ -1095,13 +1096,13 @@ function createCategorySection(categoryTitle, moviesInCategory) {
       // Utiliser le chemin absolu vers le dossier data/thumbnails
       thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
     } else {
-      thumbnailSrc = '../public/img/default-thumbnail.svg';
+      thumbnailSrc = window.DEFAULT_THUMBNAIL;
     }
-    
+
     const thumbnailImg = mediaCard.querySelector('.media-thumbnail');
     thumbnailImg.src = thumbnailSrc;
     thumbnailImg.alt = movie.title;
-    thumbnailImg.onerror = () => { thumbnailImg.src = '../public/img/default-thumbnail.svg'; };
+    thumbnailImg.onerror = () => { thumbnailImg.src = window.DEFAULT_THUMBNAIL; };
     
     // Configurer le titre
     mediaCard.querySelector('.media-title').textContent = movie.title;

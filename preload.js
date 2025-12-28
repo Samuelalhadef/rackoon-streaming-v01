@@ -54,7 +54,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeTagsFromMedia: (mediaId, tags, tagType) => ipcRenderer.invoke('tags:removeFromMedia', mediaId, tags, tagType),
   searchMediasByTags: (searchTags, operator) => ipcRenderer.invoke('tags:searchMedias', searchTags, operator),
   getTagSuggestions: (query, limit) => ipcRenderer.invoke('tags:getSuggestions', query, limit),
-  
+
+  // APIs Watch Party
+  createWatchParty: (videoInfo) => ipcRenderer.invoke('watchparty:create', videoInfo),
+  joinWatchParty: (code) => ipcRenderer.invoke('watchparty:join', code),
+  leaveWatchParty: (sessionId) => ipcRenderer.invoke('watchparty:leave', sessionId),
+  getWatchPartyInfo: (sessionId) => ipcRenderer.invoke('watchparty:getSessionInfo', sessionId),
+
   // Événements
   onScanStatus: (callback) => {
     // Création d'un canal sécurisé pour recevoir l'état du scan

@@ -10,7 +10,7 @@
     sortBy: 'category', // 'category' affiche par catégories, les autres trient globalement
     sortOrder: 'asc', // 'asc' ou 'desc'
     viewMode: 'global', // 'global' ou 'sections' (affichage par lettres)
-    mediaTypes: ['film', 'series', 'short', 'other'],
+    mediaTypes: ['film', 'series', 'short', 'other', 'unsorted'],
     genres: [],
     yearMin: 1900,
     yearMax: 2030,
@@ -898,12 +898,12 @@
     // Configurer l'image
     const thumbnailSrc = media.thumbnail
       ? `../data/thumbnails/${media.thumbnail}`
-      : '../public/img/default-thumbnail.svg';
+      : window.DEFAULT_THUMBNAIL;
 
     const img = card.querySelector('.media-thumbnail');
     img.src = thumbnailSrc;
     img.alt = media.title || media.name || 'Sans titre';
-    img.onerror = () => { img.src = '../public/img/default-thumbnail.svg'; };
+    img.onerror = () => { img.src = window.DEFAULT_THUMBNAIL; };
 
     // Configurer le titre
     card.querySelector('.media-title').textContent = media.title || media.name || 'Sans titre';
@@ -1161,6 +1161,13 @@
         // S'assurer que sortBy a une valeur valide
         if (!filtersState.sortBy) {
           filtersState.sortBy = 'category';
+        }
+
+        // MIGRATION: Ajouter 'unsorted' si absent (pour rétrocompatibilité)
+        if (filtersState.mediaTypes && !filtersState.mediaTypes.includes('unsorted')) {
+          filtersState.mediaTypes.push('unsorted');
+          console.log('🔄 Migration: ajout de "unsorted" aux types de médias');
+          saveFiltersToStorage(); // Sauvegarder la migration
         }
 
         // Restaurer l'UI

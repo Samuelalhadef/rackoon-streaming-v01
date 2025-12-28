@@ -258,7 +258,7 @@ class DashboardCategories {
       card.className = 'media-card movie-card';
       card.innerHTML = `
         <div class="media-thumbnail-container">
-          <img src="${movie.thumbnail || '../public/img/default-thumbnail.svg'}" alt="${movie.title}" class="media-thumbnail">
+          <img src="${movie.thumbnail || window.DEFAULT_THUMBNAIL}" alt="${movie.title}" class="media-thumbnail">
         </div>
         <div class="media-info">
           <div class="media-title-container">
@@ -278,7 +278,7 @@ class DashboardCategories {
     
     const thumbnail = card.querySelector('.media-thumbnail');
     if (thumbnail) {
-      thumbnail.src = movie.thumbnail || '../public/img/default-thumbnail.svg';
+      thumbnail.src = movie.thumbnail || window.DEFAULT_THUMBNAIL;
       thumbnail.alt = movie.title || 'Sans titre';
     }
     

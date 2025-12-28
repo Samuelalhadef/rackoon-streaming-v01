@@ -7,6 +7,9 @@ const { execSync, exec } = require('child_process');
 const os = require('os');
 const JSONDatabase = require('./js/db-manager');
 const https = require('https');
+const http = require('http');
+const { Server } = require('socket.io');
+const WatchPartyManager = require('./js/watch-party-manager');
 
 // Chemins pour FFmpeg
 let FFMPEG_PATH;
@@ -83,6 +86,9 @@ const SUPPORTED_FORMATS = ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.web
 // Variables globales
 let mainWindow;
 let db;
+let httpServer;
+let io;
+let watchPartyManager;
 
 // Créer la fenêtre principale
 function createWindow() {
@@ -1559,6 +1565,54 @@ function setupIPCHandlers() {
       return { success: false, message: error.message };
     }
   });
+
+  // ========================================
+  // WATCH PARTY IPC HANDLERS
+  // ========================================
+
+  // Créer une session Watch Party
+  ipcMain.handle('watchparty:create', async (event, videoInfo) => {
+    try {
+      const result = watchPartyManager.createSession(videoInfo);
+      return result;
+    } catch (error) {
+      console.error('Erreur création Watch Party:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Rejoindre une session Watch Party
+  ipcMain.handle('watchparty:join', async (event, code) => {
+    try {
+      const result = watchPartyManager.joinSession(code);
+      return result;
+    } catch (error) {
+      console.error('Erreur pour rejoindre Watch Party:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Quitter une session Watch Party
+  ipcMain.handle('watchparty:leave', async (event, sessionId) => {
+    try {
+      const result = watchPartyManager.leaveSession(sessionId);
+      return result;
+    } catch (error) {
+      console.error('Erreur pour quitter Watch Party:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Obtenir les infos d'une session Watch Party
+  ipcMain.handle('watchparty:getSessionInfo', async (event, sessionId) => {
+    try {
+      const result = watchPartyManager.getSessionInfo(sessionId);
+      return result;
+    } catch (error) {
+      console.error('Erreur pour obtenir info Watch Party:', error);
+      return { success: false, message: error.message };
+    }
+  });
 }
 
 // Fonction pour essayer de convertir SUP en SRT
@@ -1621,10 +1675,32 @@ app.whenReady().then(async () => {
   
   // Créer la fenêtre
   createWindow();
-  
+
+  // Créer un serveur HTTP pour Socket.io
+  httpServer = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Rackoon Streaming Watch Party Server');
+  });
+
+  // Initialiser le serveur Socket.io pour Watch Party
+  io = new Server(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
+
+  watchPartyManager = new WatchPartyManager(io, db);
+  watchPartyManager.initialize();
+
+  // Démarrer le serveur HTTP sur le port 3001
+  httpServer.listen(3001, () => {
+    console.log('🎬 Serveur Watch Party démarré sur le port 3001');
+  });
+
   // Vérifier si ffmpeg est installé
   const ffmpegInstalled = checkFfmpegInstalled();
-  
+
   setupIPCHandlers();
   
   app.on('activate', function () {
@@ -1634,5 +1710,12 @@ app.whenReady().then(async () => {
 
 // Quitter quand toutes les fenêtres sont fermées
 app.on('window-all-closed', function () {
+  // Fermer le serveur HTTP Watch Party
+  if (httpServer) {
+    httpServer.close(() => {
+      console.log('🎬 Serveur Watch Party fermé');
+    });
+  }
+
   if (process.platform !== 'darwin') app.quit();
 });

@@ -743,9 +743,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mettre à jour les données actuelles du film
       currentMovieData = movie;
       console.log("Données du film après fusion:", currentMovieData);
-      
+
       // Configurer l'image de couverture
-      let posterSrc = '../public/img/default-thumbnail.svg';
+      let posterSrc = window.DEFAULT_THUMBNAIL;
       
       // Utiliser l'URL sauvegardée en priorité
       if (movie.posterUrl) {
@@ -1889,9 +1889,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Afficher chaque résultat
     results.forEach((movie) => {
       // Utiliser directement l'URL TMDB pour l'affichage (pas de téléchargement)
-      const posterPath = movie.poster_path 
+      const posterPath = movie.poster_path
         ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}`
-        : '../public/img/default-thumbnail.svg';
+        : window.DEFAULT_THUMBNAIL;
       
       const releaseYear = movie.release_date 
         ? new Date(movie.release_date).getFullYear() 

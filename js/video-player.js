@@ -18,7 +18,11 @@ class VideoPlayer {
     this.playbackRate = 1;
     this.controlsVisible = true;
     this.isClosing = false;
-    
+
+    // Watch Party
+    this.watchPartyActive = false;
+    this.isSyncingFromRemote = false; // Empêche les boucles d'événements
+
     // Timers
     this.hideControlsTimer = null;
     this.progressUpdateTimer = null;
@@ -417,13 +421,23 @@ class VideoPlayer {
     this.isPlaying = true;
     this.updatePlayPauseButton();
     this.showControlsTemporary();
+
+    // Émettre l'événement Watch Party si actif et pas en sync
+    if (this.watchPartyActive && !this.isSyncingFromRemote) {
+      watchPartyClient.emitPlay(this.video.currentTime);
+    }
   }
-  
+
   pause() {
     this.video.pause();
     this.isPlaying = false;
     this.updatePlayPauseButton();
     this.showControls();
+
+    // Émettre l'événement Watch Party si actif et pas en sync
+    if (this.watchPartyActive && !this.isSyncingFromRemote) {
+      watchPartyClient.emitPause(this.video.currentTime);
+    }
   }
   
   updatePlayPauseButton() {
@@ -491,10 +505,20 @@ class VideoPlayer {
   seekToPercent(percent) {
     const time = percent * this.duration;
     this.video.currentTime = Math.max(0, Math.min(this.duration, time));
+
+    // Émettre l'événement Watch Party si actif et pas en sync
+    if (this.watchPartyActive && !this.isSyncingFromRemote) {
+      watchPartyClient.emitSeek(this.video.currentTime);
+    }
   }
-  
+
   seek(seconds) {
     this.video.currentTime = Math.max(0, Math.min(this.duration, this.video.currentTime + seconds));
+
+    // Émettre l'événement Watch Party si actif et pas en sync
+    if (this.watchPartyActive && !this.isSyncingFromRemote) {
+      watchPartyClient.emitSeek(this.video.currentTime);
+    }
   }
   
   updateProgress() {
@@ -545,13 +569,18 @@ class VideoPlayer {
     this.playbackRate = rate;
     this.video.playbackRate = rate;
     this.elements.speedText.textContent = `${rate}x`;
-    
+
     // Mettre à jour l'option active
     this.modal.querySelectorAll('.speed-option').forEach(btn => {
       btn.classList.toggle('active', parseFloat(btn.dataset.speed) === rate);
     });
-    
+
     this.elements.speedMenu.classList.remove('active');
+
+    // Émettre l'événement Watch Party si actif et pas en sync
+    if (this.watchPartyActive && !this.isSyncingFromRemote) {
+      watchPartyClient.emitRateChange(rate);
+    }
   }
   
   // Pistes audio
@@ -1628,8 +1657,67 @@ class VideoPlayer {
         console.log('📝 Aucune cue active');
       }
     });
-    
+
     console.log('📝 Listener cuechange ajouté');
+  }
+
+  // ========================================
+  // WATCH PARTY METHODS
+  // ========================================
+
+  enableWatchParty() {
+    this.watchPartyActive = true;
+
+    // Configurer les callbacks pour les événements distants
+    watchPartyClient.onPlaybackEvent = (type, data) => {
+      this.handleRemotePlaybackEvent(type, data);
+    };
+
+    console.log('🎬 Watch Party activée');
+  }
+
+  disableWatchParty() {
+    this.watchPartyActive = false;
+    watchPartyClient.onPlaybackEvent = null;
+    console.log('🎬 Watch Party désactivée');
+  }
+
+  handleRemotePlaybackEvent(type, data) {
+    // Activer le flag pour empêcher la réémission
+    this.isSyncingFromRemote = true;
+
+    try {
+      switch(type) {
+        case 'play':
+          // Synchroniser le temps si l'écart > 1 seconde
+          if (Math.abs(this.video.currentTime - data.currentTime) > 1) {
+            this.video.currentTime = data.currentTime;
+          }
+          this.play();
+          break;
+
+        case 'pause':
+          // Synchroniser le temps si l'écart > 0.5 secondes
+          if (Math.abs(this.video.currentTime - data.currentTime) > 0.5) {
+            this.video.currentTime = data.currentTime;
+          }
+          this.pause();
+          break;
+
+        case 'seek':
+          this.video.currentTime = data.currentTime;
+          break;
+
+        case 'ratechange':
+          this.setPlaybackRate(data.playbackRate);
+          break;
+      }
+    } finally {
+      // Réinitialiser le flag après 100ms
+      setTimeout(() => {
+        this.isSyncingFromRemote = false;
+      }, 100);
+    }
   }
 }
 

@@ -266,7 +266,7 @@ class ImportTriageSystem {
       
       // Image de prévisualisation (miniature par défaut)
       const thumbnail = row.querySelector('.thumbnail-preview');
-      thumbnail.src = '../public/img/default-thumbnail.svg';
+      thumbnail.src = window.DEFAULT_THUMBNAIL;
       thumbnail.alt = file.title || file.name;
       
       // Nom du fichier

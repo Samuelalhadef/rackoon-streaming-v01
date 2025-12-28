@@ -35,7 +35,10 @@
       "Bash(dir:*)",
       "Bash(del \"data\\movies.json\")",
       "Bash(rm:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(curl:*)",
+      "Bash(netstat:*)",
+      "Bash(wmic process:*)"
     ],
     "deny": [],
     "ask": []
