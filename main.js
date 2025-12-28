@@ -1570,10 +1570,30 @@ function setupIPCHandlers() {
   // WATCH PARTY IPC HANDLERS
   // ========================================
 
+  // Fonction utilitaire pour obtenir l'IP locale
+  function getLocalIPAddress() {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        // IPv4, pas localhost, pas interne
+        const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4;
+        if (net.family === familyV4Value && !net.internal) {
+          return net.address;
+        }
+      }
+    }
+    return 'localhost';
+  }
+
   // Créer une session Watch Party
   ipcMain.handle('watchparty:create', async (event, videoInfo) => {
     try {
       const result = watchPartyManager.createSession(videoInfo);
+      // Ajouter les informations réseau
+      if (result.success) {
+        result.localIP = getLocalIPAddress();
+        result.port = 3001;
+      }
       return result;
     } catch (error) {
       console.error('Erreur création Watch Party:', error);
@@ -1693,9 +1713,11 @@ app.whenReady().then(async () => {
   watchPartyManager = new WatchPartyManager(io, db);
   watchPartyManager.initialize();
 
-  // Démarrer le serveur HTTP sur le port 3001
-  httpServer.listen(3001, () => {
+  // Démarrer le serveur HTTP sur le port 3001 (toutes les interfaces)
+  const PORT = 3001;
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log('🎬 Serveur Watch Party démarré sur le port 3001');
+    console.log('   ℹ️  Les informations réseau seront affichées lors de la création d\'une session');
   });
 
   // Vérifier si ffmpeg est installé

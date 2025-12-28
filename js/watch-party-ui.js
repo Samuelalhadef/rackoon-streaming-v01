@@ -27,13 +27,36 @@ class WatchPartyUI {
             <button class="close-modal-btn">&times;</button>
           </div>
           <div class="modal-body">
-            <p>Partagez ce code avec votre ami pour regarder ensemble :</p>
-            <div class="watchparty-code-display">
-              <span id="watchparty-code-text">------</span>
-              <button class="copy-code-btn" title="Copier le code">
-                <i class="fas fa-copy"></i>
-              </button>
+            <p style="margin-bottom: 15px;">Partagez ces informations avec votre ami :</p>
+
+            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <div style="margin-bottom: 10px;">
+                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Code de session :</label>
+                <div class="watchparty-code-display">
+                  <span id="watchparty-code-text">------</span>
+                  <button class="copy-code-btn" id="copy-code-btn" title="Copier le code">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 10px;">
+                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">IP Réseau Local (LAN) :</label>
+                <div class="watchparty-code-display">
+                  <span id="watchparty-ip-local" style="font-size: 14px;">---</span>
+                  <button class="copy-code-btn" id="copy-ip-local-btn" title="Copier l'IP locale">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div style="font-size: 11px; color: #666; margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
+                <strong>Pour connexion Internet :</strong><br>
+                Configurez le port forwarding (port 3001) sur votre routeur puis partagez votre IP publique.
+                <a href="#" id="show-port-forwarding-help" style="color: #4CAF50; text-decoration: none;"> Aide →</a>
+              </div>
             </div>
+
             <div class="watchparty-status">
               <i class="fas fa-spinner fa-spin"></i>
               <span>En attente de l'invité...</span>
@@ -50,12 +73,37 @@ class WatchPartyUI {
             <button class="close-modal-btn">&times;</button>
           </div>
           <div class="modal-body">
-            <p>Entrez le code à 6 chiffres de votre ami :</p>
-            <input type="text"
-                   id="watchparty-code-input"
-                   class="watchparty-code-input"
-                   placeholder="XXXXXX"
-                   maxlength="6">
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-size: 12px; color: #888; margin-bottom: 8px;">Mode de connexion :</label>
+              <select id="watchparty-connection-mode" class="watchparty-code-input" style="width: 100%; margin-bottom: 15px;">
+                <option value="localhost">Même ordinateur (localhost)</option>
+                <option value="lan" selected>Réseau local (LAN)</option>
+                <option value="internet">Internet (IP publique)</option>
+              </select>
+            </div>
+
+            <div id="ip-input-container" style="margin-bottom: 15px;">
+              <label style="display: block; font-size: 12px; color: #888; margin-bottom: 8px;">IP du Host :</label>
+              <input type="text"
+                     id="watchparty-host-ip"
+                     class="watchparty-code-input"
+                     placeholder="192.168.1.10"
+                     style="width: 100%;">
+              <div style="font-size: 11px; color: #666; margin-top: 5px;">
+                Exemple: 192.168.1.10 (LAN) ou 82.123.45.67 (Internet)
+              </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-size: 12px; color: #888; margin-bottom: 8px;">Code de session :</label>
+              <input type="text"
+                     id="watchparty-code-input"
+                     class="watchparty-code-input"
+                     placeholder="XXXXXX"
+                     maxlength="6"
+                     style="width: 100%;">
+            </div>
+
             <div class="watchparty-error" id="watchparty-join-error"></div>
             <button class="watchparty-join-btn" id="watchparty-join-btn">
               Rejoindre la Watch Party
@@ -111,9 +159,28 @@ class WatchPartyUI {
         if (e.key === 'Enter') this.handleJoinParty();
       });
 
-    // Bouton copier le code
-    document.querySelector('.copy-code-btn')
+    document.getElementById('watchparty-host-ip')
+      .addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') this.handleJoinParty();
+      });
+
+    // Boutons copier
+    document.getElementById('copy-code-btn')
       .addEventListener('click', () => this.copyCode());
+
+    document.getElementById('copy-ip-local-btn')
+      .addEventListener('click', () => this.copyIPLocal());
+
+    // Mode de connexion
+    document.getElementById('watchparty-connection-mode')
+      .addEventListener('change', (e) => this.handleConnectionModeChange(e.target.value));
+
+    // Lien aide port forwarding
+    document.getElementById('show-port-forwarding-help')
+      .addEventListener('click', (e) => {
+        e.preventDefault();
+        this.showPortForwardingHelp();
+      });
   }
 
   async showCreateModal(videoInfo) {
@@ -131,12 +198,17 @@ class WatchPartyUI {
       const result = await window.electronAPI.createWatchParty(videoInfo);
 
       if (result.success) {
+        // Afficher le code et l'IP locale
         document.getElementById('watchparty-code-text').textContent = result.code;
+        document.getElementById('watchparty-ip-local').textContent = result.localIP || 'localhost';
+
         this.currentSession = {
           code: result.code,
           sessionId: result.sessionId,
           role: 'host',
-          videoInfo
+          videoInfo,
+          localIP: result.localIP,
+          port: result.port
         };
 
         statusDiv.innerHTML = `
@@ -144,8 +216,8 @@ class WatchPartyUI {
           <span>Connexion au serveur...</span>
         `;
 
-        // Connecter au serveur Socket.io
-        await watchPartyClient.connect(result.code, 'host');
+        // Connecter au serveur Socket.io (localhost pour le host)
+        await watchPartyClient.connect(result.code, 'host', 'localhost');
 
         // Configurer les callbacks
         watchPartyClient.onGuestJoined = () => {
@@ -157,7 +229,7 @@ class WatchPartyUI {
           <span>En attente de l'invité...</span>
         `;
 
-        console.log('✅ Watch Party créée:', result.code);
+        console.log('✅ Watch Party créée:', result.code, 'IP:', result.localIP);
       } else {
         statusDiv.innerHTML = `
           <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
@@ -184,6 +256,8 @@ class WatchPartyUI {
 
   async handleJoinParty() {
     const code = document.getElementById('watchparty-code-input').value.toUpperCase();
+    const connectionMode = document.getElementById('watchparty-connection-mode').value;
+    const hostIP = document.getElementById('watchparty-host-ip').value.trim();
     const errorDiv = document.getElementById('watchparty-join-error');
     const joinBtn = document.getElementById('watchparty-join-btn');
 
@@ -194,6 +268,19 @@ class WatchPartyUI {
       errorDiv.textContent = 'Le code doit contenir 6 caractères';
       errorDiv.style.color = '#f44336';
       return;
+    }
+
+    // Déterminer l'IP à utiliser selon le mode
+    let serverHost;
+    if (connectionMode === 'localhost') {
+      serverHost = 'localhost';
+    } else {
+      if (!hostIP) {
+        errorDiv.textContent = 'Veuillez entrer l\'IP du Host';
+        errorDiv.style.color = '#f44336';
+        return;
+      }
+      serverHost = hostIP;
     }
 
     // Afficher état de chargement
@@ -215,15 +302,16 @@ class WatchPartyUI {
           code,
           sessionId: result.session.sessionId,
           role: 'guest',
-          videoInfo: result.session.video
+          videoInfo: result.session.video,
+          serverHost
         };
 
-        errorDiv.textContent = 'Connexion au serveur...';
+        errorDiv.textContent = `Connexion au serveur ${serverHost}...`;
         errorDiv.style.color = '#4CAF50';
 
-        console.log('🔌 Connexion Socket.io en tant que guest...');
-        // Connecter au serveur Socket.io
-        await watchPartyClient.connect(code, 'guest');
+        console.log(`🔌 Connexion Socket.io en tant que guest sur ${serverHost}...`);
+        // Connecter au serveur Socket.io avec l'IP spécifiée
+        await watchPartyClient.connect(code, 'guest', serverHost);
 
         console.log('✅ Connecté ! Fermeture modale et ouverture vidéo...');
         errorDiv.textContent = 'Connecté ! Ouverture de la vidéo...';
@@ -239,7 +327,7 @@ class WatchPartyUI {
 
         this.showChatInterface();
 
-        console.log('✅ Watch Party rejointe:', code);
+        console.log('✅ Watch Party rejointe:', code, 'via', serverHost);
       } else {
         console.error('❌ Échec join:', result.message);
         errorDiv.textContent = result.message || 'Code invalide';
@@ -363,12 +451,85 @@ class WatchPartyUI {
   copyCode() {
     const code = document.getElementById('watchparty-code-text').textContent;
     navigator.clipboard.writeText(code).then(() => {
-      const btn = document.querySelector('.copy-code-btn');
+      const btn = document.getElementById('copy-code-btn');
       btn.innerHTML = '<i class="fas fa-check"></i>';
       setTimeout(() => {
         btn.innerHTML = '<i class="fas fa-copy"></i>';
       }, 2000);
     });
+  }
+
+  copyIPLocal() {
+    const ip = document.getElementById('watchparty-ip-local').textContent;
+    navigator.clipboard.writeText(ip).then(() => {
+      const btn = document.getElementById('copy-ip-local-btn');
+      btn.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="fas fa-copy"></i>';
+      }, 2000);
+    });
+  }
+
+  handleConnectionModeChange(mode) {
+    const ipContainer = document.getElementById('ip-input-container');
+    if (mode === 'localhost') {
+      ipContainer.style.display = 'none';
+    } else {
+      ipContainer.style.display = 'block';
+      // Placeholder selon le mode
+      const ipInput = document.getElementById('watchparty-host-ip');
+      if (mode === 'lan') {
+        ipInput.placeholder = '192.168.1.10';
+      } else if (mode === 'internet') {
+        ipInput.placeholder = '82.123.45.67';
+      }
+    }
+  }
+
+  showPortForwardingHelp() {
+    const helpText = `
+═══════════════════════════════════════════════════════
+   CONFIGURATION PORT FORWARDING (Connexion Internet)
+═══════════════════════════════════════════════════════
+
+Pour permettre à votre ami de se connecter via Internet :
+
+1️⃣  PARE-FEU WINDOWS (Ordinateur Host)
+   • Ouvrez le Panneau de configuration
+   • Recherchez "Pare-feu Windows"
+   • Cliquez sur "Paramètres avancés"
+   • Règles de trafic entrant → Nouvelle règle
+   • Type : Port → TCP → Port 3001
+   • Action : Autoriser la connexion
+   • Nom : "Rackoon Watch Party"
+
+2️⃣  PORT FORWARDING (Routeur/Box)
+   • Connectez-vous à votre routeur (souvent 192.168.1.1)
+   • Trouvez la section "Port Forwarding" ou "NAT"
+   • Créez une nouvelle règle :
+     - Port externe : 3001
+     - Port interne : 3001
+     - IP locale : ${this.currentSession?.localIP || 'Votre IP locale'}
+     - Protocole : TCP
+
+3️⃣  TROUVER VOTRE IP PUBLIQUE
+   • Visitez : https://www.monip.org
+   • Ou tapez "quelle est mon ip" sur Google
+   • Partagez cette IP avec votre ami
+
+4️⃣  VOTRE AMI DOIT ENTRER
+   • Mode : Internet (IP publique)
+   • IP Host : Votre IP publique
+   • Code : ${this.currentSession?.code || 'Code de session'}
+
+⚠️  SÉCURITÉ
+   • N'oubliez pas de désactiver le port forwarding après usage
+   • Ne partagez votre IP qu'avec des personnes de confiance
+
+═══════════════════════════════════════════════════════
+    `;
+
+    alert(helpText);
   }
 
   cleanup() {

@@ -12,8 +12,11 @@ class WatchPartyClient {
     this.messageCallbacks = [];
   }
 
-  async connect(code, role) {
-    this.socket = io('http://localhost:3001', {
+  async connect(code, role, host = 'localhost') {
+    const serverUrl = `http://${host}:3001`;
+    console.log(`📡 Connexion au serveur Watch Party: ${serverUrl}`);
+
+    this.socket = io(serverUrl, {
       timeout: 10000,
       reconnection: true,
       reconnectionDelay: 1000,
