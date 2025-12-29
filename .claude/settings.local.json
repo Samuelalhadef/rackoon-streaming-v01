@@ -52,7 +52,9 @@
       "Bash(./ngrok.exe http:*)",
       "Bash(ssh:*)",
       "Bash(netsh advfirewall firewall add rule name=\"Rackoon Watch Party\" dir=in action=allow protocol=TCP localport=3001)",
-      "Bash(powershell -Command \"Start-Process setup-firewall.bat -Verb RunAs\")"
+      "Bash(powershell -Command \"Start-Process setup-firewall.bat -Verb RunAs\")",
+      "Bash(powershell:*)",
+      "Bash(./ngrok-v2/ngrok.exe http:*)"
     ],
     "deny": [],
     "ask": []
