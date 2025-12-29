@@ -11,6 +11,18 @@ const http = require('http');
 const { Server } = require('socket.io');
 const WatchPartyManager = require('./js/watch-party-manager');
 
+// Gestionnaires d'erreurs globaux pour détecter les crashs silencieux
+process.on('uncaughtException', (error) => {
+  console.error('❌ Erreur non capturée:', error);
+  dialog.showErrorBox('Erreur critique', `Une erreur est survenue:\n${error.message}\n\nL'application va se fermer.`);
+  app.quit();
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promesse rejetée non gérée:', reason);
+  dialog.showErrorBox('Erreur', `Une erreur asynchrone est survenue:\n${reason}`);
+});
+
 // Chemins pour FFmpeg
 let FFMPEG_PATH;
 let FFPROBE_PATH;
@@ -89,6 +101,7 @@ let db;
 let httpServer;
 let io;
 let watchPartyManager;
+let DATA_DIR; // Dossier data dans userData
 
 // Créer la fenêtre principale
 function createWindow() {
@@ -451,7 +464,7 @@ function setupIPCHandlers() {
           let thumbnailName = null;
           if (ffmpegInstalled) {
             try {
-              const thumbnailPath = path.join(__dirname, 'data', 'thumbnails', `thumb_${Date.now()}_${i}.jpg`);
+              const thumbnailPath = path.join(DATA_DIR, 'thumbnails', `thumb_${Date.now()}_${i}.jpg`);
               await extractThumbnail(filePath, thumbnailPath);
               thumbnailName = path.basename(thumbnailPath);
               console.log(`🖼️ Miniature créée: ${thumbnailName}`);
@@ -918,7 +931,7 @@ function setupIPCHandlers() {
       let thumbnailName = null;
       if (ffmpegInstalled) {
         try {
-          const thumbnailPath = path.join(__dirname, 'data', 'thumbnails', `thumb_${Date.now()}.jpg`);
+          const thumbnailPath = path.join(DATA_DIR, 'thumbnails', `thumb_${Date.now()}.jpg`);
           await extractThumbnail(filePath, thumbnailPath);
           thumbnailName = path.basename(thumbnailPath);
           console.log(`🖼️ Miniature créée: ${thumbnailName}`);
@@ -969,7 +982,7 @@ function setupIPCHandlers() {
       }
 
       // Créer le dossier d'images TMDB s'il n'existe pas
-      const imagesDir = path.join(__dirname, 'data', 'tmdb-images');
+      const imagesDir = path.join(DATA_DIR, 'tmdb-images');
       fs.ensureDirSync(imagesDir);
 
       // Générer un nom de fichier unique
@@ -980,7 +993,7 @@ function setupIPCHandlers() {
       await downloadTMDBImage(imageUrl, outputPath);
 
       // Retourner le chemin relatif depuis le dossier data
-      const relativePath = path.relative(path.join(__dirname, 'data'), outputPath);
+      const relativePath = path.relative(DATA_DIR, outputPath);
       
       return {
         success: true,
@@ -1837,9 +1850,23 @@ app.whenReady().then(async () => {
     console.log('🔍 Recherche de FFmpeg installé manuellement...');
     findFfmpegPaths();
   }
-  
-  // Initialiser la base de données JSON
-  const dbPath = path.join(__dirname, 'data', 'medias.json');
+
+  // Initialiser la base de données JSON dans un dossier accessible en écriture
+  // Utiliser userData au lieu de __dirname pour les applications empaquetées
+  const userDataPath = app.getPath('userData');
+  DATA_DIR = path.join(userDataPath, 'data');
+
+  // Créer le dossier data et thumbnails s'ils n'existent pas
+  try {
+    fs.ensureDirSync(DATA_DIR);
+    fs.ensureDirSync(path.join(DATA_DIR, 'thumbnails'));
+  } catch (error) {
+    console.error('❌ Erreur création dossiers data:', error);
+  }
+
+  const dbPath = path.join(DATA_DIR, 'medias.json');
+  console.log('📂 Chemin de la base de données:', dbPath);
+
   db = new JSONDatabase(dbPath);
   await db.load();
   console.log('📊 Base de données JSON initialisée');

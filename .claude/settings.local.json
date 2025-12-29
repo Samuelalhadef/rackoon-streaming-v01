@@ -39,7 +39,12 @@
       "Bash(curl:*)",
       "Bash(netstat:*)",
       "Bash(wmic process:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(\"Rackoon Streaming.exe\")",
+      "Bash(start \"\" \"dist\\\\win-unpacked\\\\Rackoon Streaming.exe\")",
+      "Bash(tasklist:*)",
+      "Bash(start \"\" \"dist\\\\Rackoon-Streaming-1.0.0-Portable.exe\")",
+      "Bash(start \"\" \"Rackoon-Streaming-1.0.0-Portable.exe\")"
     ],
     "deny": [],
     "ask": []

@@ -51,12 +51,28 @@
     },
     "win": {
       "target": [
-        "portable",
-        "zip"
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
       ],
       "icon": "public/img/icon.ico",
       "signingHashAlgorithms": null,
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rackoon Streaming"
+    },
+    "portable": {
+      "artifactName": "Rackoon-Streaming-${version}-Portable.exe"
     },
     "asar": true,
     "files": [
