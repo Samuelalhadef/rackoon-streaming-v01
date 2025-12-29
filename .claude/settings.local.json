@@ -44,7 +44,13 @@
       "Bash(start \"\" \"dist\\\\win-unpacked\\\\Rackoon Streaming.exe\")",
       "Bash(tasklist:*)",
       "Bash(start \"\" \"dist\\\\Rackoon-Streaming-1.0.0-Portable.exe\")",
-      "Bash(start \"\" \"Rackoon-Streaming-1.0.0-Portable.exe\")"
+      "Bash(start \"\" \"Rackoon-Streaming-1.0.0-Portable.exe\")",
+      "Bash(ngrok version:*)",
+      "Bash(powershell -Command \"Expand-Archive -Path ngrok.zip -DestinationPath . -Force\")",
+      "Bash(./ngrok.exe version:*)",
+      "Bash(./ngrok.exe config add-authtoken:*)",
+      "Bash(./ngrok.exe http:*)",
+      "Bash(ssh:*)"
     ],
     "deny": [],
     "ask": []
