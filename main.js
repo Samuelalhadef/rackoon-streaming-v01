@@ -1597,10 +1597,81 @@ function setupIPCHandlers() {
 
       console.log('🚀 Démarrage du serveur Watch Party...');
 
-      // Créer le serveur HTTP
+      // Créer le serveur HTTP avec support streaming vidéo
       httpServer = http.createServer((req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Rackoon Streaming Watch Party Server');
+        const url = new URL(req.url, `http://${req.headers.host}`);
+
+        // Route pour streamer la vidéo
+        if (url.pathname.startsWith('/video/')) {
+          const sessionCode = url.pathname.split('/')[2];
+          console.log(`📺 Demande de streaming pour session: ${sessionCode}`);
+
+          if (!watchPartyManager) {
+            res.writeHead(404);
+            res.end('Serveur non initialisé');
+            return;
+          }
+
+          const session = watchPartyManager.activeSessions.get(sessionCode);
+          if (!session || !session.video || !session.video.path) {
+            console.error(`❌ Session ou vidéo introuvable: ${sessionCode}`);
+            res.writeHead(404);
+            res.end('Vidéo introuvable');
+            return;
+          }
+
+          const videoPath = session.video.path;
+          console.log(`📁 Chemin vidéo: ${videoPath}`);
+
+          // Vérifier que le fichier existe
+          if (!fs.existsSync(videoPath)) {
+            console.error(`❌ Fichier vidéo introuvable: ${videoPath}`);
+            res.writeHead(404);
+            res.end('Fichier vidéo introuvable');
+            return;
+          }
+
+          const stat = fs.statSync(videoPath);
+          const fileSize = stat.size;
+          const range = req.headers.range;
+
+          // Support des range requests pour le seeking
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunksize = (end - start) + 1;
+            const file = fs.createReadStream(videoPath, { start, end });
+
+            const head = {
+              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunksize,
+              'Content-Type': 'video/mp4',
+              'Access-Control-Allow-Origin': '*'
+            };
+
+            res.writeHead(206, head);
+            file.pipe(res);
+            console.log(`📡 Stream range: ${start}-${end}/${fileSize}`);
+          } else {
+            // Streaming complet
+            const head = {
+              'Content-Length': fileSize,
+              'Content-Type': 'video/mp4',
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*'
+            };
+
+            res.writeHead(200, head);
+            fs.createReadStream(videoPath).pipe(res);
+            console.log(`📡 Stream complet: ${fileSize} bytes`);
+          }
+        } else {
+          // Route par défaut
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end('Rackoon Streaming Watch Party Server');
+        }
       });
 
       // Démarrer le serveur sur le port 3001

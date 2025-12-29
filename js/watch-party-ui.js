@@ -317,12 +317,17 @@ class WatchPartyUI {
         // Récupérer les infos vidéo depuis le serveur Socket.io
         const video = sessionData.session.video;
 
+        // Construire l'URL de streaming depuis le serveur HOST
+        const streamUrl = `http://${serverHost}:3001/video/${code}`;
+        console.log('📺 URL de streaming:', streamUrl);
+
         this.currentSession = {
           code,
           sessionId: sessionData.session.sessionId,
           role: 'guest',
           videoInfo: video,
-          serverHost
+          serverHost,
+          streamUrl
         };
 
         errorDiv.textContent = 'Connecté ! Ouverture de la vidéo...';
@@ -330,9 +335,9 @@ class WatchPartyUI {
         // Fermer la modale
         this.closeJoinModal();
 
-        // Ouvrir la vidéo avec les infos de la session
-        console.log('📹 Ouverture vidéo:', video);
-        await window.videoPlayer.open(video.id, video.title, video.path);
+        // Ouvrir la vidéo avec l'URL de streaming au lieu du chemin local
+        console.log('📹 Ouverture vidéo en streaming:', video.title);
+        await window.videoPlayer.open(video.id, video.title, streamUrl);
         window.videoPlayer.enableWatchParty();
 
         this.showChatInterface();

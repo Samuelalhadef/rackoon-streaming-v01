@@ -325,15 +325,23 @@ class VideoPlayer {
 
       // Charger la vidéo
       this.showLoading();
-      
-      // Utiliser directement le path fourni avec le protocol file:// pour Electron
-      if (!moviePath) {
-        throw new Error('Chemin de la vidéo non fourni');
+
+      // Vérifier si c'est une URL HTTP (streaming) ou un chemin local
+      let videoUrl;
+      if (moviePath.startsWith('http://') || moviePath.startsWith('https://')) {
+        // URL de streaming - utiliser telle quelle
+        videoUrl = moviePath;
+        console.log('📡 URL de streaming:', videoUrl);
+      } else {
+        // Chemin local - convertir en file:// pour Electron
+        if (!moviePath) {
+          throw new Error('Chemin de la vidéo non fourni');
+        }
+        const normalizedPath = moviePath.replace(/\\/g, '/');
+        videoUrl = `file:///${normalizedPath}`;
+        console.log('🎬 URL vidéo locale:', videoUrl);
       }
-      // Convertir les backslashes Windows en slashes et formater pour Electron
-      const normalizedPath = moviePath.replace(/\\/g, '/');
-      const videoUrl = `file:///${normalizedPath}`;
-      console.log('🎬 URL vidéo formatée:', videoUrl);
+
       this.video.src = videoUrl;
       
       // Initialiser les propriétés audio
