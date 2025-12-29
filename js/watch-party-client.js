@@ -13,7 +13,15 @@ class WatchPartyClient {
   }
 
   async connect(code, role, host = 'localhost') {
-    const serverUrl = `http://${host}:3001`;
+    // Détection des tunnels (cloudflare, ngrok, etc.)
+    let serverUrl;
+    if (host.includes('trycloudflare.com') || host.includes('ngrok') || host.includes('.run')) {
+      // Tunnel détecté : utiliser HTTPS sans port
+      serverUrl = host.startsWith('http') ? host : `https://${host}`;
+    } else {
+      // Connexion locale ou IP : utiliser HTTP avec port 3001
+      serverUrl = `http://${host}:3001`;
+    }
     console.log(`📡 Connexion au serveur Watch Party: ${serverUrl}`);
 
     this.socket = io(serverUrl, {

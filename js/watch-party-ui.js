@@ -318,7 +318,15 @@ class WatchPartyUI {
         const video = sessionData.session.video;
 
         // Construire l'URL de streaming depuis le serveur HOST
-        const streamUrl = `http://${serverHost}:3001/video/${code}`;
+        let streamUrl;
+        if (serverHost.includes('trycloudflare.com') || serverHost.includes('ngrok') || serverHost.includes('.run')) {
+          // Tunnel : utiliser HTTPS sans port
+          const baseUrl = serverHost.startsWith('http') ? serverHost : `https://${serverHost}`;
+          streamUrl = `${baseUrl}/video/${code}`;
+        } else {
+          // Local/IP : utiliser HTTP avec port 3001
+          streamUrl = `http://${serverHost}:3001/video/${code}`;
+        }
         console.log('📺 URL de streaming:', streamUrl);
 
         this.currentSession = {
