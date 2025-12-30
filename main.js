@@ -3,7 +3,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
 const { glob } = require('glob');
-const { execSync, exec } = require('child_process');
+const { execSync, exec, spawn } = require('child_process');
 const os = require('os');
 const JSONDatabase = require('./js/db-manager');
 const https = require('https');
@@ -74,9 +74,17 @@ function findFfmpegPaths() {
 function setupStaticFfmpeg() {
   try {
     // Utiliser les binaires statiques du module ffmpeg-static et ffprobe-static
-    const ffmpegPath = require('ffmpeg-static');
-    const ffprobePath = require('ffprobe-static').path;
-    
+    let ffmpegPath = require('ffmpeg-static');
+    let ffprobePath = require('ffprobe-static').path;
+
+    // Dans l'app packagée, remplacer app.asar par app.asar.unpacked si nécessaire
+    if (ffmpegPath && ffmpegPath.includes('app.asar') && !ffmpegPath.includes('app.asar.unpacked')) {
+      ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+    }
+    if (ffprobePath && ffprobePath.includes('app.asar') && !ffprobePath.includes('app.asar.unpacked')) {
+      ffprobePath = ffprobePath.replace('app.asar', 'app.asar.unpacked');
+    }
+
     if (ffmpegPath && ffprobePath) {
       FFMPEG_PATH = ffmpegPath;
       FFPROBE_PATH = ffprobePath;
@@ -88,7 +96,7 @@ function setupStaticFfmpeg() {
   } catch (error) {
     console.log('⚠️ Modules FFmpeg statiques non disponibles:', error.message);
   }
-  
+
   return false;
 }
 
@@ -102,6 +110,9 @@ let httpServer;
 let io;
 let watchPartyManager;
 let DATA_DIR; // Dossier data dans userData
+let localVideoServer; // Serveur HTTP local pour les vidéos locales
+const LOCAL_VIDEO_PORT = 3002; // Port pour le serveur local
+const remuxCache = new Map(); // Cache des fichiers remuxés (path+track -> tempFilePath)
 
 // Créer la fenêtre principale
 function createWindow() {
@@ -1198,8 +1209,8 @@ function setupIPCHandlers() {
             const codecName = stream.codec_name;
             console.log('📝 Type de sous-titre détecté:', codecName);
 
-            // Créer un dossier temporaire pour les sous-titres
-            const tempDir = path.join(__dirname, 'temp', 'subtitles');
+            // Créer un dossier temporaire pour les sous-titres (utiliser le dossier temp système)
+            const tempDir = path.join(app.getPath('temp'), 'rackoon-subtitles');
             await fs.ensureDir(tempDir);
 
             // Nom du fichier de sous-titres
@@ -1799,6 +1810,182 @@ function setupIPCHandlers() {
   });
 }
 
+// Fonction pour démarrer le serveur vidéo local (pour changement de piste audio)
+function startLocalVideoServer() {
+  if (localVideoServer) {
+    console.log('✅ Serveur vidéo local déjà actif');
+    return;
+  }
+
+  localVideoServer = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+
+    if (url.pathname === '/local-video') {
+      const videoPath = url.searchParams.get('path');
+      const audioTrack = url.searchParams.get('audioTrack');
+
+      if (!videoPath || !fs.existsSync(videoPath)) {
+        res.writeHead(404);
+        res.end('Vidéo introuvable');
+        return;
+      }
+
+      const stat = fs.statSync(videoPath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      // Si une piste audio spécifique est demandée et FFmpeg est disponible
+      if (audioTrack !== null && FFMPEG_PATH) {
+        const cacheKey = `${videoPath}|${audioTrack}`;
+
+        // Vérifier si le fichier remuxé existe déjà en cache
+        if (remuxCache.has(cacheKey) && fs.existsSync(remuxCache.get(cacheKey))) {
+          const tempPath = remuxCache.get(cacheKey);
+          console.log(`🎵 Utilisation du cache pour piste audio ${audioTrack}: ${path.basename(videoPath)}`);
+
+          // Servir le fichier temp avec support du seeking
+          const tempStat = fs.statSync(tempPath);
+          const tempSize = tempStat.size;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : tempSize - 1;
+            const chunksize = (end - start) + 1;
+            const file = fs.createReadStream(tempPath, { start, end });
+
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${tempSize}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunksize,
+              'Content-Type': 'video/x-matroska',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            file.pipe(res);
+          } else {
+            res.writeHead(200, {
+              'Content-Length': tempSize,
+              'Content-Type': 'video/x-matroska',
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            fs.createReadStream(tempPath).pipe(res);
+          }
+        } else {
+          // Créer un fichier temporaire pour le remux
+          const tempDir = path.join(app.getPath('temp'), 'rackoon-remux');
+          fs.ensureDirSync(tempDir);
+          const tempPath = path.join(tempDir, `${path.basename(videoPath, path.extname(videoPath))}_track${audioTrack}.mkv`);
+
+          console.log(`🎵 Création du fichier remuxé pour piste audio ${audioTrack}: ${path.basename(videoPath)}`);
+
+          // Utiliser FFmpeg pour créer le fichier remuxé
+          const ffmpegArgs = [
+            '-i', videoPath,
+            '-map', '0:v',  // Toutes les pistes vidéo
+            '-map', `0:a:${audioTrack}`,  // Piste audio sélectionnée
+            '-map', '0:s?',  // Tous les sous-titres (optionnel)
+            '-c', 'copy',  // Copier sans réencoder
+            '-y',  // Overwrite
+            tempPath
+          ];
+
+          const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
+
+          ffmpeg.stderr.on('data', (data) => {
+            // Log FFmpeg progress
+          });
+
+          ffmpeg.on('close', (code) => {
+            if (code === 0 && fs.existsSync(tempPath)) {
+              console.log(`✅ Fichier remuxé créé: ${tempPath}`);
+              remuxCache.set(cacheKey, tempPath);
+
+              // Servir le fichier créé
+              const tempStat = fs.statSync(tempPath);
+              const tempSize = tempStat.size;
+
+              if (range) {
+                const parts = range.replace(/bytes=/, "").split("-");
+                const start = parseInt(parts[0], 10);
+                const end = parts[1] ? parseInt(parts[1], 10) : tempSize - 1;
+                const chunksize = (end - start) + 1;
+                const file = fs.createReadStream(tempPath, { start, end });
+
+                res.writeHead(206, {
+                  'Content-Range': `bytes ${start}-${end}/${tempSize}`,
+                  'Accept-Ranges': 'bytes',
+                  'Content-Length': chunksize,
+                  'Content-Type': 'video/x-matroska',
+                  'Access-Control-Allow-Origin': '*'
+                });
+
+                file.pipe(res);
+              } else {
+                res.writeHead(200, {
+                  'Content-Length': tempSize,
+                  'Content-Type': 'video/x-matroska',
+                  'Accept-Ranges': 'bytes',
+                  'Access-Control-Allow-Origin': '*'
+                });
+
+                fs.createReadStream(tempPath).pipe(res);
+              }
+            } else {
+              console.error(`❌ Erreur lors de la création du fichier remuxé (code: ${code})`);
+              res.writeHead(500);
+              res.end('Erreur lors du remuxage');
+            }
+          });
+
+          ffmpeg.on('error', (err) => {
+            console.error('❌ Erreur FFmpeg:', err);
+            res.writeHead(500);
+            res.end('Erreur FFmpeg');
+          });
+        }
+      } else {
+        // Streaming normal sans changement de piste
+        if (range) {
+          const parts = range.replace(/bytes=/, "").split("-");
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+          const chunksize = (end - start) + 1;
+          const file = fs.createReadStream(videoPath, { start, end });
+
+          res.writeHead(206, {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunksize,
+            'Content-Type': 'video/mp4',
+            'Access-Control-Allow-Origin': '*'
+          });
+
+          file.pipe(res);
+        } else {
+          res.writeHead(200, {
+            'Content-Length': fileSize,
+            'Content-Type': 'video/mp4',
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*'
+          });
+
+          fs.createReadStream(videoPath).pipe(res);
+        }
+      }
+    } else {
+      res.writeHead(404);
+      res.end('Route inconnue');
+    }
+  });
+
+  localVideoServer.listen(LOCAL_VIDEO_PORT, '127.0.0.1', () => {
+    console.log(`🎬 Serveur vidéo local démarré sur http://localhost:${LOCAL_VIDEO_PORT}`);
+  });
+}
+
 // Fonction pour essayer de convertir SUP en SRT
 async function tryConvertSupToSrt(supPath, outputSrtPath) {
   return new Promise((resolve) => {
@@ -1880,7 +2067,10 @@ app.whenReady().then(async () => {
   const ffmpegInstalled = checkFfmpegInstalled();
 
   setupIPCHandlers();
-  
+
+  // Démarrer le serveur vidéo local pour le streaming avec sélection de piste audio
+  startLocalVideoServer();
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -1892,6 +2082,13 @@ app.on('window-all-closed', function () {
   if (httpServer) {
     httpServer.close(() => {
       console.log('🎬 Serveur Watch Party fermé');
+    });
+  }
+
+  // Fermer le serveur vidéo local
+  if (localVideoServer) {
+    localVideoServer.close(() => {
+      console.log('🎬 Serveur vidéo local fermé');
     });
   }
 

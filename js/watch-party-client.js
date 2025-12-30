@@ -95,6 +95,16 @@ class WatchPartyClient {
       this.onPlaybackEvent('ratechange', data);
     });
 
+    this.socket.on('playback:audiotrack', (data) => {
+      console.log('🎵 Événement piste audio reçu:', data);
+      this.onPlaybackEvent('audiotrack', data);
+    });
+
+    this.socket.on('playback:subtitle', (data) => {
+      console.log('📝 Événement sous-titres reçu:', data);
+      this.onPlaybackEvent('subtitle', data);
+    });
+
     // Chat
     this.socket.on('chat:message', (data) => {
       console.log('💬 Message chat reçu:', data);
@@ -132,6 +142,16 @@ class WatchPartyClient {
   emitRateChange(playbackRate) {
     if (!this.isActive) return;
     this.socket.emit('playback:ratechange', { playbackRate, timestamp: Date.now() });
+  }
+
+  emitAudioTrackChange(trackIndex) {
+    if (!this.isActive) return;
+    this.socket.emit('playback:audiotrack', { trackIndex, timestamp: Date.now() });
+  }
+
+  emitSubtitleChange(trackIndex) {
+    if (!this.isActive) return;
+    this.socket.emit('playback:subtitle', { trackIndex, timestamp: Date.now() });
   }
 
   emitChatMessage(message) {

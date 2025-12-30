@@ -55,7 +55,9 @@
       "Bash(powershell -Command \"Start-Process setup-firewall.bat -Verb RunAs\")",
       "Bash(powershell:*)",
       "Bash(./ngrok-v2/ngrok.exe http:*)",
-      "Bash(./cloudflared.exe tunnel:*)"
+      "Bash(./cloudflared.exe tunnel:*)",
+      "Bash(timeout /t 3 /nobreak)",
+      "Bash(del \"dist\\\\Rackoon-Streaming-1.0.0-Portable.exe\" \"dist\\\\Rackoon Streaming Setup 1.0.0.exe\")"
     ],
     "deny": [],
     "ask": []

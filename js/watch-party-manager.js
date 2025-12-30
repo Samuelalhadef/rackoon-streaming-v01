@@ -20,6 +20,8 @@ class WatchPartyManager {
       socket.on('playback:pause', (data) => this.broadcastToRoom(socket, 'playback:pause', data));
       socket.on('playback:seek', (data) => this.broadcastToRoom(socket, 'playback:seek', data));
       socket.on('playback:ratechange', (data) => this.broadcastToRoom(socket, 'playback:ratechange', data));
+      socket.on('playback:audiotrack', (data) => this.broadcastToRoom(socket, 'playback:audiotrack', data));
+      socket.on('playback:subtitle', (data) => this.broadcastToRoom(socket, 'playback:subtitle', data));
       socket.on('chat:message', (data) => this.broadcastToRoom(socket, 'chat:message', data));
 
       socket.on('disconnect', () => this.handleDisconnect(socket));

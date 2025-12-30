@@ -23,10 +23,15 @@ class VideoPlayer {
     this.watchPartyActive = false;
     this.isSyncingFromRemote = false; // Empêche les boucles d'événements
 
+    // Audio tracks
+    this.originalMoviePath = null; // Chemin original du fichier vidéo
+    this.selectedAudioTrack = null; // Piste audio sélectionnée
+    this.detectedAudioTracks = null; // Pistes audio détectées via FFmpeg
+
     // Timers
     this.hideControlsTimer = null;
     this.progressUpdateTimer = null;
-    
+
     // Éléments du lecteur
     this.elements = {};
     
@@ -328,26 +333,62 @@ class VideoPlayer {
 
       // Vérifier si c'est une URL HTTP (streaming) ou un chemin local
       let videoUrl;
+      let defaultAudioTrack = null;
+
       if (moviePath.startsWith('http://') || moviePath.startsWith('https://')) {
         // URL de streaming - utiliser telle quelle
         videoUrl = moviePath;
         console.log('📡 URL de streaming:', videoUrl);
       } else {
-        // Chemin local - convertir en file:// pour Electron
+        // Chemin local - détecter la piste VO AVANT de charger la vidéo
         if (!moviePath) {
           throw new Error('Chemin de la vidéo non fourni');
         }
-        const normalizedPath = moviePath.replace(/\\/g, '/');
-        videoUrl = `file:///${normalizedPath}`;
-        console.log('🎬 URL vidéo locale:', videoUrl);
+
+        // Stocker le chemin original pour référence
+        this.originalMoviePath = moviePath;
+
+        // Détecter la piste VO via FFprobe si disponible
+        if (window.electronAPI && window.electronAPI.getVideoInfo) {
+          try {
+            console.log('🎵 Pré-détection de la piste VO via FFprobe...');
+            const videoInfo = await window.electronAPI.getVideoInfo(moviePath);
+            if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
+              // Stocker les pistes détectées
+              this.detectedAudioTracks = videoInfo.audioTracks;
+
+              // Chercher la première piste VO
+              const voLanguages = ['eng', 'jpn', 'kor'];
+              for (let i = 0; i < videoInfo.audioTracks.length; i++) {
+                const track = videoInfo.audioTracks[i];
+                if (track.language && voLanguages.includes(track.language.toLowerCase())) {
+                  defaultAudioTrack = i;
+                  console.log(`🎬 Piste VO pré-détectée: ${track.language} (index ${i})`);
+                  break;
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Erreur lors de la pré-détection audio:', error);
+          }
+        }
+
+        // Construire l'URL avec la piste audio par défaut si détectée
+        videoUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(moviePath)}`;
+        if (defaultAudioTrack !== null) {
+          videoUrl += `&audioTrack=${defaultAudioTrack}`;
+          this.selectedAudioTrack = defaultAudioTrack;
+          console.log(`🎵 Chargement avec piste VO ${defaultAudioTrack}`);
+        }
+        console.log('🎬 URL vidéo locale via serveur:', videoUrl);
       }
 
       this.video.src = videoUrl;
-      
+
       // Initialiser les propriétés audio
       this.video.volume = this.volume;
       this.video.muted = false;
-      
+
       // Attendre le chargement pour détecter les pistes
       this.video.addEventListener('loadedmetadata', () => {
         console.log('📹 Métadonnées chargées - Détection des pistes...');
@@ -607,18 +648,45 @@ class VideoPlayer {
   
   async loadAudioTracks() {
     this.elements.audioTracks.innerHTML = '';
-    
+
     try {
-      // Priorité 1: Demander les informations via FFprobe (plus fiable)
+      // Priorité 1: Utiliser les pistes déjà détectées lors du chargement
+      if (this.detectedAudioTracks && this.detectedAudioTracks.length > 0) {
+        console.log('🎵 Utilisation des pistes audio pré-détectées:', this.detectedAudioTracks.length);
+
+        this.detectedAudioTracks.forEach((track, index) => {
+          let label = '';
+          if (track.title) {
+            label = track.title;
+          } else if (track.language && track.language !== 'und') {
+            const langName = this.getLanguageName(track.language);
+            label = `${langName} (${track.codec_name || 'Audio'})`;
+          } else {
+            label = `Piste ${index + 1} (${track.codec_name || 'Audio'})`;
+          }
+
+          // Afficher aussi les informations techniques si disponibles
+          if (track.channels) {
+            label += ` - ${track.channels} canaux`;
+          }
+
+          // Marquer comme active si c'est la piste actuellement sélectionnée
+          const isActive = (this.selectedAudioTrack !== null && index === this.selectedAudioTrack) || (this.selectedAudioTrack === null && index === 0);
+          this.createAudioTrackButton(index, label, isActive);
+        });
+        return;
+      }
+
+      // Priorité 2: Demander les informations via FFprobe si pas encore détectées
       if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
         console.log('🎵 Détection pistes audio via FFprobe...');
         const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
         if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
           console.log('🎵 Pistes audio détectées via FFprobe:', videoInfo.audioTracks.length);
-          
+
           // Stocker les informations pour utilisation ultérieure
           this.detectedAudioTracks = videoInfo.audioTracks;
-          
+
           videoInfo.audioTracks.forEach((track, index) => {
             let label = '';
             if (track.title) {
@@ -629,13 +697,15 @@ class VideoPlayer {
             } else {
               label = `Piste ${index + 1} (${track.codec_name || 'Audio'})`;
             }
-            
+
             // Afficher aussi les informations techniques si disponibles
             if (track.channels) {
               label += ` - ${track.channels} canaux`;
             }
-            
-            this.createAudioTrackButton(index, label, index === 0);
+
+            // Marquer comme active si c'est la piste actuellement sélectionnée
+            const isActive = (this.selectedAudioTrack !== null && index === this.selectedAudioTrack) || (this.selectedAudioTrack === null && index === 0);
+            this.createAudioTrackButton(index, label, isActive);
           });
           return;
         }
@@ -807,7 +877,7 @@ class VideoPlayer {
   
   async setAudioTrack(trackIndex) {
     console.log('🎵 Changement piste audio vers:', trackIndex);
-    
+
     try {
       // Méthode 1: Utiliser les audioTracks natifs si disponibles
       if (this.video.audioTracks && this.video.audioTracks.length > trackIndex) {
@@ -816,26 +886,64 @@ class VideoPlayer {
         }
         console.log('🎵 Piste audio native changée');
       }
-      // Méthode 2: Si c'est une piste détectée via FFmpeg et qu'on a plusieurs pistes
+      // Méthode 2: Si c'est une piste détectée via FFmpeg, recharger avec la bonne piste
       else if (this.detectedAudioTracks && this.detectedAudioTracks.length > 1) {
-        // Pour l'instant, on ne peut pas changer de piste audio en temps réel via FFmpeg
-        // sans recharger la vidéo. On affiche un message informatif.
-        console.log('🎵 Changement de piste audio FFmpeg non supporté en temps réel');
-        
-        // Alternative: On pourrait recharger la vidéo avec une piste audio spécifique
-        // mais cela nécessiterait une implémentation plus complexe
-        alert('Le changement de piste audio en temps réel n\'est pas encore supporté pour ce fichier.\nVeuillez redémarrer la lecture pour changer de piste.');
+        console.log('🎵 Changement de piste audio via rechargement intelligent...');
+
+        // Sauvegarder l'état actuel
+        const currentTime = this.video.currentTime;
+        const wasPlaying = !this.video.paused;
+        const currentVolume = this.video.volume;
+        const currentRate = this.video.playbackRate;
+
+        // Stocker la piste audio sélectionnée
+        this.selectedAudioTrack = trackIndex;
+
+        // Obtenir la source actuelle
+        const currentSrc = this.video.src;
+
+        // Créer une nouvelle URL avec le paramètre de piste audio
+        const url = new URL(currentSrc);
+        url.searchParams.set('audioTrack', trackIndex);
+
+        // Recharger la vidéo avec la nouvelle piste
+        this.video.src = url.toString();
+
+        // Attendre que les métadonnées soient chargées
+        await new Promise((resolve) => {
+          this.video.addEventListener('loadedmetadata', () => {
+            // Restaurer le temps, volume et vitesse
+            this.video.currentTime = currentTime;
+            this.video.volume = currentVolume;
+            this.video.playbackRate = currentRate;
+
+            // Reprendre la lecture si la vidéo était en cours
+            if (wasPlaying) {
+              this.video.play().catch(err => console.error('Erreur reprise lecture:', err));
+            }
+
+            resolve();
+          }, { once: true });
+        });
+
+        console.log('✅ Piste audio changée et lecture reprise à', currentTime.toFixed(2), 's');
       }
-      
+
       // Mettre à jour l'interface
       this.elements.audioTracks.querySelectorAll('.audio-option').forEach((btn, index) => {
         btn.classList.toggle('active', index === trackIndex);
       });
-      
+
+      // Émettre l'événement Watch Party si actif et pas en sync
+      if (this.watchPartyActive && !this.isSyncingFromRemote) {
+        watchPartyClient.emitAudioTrackChange(trackIndex);
+      }
+
     } catch (error) {
       console.error('Erreur lors du changement de piste audio:', error);
+      alert('Erreur lors du changement de piste audio. Veuillez réessayer.');
     }
-    
+
     this.elements.audioMenu.classList.remove('active');
   }
   
@@ -979,7 +1087,12 @@ class VideoPlayer {
     this.elements.subtitleTracks.querySelectorAll('.subtitle-option').forEach((btn, index) => {
       btn.classList.toggle('active', btn.dataset.track == trackIndex);
     });
-    
+
+    // Émettre l'événement Watch Party si actif et pas en sync
+    if (this.watchPartyActive && !this.isSyncingFromRemote) {
+      watchPartyClient.emitSubtitleChange(trackIndex);
+    }
+
     this.elements.subtitleMenu.classList.remove('active');
   }
   
@@ -1718,6 +1831,16 @@ class VideoPlayer {
 
         case 'ratechange':
           this.setPlaybackRate(data.playbackRate);
+          break;
+
+        case 'audiotrack':
+          console.log('🎵 Synchronisation piste audio:', data.trackIndex);
+          this.setAudioTrack(data.trackIndex);
+          break;
+
+        case 'subtitle':
+          console.log('📝 Synchronisation sous-titres:', data.trackIndex);
+          this.setSubtitleTrack(data.trackIndex);
           break;
       }
     } finally {
