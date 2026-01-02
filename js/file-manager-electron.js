@@ -66,10 +66,13 @@ class FileManagerElectron {
       this.deleteSelectedFiles();
     });
     
-    // Bouton de retour
-    document.querySelector('.back-btn').addEventListener('click', () => {
-      window.location.href = 'dashboard.html';
-    });
+    // Bouton de retour (seulement si présent)
+    const backBtn = document.querySelector('.back-btn');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        window.location.href = 'dashboard.html';
+      });
+    }
     
     // Modales
     this.setupModals();

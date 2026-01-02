@@ -315,6 +315,9 @@ class VideoPlayer {
 
       this.currentMovie = { id: movieId, title: movieTitle, path: moviePath };
 
+      // Enregistrer le moment de début du visionnage pour les statistiques
+      this.watchStartTime = Date.now();
+
       // Afficher la modal
       this.modal.classList.add('active');
 
@@ -378,19 +381,42 @@ class VideoPlayer {
   
   close() {
     this.isClosing = true; // Marquer comme en cours de fermeture
+
+    // Enregistrer les statistiques de visionnage avant de fermer
+    if (this.currentMovie && this.currentMovie.id && this.watchStartTime) {
+      const watchDuration = Math.floor((Date.now() - this.watchStartTime) / 1000); // Durée en secondes
+
+      // Enregistrer seulement si le visionnage a duré au moins 10 secondes
+      if (watchDuration >= 10) {
+        console.log(`📊 Enregistrement du visionnage: ${this.currentMovie.title} (${watchDuration}s)`);
+
+        // Appeler la méthode statique de StatsManager
+        if (typeof StatsManager !== 'undefined' && typeof StatsManager.recordWatch === 'function') {
+          StatsManager.recordWatch(this.currentMovie.id, watchDuration);
+
+          // Actualiser les statistiques si le gestionnaire est initialisé
+          if (window.statsManager) {
+            setTimeout(() => window.statsManager.loadStats(), 500);
+          }
+        }
+      }
+
+      this.watchStartTime = null;
+    }
+
     this.pause();
     this.modal.classList.remove('active');
-    
+
     // Nettoyer les URLs de sous-titres
     if (this.subtitleUrls) {
       this.subtitleUrls.forEach(url => URL.revokeObjectURL(url));
       this.subtitleUrls = [];
     }
-    
+
     // Supprimer l'URL de la vidéo de manière propre
     this.video.removeAttribute('src');
     this.video.load(); // Forcer le nettoyage
-    
+
     this.currentMovie = null;
     this.resetPlayer();
     
