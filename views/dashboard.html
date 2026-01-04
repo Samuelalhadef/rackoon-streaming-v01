@@ -25,6 +25,10 @@
           <i class="fas fa-home"></i>
           Accueil
         </a>
+        <a href="#statistiques" class="nav-link tab-link" data-tab="statistiques">
+          <i class="fas fa-chart-bar"></i>
+          Statistiques
+        </a>
         <a href="#gestion-fichiers" class="nav-link tab-link" data-tab="gestion-fichiers">
           <i class="fas fa-folder-open"></i>
           Gestion des fichiers
@@ -57,104 +61,6 @@
       <div class="status-message" id="status-message">Prêt à rechercher des vidéos</div>
       <div class="progress-bar-container">
         <div class="progress-bar" id="progress-bar"></div>
-      </div>
-    </div>
-
-    <!-- Section Statistiques & Notations -->
-    <div class="stats-overview-section" id="stats-overview">
-      <div class="stats-header">
-        <h2 class="stats-title">
-          <i class="fas fa-chart-line"></i>
-          Statistiques & Notations
-        </h2>
-        <button class="stats-refresh-btn" id="stats-refresh-btn" title="Actualiser les statistiques">
-          <i class="fas fa-sync-alt"></i>
-        </button>
-      </div>
-
-      <!-- Cartes statistiques principales -->
-      <div class="stats-cards-grid">
-        <div class="stat-overview-card">
-          <div class="stat-icon-wrapper blue">
-            <i class="fas fa-clock"></i>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value" id="total-watch-time">0h 0m</div>
-            <div class="stat-label">Temps total de visionnage</div>
-          </div>
-        </div>
-
-        <div class="stat-overview-card">
-          <div class="stat-icon-wrapper green">
-            <i class="fas fa-film"></i>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value" id="total-watched-count">0</div>
-            <div class="stat-label">Médias visionnés</div>
-          </div>
-        </div>
-
-        <div class="stat-overview-card">
-          <div class="stat-icon-wrapper orange">
-            <i class="fas fa-star"></i>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value" id="total-rated-count">0</div>
-            <div class="stat-label">Médias notés</div>
-          </div>
-        </div>
-
-        <div class="stat-overview-card">
-          <div class="stat-icon-wrapper purple">
-            <i class="fas fa-trophy"></i>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value" id="average-rating">-</div>
-            <div class="stat-label">Note moyenne</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sections détaillées -->
-      <div class="stats-details-grid">
-        <!-- Top 5 les plus regardés -->
-        <div class="stats-detail-card">
-          <div class="stats-detail-header">
-            <h3><i class="fas fa-fire"></i> Top 5 les plus regardés</h3>
-          </div>
-          <div class="stats-detail-content" id="top-watched-list">
-            <div class="stats-loading">
-              <i class="fas fa-spinner fa-spin"></i>
-              Chargement...
-            </div>
-          </div>
-        </div>
-
-        <!-- Historique récent -->
-        <div class="stats-detail-card">
-          <div class="stats-detail-header">
-            <h3><i class="fas fa-history"></i> Historique récent</h3>
-          </div>
-          <div class="stats-detail-content" id="recent-history-list">
-            <div class="stats-loading">
-              <i class="fas fa-spinner fa-spin"></i>
-              Chargement...
-            </div>
-          </div>
-        </div>
-
-        <!-- Meilleures notes -->
-        <div class="stats-detail-card">
-          <div class="stats-detail-header">
-            <h3><i class="fas fa-award"></i> Meilleures notes</h3>
-          </div>
-          <div class="stats-detail-content" id="top-rated-list">
-            <div class="stats-loading">
-              <i class="fas fa-spinner fa-spin"></i>
-              Chargement...
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -285,6 +191,110 @@
   </main>
     </div>
     <!-- Fin Section Accueil -->
+
+    <!-- Section Statistiques -->
+    <div class="tab-section" id="section-statistiques" data-section="statistiques">
+      <main class="main-content">
+        <!-- Section Statistiques & Notations -->
+        <div class="stats-overview-section" id="stats-overview">
+          <div class="stats-header">
+            <h2 class="stats-title">
+              <i class="fas fa-chart-line"></i>
+              Statistiques & Notations
+            </h2>
+            <button class="stats-refresh-btn" id="stats-refresh-btn" title="Actualiser les statistiques">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+          </div>
+
+          <!-- Cartes statistiques principales -->
+          <div class="stats-cards-grid">
+            <div class="stat-overview-card">
+              <div class="stat-icon-wrapper blue">
+                <i class="fas fa-clock"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value" id="total-watch-time">0h 0m</div>
+                <div class="stat-label">Temps total de visionnage</div>
+              </div>
+            </div>
+
+            <div class="stat-overview-card">
+              <div class="stat-icon-wrapper green">
+                <i class="fas fa-film"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value" id="total-watched-count">0</div>
+                <div class="stat-label">Médias visionnés</div>
+              </div>
+            </div>
+
+            <div class="stat-overview-card">
+              <div class="stat-icon-wrapper orange">
+                <i class="fas fa-star"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value" id="total-rated-count">0</div>
+                <div class="stat-label">Médias notés</div>
+              </div>
+            </div>
+
+            <div class="stat-overview-card">
+              <div class="stat-icon-wrapper purple">
+                <i class="fas fa-trophy"></i>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value" id="average-rating">-</div>
+                <div class="stat-label">Note moyenne</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sections détaillées -->
+          <div class="stats-details-grid">
+            <!-- Top 5 les plus regardés -->
+            <div class="stats-detail-card">
+              <div class="stats-detail-header">
+                <h3><i class="fas fa-fire"></i> Top 5 les plus regardés</h3>
+              </div>
+              <div class="stats-detail-content" id="top-watched-list">
+                <div class="stats-loading">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  Chargement...
+                </div>
+              </div>
+            </div>
+
+            <!-- Historique récent -->
+            <div class="stats-detail-card">
+              <div class="stats-detail-header">
+                <h3><i class="fas fa-history"></i> Historique récent</h3>
+              </div>
+              <div class="stats-detail-content" id="recent-history-list">
+                <div class="stats-loading">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  Chargement...
+                </div>
+              </div>
+            </div>
+
+            <!-- Meilleures notes -->
+            <div class="stats-detail-card">
+              <div class="stats-detail-header">
+                <h3><i class="fas fa-award"></i> Meilleures notes</h3>
+              </div>
+              <div class="stats-detail-content" id="top-rated-list">
+                <div class="stats-loading">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  Chargement...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <!-- Fin Section Statistiques -->
 
     <!-- Section Gestion de fichiers -->
     <div class="tab-section" id="section-gestion-fichiers" data-section="gestion-fichiers">
@@ -3664,11 +3674,32 @@
         });
       }
 
+      // Écouter les clics sur le lien de navigation vers statistiques
+      const statistiquesLink = document.querySelector('.tab-link[data-tab="statistiques"]');
+      if (statistiquesLink) {
+        statistiquesLink.addEventListener('click', () => {
+          console.log('📊 Clic sur onglet Statistiques');
+          // Charger les statistiques de visionnage
+          if (window.statsManager) {
+            setTimeout(() => window.statsManager.loadStats(), 100);
+          }
+        });
+      }
+
       // Si l'onglet gestion-fichiers est déjà actif au chargement (rare mais possible)
       const gestionFichiersSection = document.getElementById('section-gestion-fichiers');
       if (gestionFichiersSection && gestionFichiersSection.classList.contains('active')) {
         console.log('📂 Section gestion-fichiers déjà active au chargement');
         initFileManager();
+      }
+
+      // Si l'onglet statistiques est déjà actif au chargement
+      const statistiquesSection = document.getElementById('section-statistiques');
+      if (statistiquesSection && statistiquesSection.classList.contains('active')) {
+        console.log('📊 Section statistiques déjà active au chargement');
+        if (window.statsManager) {
+          setTimeout(() => window.statsManager.loadStats(), 100);
+        }
       }
     });
   </script>

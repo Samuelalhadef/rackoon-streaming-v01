@@ -141,7 +141,8 @@ class StatsManager {
         <div class="stats-item-rank">#${index + 1}</div>
         <div class="stats-item-thumbnail">
           ${item.movie.thumbnail ?
-            `<img src="${item.movie.thumbnail}" alt="${item.movie.title}">` :
+            `<img src="../data/thumbnails/${item.movie.thumbnail}" alt="${item.movie.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <i class="fas fa-film" style="display:none;"></i>` :
             '<i class="fas fa-film"></i>'
           }
         </div>
@@ -195,7 +196,8 @@ class StatsManager {
       <div class="stats-item">
         <div class="stats-item-thumbnail">
           ${item.movie.thumbnail ?
-            `<img src="${item.movie.thumbnail}" alt="${item.movie.title}">` :
+            `<img src="../data/thumbnails/${item.movie.thumbnail}" alt="${item.movie.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <i class="fas fa-film" style="display:none;"></i>` :
             '<i class="fas fa-film"></i>'
           }
         </div>
@@ -253,7 +255,8 @@ class StatsManager {
       <div class="stats-item">
         <div class="stats-item-thumbnail">
           ${item.movie.thumbnail ?
-            `<img src="${item.movie.thumbnail}" alt="${item.movie.title}">` :
+            `<img src="../data/thumbnails/${item.movie.thumbnail}" alt="${item.movie.title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <i class="fas fa-film" style="display:none;"></i>` :
             '<i class="fas fa-film"></i>'
           }
         </div>
