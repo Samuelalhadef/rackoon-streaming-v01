@@ -26,7 +26,6 @@ class JSONDatabase {
 
     // Dossiers pour assets
     this.thumbnailsPath = path.join(this.dataDir, 'thumbnails');
-    this.tmdbImagesPath = path.join(this.dataDir, 'tmdb-images');
 
     // Données en mémoire
     this.data = {
@@ -48,7 +47,6 @@ class JSONDatabase {
   ensureDirectories() {
     fs.ensureDirSync(this.dbDir);
     fs.ensureDirSync(this.thumbnailsPath);
-    fs.ensureDirSync(this.tmdbImagesPath);
   }
 
   // ============================================
@@ -128,14 +126,6 @@ class JSONDatabase {
   async load() {
     console.log('📊 Chargement de la base de données...');
 
-    // Vérifier si migration nécessaire
-    const needsMigration = await this.checkMigrationNeeded();
-    if (needsMigration) {
-      console.log('🔄 Migration détectée, lancement...');
-      await this.migrateFromOldFormat();
-      return;
-    }
-
     // Charger les médias uniques
     this.data.uniqueMedias = await this.loadFileWithBackup(
       this.paths.uniqueMedias,
@@ -167,72 +157,6 @@ class JSONDatabase {
     );
 
     console.log(`✅ Base chargée: ${this.data.uniqueMedias.length} médias uniques, ${this.data.seriesEpisodes.length} épisodes, ${this.data.seriesMetadata.length} séries`);
-  }
-
-  /**
-   * Vérifier si une migration est nécessaire
-   */
-  async checkMigrationNeeded() {
-    // Si l'ancien fichier existe et que les nouveaux n'existent pas
-    const oldExists = await fs.pathExists(this.oldDbPath);
-    const newExists = await fs.pathExists(this.paths.uniqueMedias);
-
-    return oldExists && !newExists;
-  }
-
-  /**
-   * Migrer depuis l'ancien format medias.json
-   */
-  async migrateFromOldFormat() {
-    console.log('🔄 Début de la migration depuis medias.json...');
-
-    try {
-      // Charger l'ancien fichier
-      const rawData = await fs.readFile(this.oldDbPath, 'utf8');
-      const oldData = JSON.parse(rawData);
-
-      // Créer un backup de l'ancien fichier
-      const backupOldPath = `${this.oldDbPath}.old`;
-      await fs.copy(this.oldDbPath, backupOldPath);
-      console.log(`📦 Backup créé: ${path.basename(backupOldPath)}`);
-
-      // Séparer les médias par type
-      const uniqueMedias = [];
-      const seriesEpisodes = [];
-
-      (oldData.medias || []).forEach(media => {
-        if (media.category === 'series' && media.seriesId) {
-          seriesEpisodes.push(media);
-        } else {
-          uniqueMedias.push(media);
-        }
-      });
-
-      // Assigner les données
-      this.data.uniqueMedias = uniqueMedias;
-      this.data.seriesEpisodes = seriesEpisodes;
-      this.data.seriesMetadata = oldData.series || [];
-      this.data.config = {
-        settings: oldData.settings || {},
-        categories: oldData.categories || [],
-        tagManager: oldData.tagManager || {}
-      };
-
-      // Ajouter les valeurs par défaut si manquantes
-      this.data.config = { ...this.getDefaultConfig(), ...this.data.config };
-
-      // Sauvegarder dans les nouveaux fichiers
-      await this.saveAll();
-
-      console.log(`✅ Migration terminée:`);
-      console.log(`   - ${uniqueMedias.length} médias uniques`);
-      console.log(`   - ${seriesEpisodes.length} épisodes`);
-      console.log(`   - ${this.data.seriesMetadata.length} séries`);
-
-    } catch (error) {
-      console.error('❌ Erreur lors de la migration:', error);
-      throw error;
-    }
   }
 
   /**
@@ -959,9 +883,7 @@ class JSONDatabase {
   }
 
   generateThumbnailName(mediaPath) {
-    const hash = crypto.createHash('md5').update(mediaPath).digest('hex').substring(0, 8);
-    const baseName = path.basename(mediaPath, path.extname(mediaPath));
-    return `thumb_${hash}_${Date.now()}.jpg`;
+    return `thumb_${Date.now()}.jpg`;
   }
 
   async saveThumbnail(sourceImagePath, mediaPath) {
@@ -1102,14 +1024,6 @@ class JSONDatabase {
     if (minutes < 90) return 'court';
     if (minutes <= 150) return 'moyen';
     return 'long';
-  }
-
-  categorizeSeriesLength(totalSeasons) {
-    if (!totalSeasons || totalSeasons === 0) return 'unknown';
-    if (totalSeasons === 1) return 'mini-série';
-    if (totalSeasons <= 3) return 'série-courte';
-    if (totalSeasons <= 6) return 'série-moyenne';
-    return 'série-longue';
   }
 
   // Ajouter un tag personnalisé
@@ -1318,48 +1232,6 @@ class JSONDatabase {
     });
 
     return { success: true, suggestions: suggestions.slice(0, limit) };
-  }
-
-  async migrateToTagSystem() {
-    if (!this.data.config) await this.load();
-
-    console.log('🔄 Migration vers le système de tags...');
-
-    let migrationCount = 0;
-
-    const allMedias = [...this.data.uniqueMedias, ...this.data.seriesEpisodes];
-    allMedias.forEach(media => {
-      const originalData = { ...media };
-      const enrichedData = this.enrichMediaData(media);
-
-      if (JSON.stringify(originalData) !== JSON.stringify(enrichedData)) {
-        Object.assign(media, enrichedData);
-        migrationCount++;
-      }
-    });
-
-    this.data.seriesMetadata.forEach(series => {
-      const originalData = { ...series };
-      const enrichedData = this.enrichSeriesData(series);
-
-      if (series.totalSeasons) {
-        enrichedData.seriesLength = this.categorizeSeriesLength(series.totalSeasons);
-      }
-
-      if (JSON.stringify(originalData) !== JSON.stringify(enrichedData)) {
-        Object.assign(series, enrichedData);
-        migrationCount++;
-      }
-    });
-
-    if (migrationCount > 0) {
-      await this.saveAll();
-      console.log(`✅ Migration terminée: ${migrationCount} éléments mis à jour`);
-    } else {
-      console.log('ℹ️ Aucune migration nécessaire');
-    }
-
-    return { success: true, migrationCount };
   }
 }
 
