@@ -57,7 +57,9 @@
       "Bash(./ngrok-v2/ngrok.exe http:*)",
       "Bash(./cloudflared.exe tunnel:*)",
       "Bash(timeout /t 3 /nobreak)",
-      "Bash(del \"dist\\\\Rackoon-Streaming-1.0.0-Portable.exe\" \"dist\\\\Rackoon Streaming Setup 1.0.0.exe\")"
+      "Bash(del \"dist\\\\Rackoon-Streaming-1.0.0-Portable.exe\" \"dist\\\\Rackoon Streaming Setup 1.0.0.exe\")",
+      "Bash(for file in modal.css video-player.css filters.css file-manager.css watch-party.css series-modal.css import-classification.css file-manager-new.css)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

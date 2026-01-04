@@ -16,7 +16,7 @@
   background: rgba(20, 20, 20, 0.98);
   border-radius: 12px;
   padding: 24px;
-  color: #fff;
+  color: var(--text-primary);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   z-index: 10001 !important;
 }
@@ -52,7 +52,7 @@
 }
 
 .watchparty-modal .close-modal-btn:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .watchparty-modal .modal-body p {
@@ -81,14 +81,14 @@
   font-size: 36px;
   font-weight: bold;
   letter-spacing: 6px;
-  color: #4CAF50;
+  color: var(--color-success);
   font-family: 'Courier New', monospace;
 }
 
 .copy-code-btn {
   background: rgba(76, 175, 80, 0.2);
   border: none;
-  color: #4CAF50;
+  color: var(--color-success);
   padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -131,7 +131,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  color: #fff;
+  color: var(--text-primary);
   text-transform: uppercase;
   font-family: 'Courier New', monospace;
   margin: 20px 0;
@@ -140,7 +140,7 @@
 
 .watchparty-code-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--color-watchparty);
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -149,7 +149,7 @@
 }
 
 .watchparty-error {
-  color: #f44336;
+  color: var(--color-error);
   text-align: center;
   margin: 12px 0;
   min-height: 20px;
@@ -159,10 +159,10 @@
 .watchparty-join-btn {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-watchparty);
   border: none;
   border-radius: 10px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -214,13 +214,13 @@
   align-items: center;
   justify-content: space-between;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .chat-toggle-btn {
   background: none;
   border: none;
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 18px;
   padding: 8px;
@@ -266,7 +266,7 @@
   padding: 12px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--color-watchparty);
   animation: messageSlideIn 0.3s ease;
 }
 
@@ -282,7 +282,7 @@
 }
 
 .chat-message.own-message {
-  border-left-color: #4CAF50;
+  border-left-color: var(--color-success);
   background: rgba(76, 175, 80, 0.1);
 }
 
@@ -296,7 +296,7 @@
 
 .message-text {
   font-size: 14px;
-  color: #fff;
+  color: var(--text-primary);
   word-wrap: break-word;
   line-height: 1.4;
 }
@@ -321,14 +321,14 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   transition: border-color 0.2s ease;
 }
 
 .chat-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--color-watchparty);
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -337,9 +337,9 @@
 }
 
 .chat-send-btn {
-  background: #667eea;
+  background: var(--color-watchparty);
   border: none;
-  color: #fff;
+  color: var(--text-primary);
   padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -348,7 +348,7 @@
 }
 
 .chat-send-btn:hover {
-  background: #764ba2;
+  background: var(--color-watchparty-dark);
 }
 
 .chat-send-btn:active {
@@ -360,7 +360,7 @@
    ======================================== */
 
 .watchparty-btn {
-  color: #4CAF50 !important;
+  color: var(--color-success) !important;
 }
 
 .watchparty-btn.active {

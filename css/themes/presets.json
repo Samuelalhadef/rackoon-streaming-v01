@@ -1,0 +1,148 @@
+{
+  "themes": [
+    {
+      "id": "default-dark",
+      "name": "Rackoon Dark (Défaut)",
+      "description": "Thème sombre bleu par défaut",
+      "colors": {
+        "primary": "#3474db",
+        "primary-dark": "#2a5db3",
+        "primary-darker": "#1e4a99",
+        "primary-light": "#4a8aef",
+        "primary-lighter": "#6ba3f5",
+        "secondary": "#00d4ff",
+        "secondary-dark": "#00b8e6",
+        "secondary-light": "#33ddff",
+        "bg-primary": "#0e2356",
+        "bg-secondary": "#1e3a6d",
+        "bg-tertiary": "#132b4c",
+        "bg-card": "#1d3b5f",
+        "bg-card-hover": "#2a4a6b",
+        "bg-card-active": "#355a8a",
+        "text-primary": "#ffffff",
+        "text-secondary": "#e0e0e0",
+        "text-tertiary": "#b0b0b0"
+      }
+    },
+    {
+      "id": "light",
+      "name": "Rackoon Light",
+      "description": "Thème clair moderne",
+      "colors": {
+        "primary": "#3474db",
+        "primary-dark": "#2a5db3",
+        "primary-darker": "#1e4a99",
+        "primary-light": "#4a8aef",
+        "primary-lighter": "#6ba3f5",
+        "secondary": "#00a8cc",
+        "secondary-dark": "#008ba8",
+        "secondary-light": "#33c4e0",
+        "bg-primary": "#f5f7fa",
+        "bg-secondary": "#ffffff",
+        "bg-tertiary": "#e8ecf1",
+        "bg-card": "#ffffff",
+        "bg-card-hover": "#f8f9fb",
+        "bg-card-active": "#e8ecf1",
+        "text-primary": "#1a1a1a",
+        "text-secondary": "#4a4a4a",
+        "text-tertiary": "#6a6a6a"
+      }
+    },
+    {
+      "id": "dark-cold",
+      "name": "Nuit Polaire",
+      "description": "Thème sombre froid avec tons bleus profonds",
+      "colors": {
+        "primary": "#4a90e2",
+        "primary-dark": "#357abd",
+        "primary-darker": "#2563a8",
+        "primary-light": "#6ba3eb",
+        "primary-lighter": "#8cb8f0",
+        "secondary": "#00bcd4",
+        "secondary-dark": "#00a5bb",
+        "secondary-light": "#33cbd9",
+        "bg-primary": "#0a1929",
+        "bg-secondary": "#132f4c",
+        "bg-tertiary": "#1a3a52",
+        "bg-card": "#1e4976",
+        "bg-card-hover": "#265589",
+        "bg-card-active": "#2e619c",
+        "text-primary": "#e3f2fd",
+        "text-secondary": "#bbdefb",
+        "text-tertiary": "#90caf9"
+      }
+    },
+    {
+      "id": "dark-warm",
+      "name": "Coucher de Soleil",
+      "description": "Thème sombre chaud avec tons orangés",
+      "colors": {
+        "primary": "#ff6b35",
+        "primary-dark": "#e55a28",
+        "primary-darker": "#cc4a1b",
+        "primary-light": "#ff8558",
+        "primary-lighter": "#ffa07a",
+        "secondary": "#ffd166",
+        "secondary-dark": "#e6bc52",
+        "secondary-light": "#ffdb8a",
+        "bg-primary": "#1a0f0a",
+        "bg-secondary": "#2d1810",
+        "bg-tertiary": "#3d2218",
+        "bg-card": "#4d2c20",
+        "bg-card-hover": "#5d3628",
+        "bg-card-active": "#6d4030",
+        "text-primary": "#fff5eb",
+        "text-secondary": "#ffe4c4",
+        "text-tertiary": "#ffd4a3"
+      }
+    },
+    {
+      "id": "dark-purple",
+      "name": "Rêve Violet",
+      "description": "Thème sombre avec tons violets et magentas",
+      "colors": {
+        "primary": "#9b59b6",
+        "primary-dark": "#8e44ad",
+        "primary-darker": "#732d91",
+        "primary-light": "#af7ac5",
+        "primary-lighter": "#c39bd3",
+        "secondary": "#e91e63",
+        "secondary-dark": "#c2185b",
+        "secondary-light": "#f06292",
+        "bg-primary": "#1a0a1e",
+        "bg-secondary": "#2d1b33",
+        "bg-tertiary": "#3d2847",
+        "bg-card": "#4d355b",
+        "bg-card-hover": "#5d426f",
+        "bg-card-active": "#6d4f83",
+        "text-primary": "#f3e5f5",
+        "text-secondary": "#e1bee7",
+        "text-tertiary": "#ce93d8"
+      }
+    },
+    {
+      "id": "dark-green",
+      "name": "Forêt Nocturne",
+      "description": "Thème sombre avec tons verts naturels",
+      "colors": {
+        "primary": "#2ecc71",
+        "primary-dark": "#27ae60",
+        "primary-darker": "#229954",
+        "primary-light": "#58d68d",
+        "primary-lighter": "#82e0aa",
+        "secondary": "#1abc9c",
+        "secondary-dark": "#16a085",
+        "secondary-light": "#48c9b0",
+        "bg-primary": "#0a1e14",
+        "bg-secondary": "#143326",
+        "bg-tertiary": "#1e4738",
+        "bg-card": "#285c4a",
+        "bg-card-hover": "#32705c",
+        "bg-card-active": "#3c846e",
+        "text-primary": "#e8f5e9",
+        "text-secondary": "#c8e6c9",
+        "text-tertiary": "#a5d6a7"
+      }
+    }
+  ]
+}

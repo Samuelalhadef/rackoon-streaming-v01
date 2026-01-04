@@ -13,29 +13,29 @@
 .view-mode-selector select {
   min-width: 160px;
   padding: 8px 12px;
-  border: 1px solid #444;
+  border: 1px solid var(--border-color-medium);
   border-radius: 6px;
-  background: #2a2a2a;
-  color: #fff;
+  background: var(--bg-thumbnail);
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .view-mode-selector select:hover {
-  border-color: #007acc;
-  background: #333;
+  border-color: var(--color-primary);
+  background: var(--bg-modal-hover);
 }
 
 .view-mode-selector select:focus {
   outline: none;
-  border-color: #007acc;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
 }
 
 .view-mode-description {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   font-style: italic;
   max-width: 200px;
 }
@@ -44,23 +44,23 @@
 .files-table {
   width: 100%;
   border-collapse: collapse;
-  background: #1a1a1a;
+  background: var(--bg-modal-content);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .files-table thead th {
-  background: #2a2a2a;
-  color: #fff;
+  background: var(--bg-thumbnail);
+  color: var(--text-primary);
   padding: 12px 8px;
   text-align: left;
   font-weight: 600;
-  border-bottom: 2px solid #444;
+  border-bottom: 2px solid var(--border-color-medium);
 }
 
 .files-table tbody tr {
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
   transition: all 0.2s ease;
 }
 
@@ -84,7 +84,7 @@
   height: 40px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid #444;
+  border: 1px solid var(--border-color-medium);
 }
 
 .no-thumbnail {
@@ -93,9 +93,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #333;
+  background: var(--bg-modal-hover);
   border-radius: 4px;
-  color: #666;
+  color: var(--text-disabled);
   font-size: 18px;
 }
 
@@ -105,7 +105,7 @@
 
 .file-title {
   font-weight: 500;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -114,7 +114,7 @@
 
 .file-path {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -123,8 +123,8 @@
 .format-badge {
   display: inline-block;
   padding: 4px 8px;
-  background: #007acc;
-  color: white;
+  background: var(--color-primary);
+  color: var(--text-primary);
   border-radius: 4px;
   font-size: 11px;
   font-weight: bold;
@@ -134,7 +134,7 @@
 .duration-cell,
 .size-cell {
   font-family: 'Courier New', monospace;
-  color: #ccc;
+  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -143,12 +143,12 @@
 }
 
 .status-ok {
-  color: #4caf50;
+  color: var(--color-success);
   font-weight: 500;
 }
 
 .status-error {
-  color: #f44336;
+  color: var(--color-error);
   font-weight: 500;
 }
 
@@ -160,7 +160,7 @@
 .btn-icon {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-muted);
   font-size: 14px;
   padding: 6px;
   margin: 0 2px;
@@ -170,20 +170,20 @@
 }
 
 .btn-icon:hover {
-  background: #333;
-  color: #fff;
+  background: var(--bg-modal-hover);
+  color: var(--text-primary);
 }
 
 .btn-icon.btn-danger:hover {
-  background: #f44336;
-  color: white;
+  background: var(--color-error);
+  color: var(--text-primary);
 }
 
 /* État de chargement */
 .loading-row td {
   text-align: center;
   padding: 40px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .loading-spinner {
@@ -195,14 +195,14 @@
 
 .loading-spinner i {
   font-size: 24px;
-  color: #007acc;
+  color: var(--color-primary);
 }
 
 /* État vide */
 .no-files-row td {
   text-align: center;
   padding: 40px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .no-files-row i {
@@ -210,7 +210,7 @@
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.5;
-  color: #666;
+  color: var(--text-disabled);
 }
 
 /* Améliorations responsive */
@@ -252,7 +252,7 @@
 .file-checkbox {
   width: 16px;
   height: 16px;
-  accent-color: #007acc;
+  accent-color: var(--color-primary);
 }
 
 /* Sélection multiple */
@@ -261,13 +261,13 @@
 }
 
 .file-row.selected .file-title {
-  color: #007acc;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 /* Filtres et recherche */
 .filters-section {
-  background: #2a2a2a;
+  background: var(--bg-thumbnail);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -292,24 +292,24 @@
 .search-icon {
   position: absolute;
   left: 12px;
-  color: #888;
+  color: var(--text-muted);
   z-index: 1;
 }
 
 #search-input {
   width: 100%;
   padding: 10px 12px 10px 36px;
-  border: 1px solid #444;
+  border: 1px solid var(--border-color-medium);
   border-radius: 6px;
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--bg-modal-content);
+  color: var(--text-primary);
   font-size: 14px;
   transition: border-color 0.3s ease;
 }
 
 #search-input:focus {
   outline: none;
-  border-color: #007acc;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
 }
 
@@ -323,10 +323,10 @@
 .filter-controls select,
 .filter-controls button {
   padding: 8px 12px;
-  border: 1px solid #444;
+  border: 1px solid var(--border-color-medium);
   border-radius: 6px;
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--bg-modal-content);
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -334,18 +334,18 @@
 
 .filter-controls select:hover,
 .filter-controls button:hover {
-  border-color: #007acc;
-  background: #333;
+  border-color: var(--color-primary);
+  background: var(--bg-modal-hover);
 }
 
 .btn-primary {
-  background: #007acc !important;
+  background: var(--color-primary) !important;
   border-color: #007acc !important;
 }
 
 .btn-primary:hover {
-  background: #005a9e !important;
-  border-color: #005a9e !important;
+  background: var(--color-primary-dark) !important;
+  border-color: var(--color-primary-dark) !important;
 }
 
 /* Statistiques */
@@ -357,7 +357,7 @@
 }
 
 .stat-card {
-  background: #2a2a2a;
+  background: var(--bg-thumbnail);
   border-radius: 8px;
   padding: 20px;
   display: flex;
@@ -372,7 +372,7 @@
 
 .stat-icon {
   font-size: 32px;
-  color: #007acc;
+  color: var(--color-primary);
   width: 48px;
   text-align: center;
 }
@@ -384,19 +384,19 @@
 .stat-number {
   font-size: 24px;
   font-weight: bold;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 /* Styles pour la vue hiérarchique */
 .folder-row {
   background: rgba(0, 122, 204, 0.1);
-  border-left: 3px solid #007acc;
+  border-left: 3px solid var(--color-primary);
 }
 
 .folder-row:hover {
@@ -409,7 +409,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #007acc;
+  color: var(--color-primary);
   font-size: 24px;
 }
 
@@ -422,7 +422,7 @@
 }
 
 .folder-header:hover {
-  color: #007acc;
+  color: var(--color-primary);
 }
 
 .folder-toggle {
@@ -433,7 +433,7 @@
 
 .folder-count {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   font-weight: normal;
 }
 
@@ -442,7 +442,7 @@
   gap: 16px;
   align-items: center;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .folder-stat {
@@ -469,7 +469,7 @@
   content: '├─';
   position: absolute;
   left: 8px;
-  color: #007acc;
+  color: var(--color-primary);
   font-family: monospace;
   font-weight: bold;
   font-size: 14px;
@@ -482,7 +482,7 @@
 /* Styles pour la vue par catégorie */
 .category-row {
   background: rgba(255, 193, 7, 0.1);
-  border-left: 3px solid #ffc107;
+  border-left: 3px solid var(--color-warning);
 }
 
 .category-row:hover {
@@ -495,7 +495,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffc107;
+  color: var(--color-warning);
   font-size: 24px;
 }
 
@@ -508,7 +508,7 @@
 }
 
 .category-header:hover {
-  color: #ffc107;
+  color: var(--color-warning);
 }
 
 .category-toggle {
@@ -519,7 +519,7 @@
 
 .category-count {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   font-weight: normal;
 }
 
@@ -528,7 +528,7 @@
   gap: 16px;
   align-items: center;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .category-stat {
@@ -555,7 +555,7 @@
   content: '├─';
   position: absolute;
   left: 8px;
-  color: #ffc107;
+  color: var(--color-warning);
   font-family: monospace;
   font-weight: bold;
   font-size: 14px;
@@ -567,11 +567,11 @@
 
 /* Icônes spécifiques par catégorie */
 .category-row[data-category="films"] {
-  border-left-color: #e91e63;
+  border-left-color: var(--color-films);
 }
 
 .category-row[data-category="films"] .category-icon {
-  color: #e91e63;
+  color: var(--color-films);
 }
 
 .category-row[data-category="films"] .category-stat {
@@ -579,11 +579,11 @@
 }
 
 .category-row[data-category="series"] {
-  border-left-color: #2196f3;
+  border-left-color: var(--color-series);
 }
 
 .category-row[data-category="series"] .category-icon {
-  color: #2196f3;
+  color: var(--color-series);
 }
 
 .category-row[data-category="series"] .category-stat {
@@ -595,7 +595,7 @@
 }
 
 .category-row[data-category="documentaires"] .category-icon {
-  color: #4caf50;
+  color: var(--color-success);
 }
 
 .category-row[data-category="documentaires"] .category-stat {
@@ -603,11 +603,11 @@
 }
 
 .category-row[data-category="unsorted"] {
-  border-left-color: #ff9800;
+  border-left-color: var(--color-unsorted);
 }
 
 .category-row[data-category="unsorted"] .category-icon {
-  color: #ff9800;
+  color: var(--color-unsorted);
 }
 
 .category-row[data-category="unsorted"] .category-stat {
@@ -623,7 +623,7 @@
 .child-file-row.selected,
 .category-file-row.selected {
   background: linear-gradient(90deg, rgba(52, 116, 219, 0.25) 0%, rgba(52, 116, 219, 0.15) 100%) !important;
-  border-left: 4px solid #3474db !important;
+  border-left: 4px solid var(--color-primary) !important;
   box-shadow: inset 0 0 0 1px rgba(52, 116, 219, 0.3);
   position: relative;
 }
@@ -661,7 +661,7 @@
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #3474db;
+  accent-color: var(--color-primary);
   transition: transform 0.2s ease;
 }
 
@@ -676,7 +676,7 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #3474db;
+  accent-color: var(--color-primary);
   transition: all 0.2s ease;
 }
 

@@ -38,11 +38,11 @@
   height: 35px;
   border-radius: 4px;
   overflow: hidden;
-  background: linear-gradient(135deg, #f39c12, #e67e22);
+  background: var(--gradient-documentaires);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .folder-info {
@@ -54,7 +54,7 @@
 .folder-toggle {
   background: none;
   border: none;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
@@ -68,12 +68,12 @@
 
 .folder-name {
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .folder-path {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -81,8 +81,8 @@
 }
 
 .folder-badge {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-  color: #ffffff;
+  background: var(--gradient-documentaires);
+  color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -92,7 +92,7 @@
 
 .status-info {
   background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
+  color: var(--color-info);
 }
 
 /* Navigation */
@@ -105,7 +105,7 @@
 .back-btn {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  color: var(--text-primary);
   padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
@@ -150,7 +150,7 @@
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .stat-content {
@@ -160,14 +160,14 @@
 .stat-number {
   font-size: 28px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #b0b0b0;
+  color: var(--text-tertiary);
 }
 
 /* Section de filtres */
@@ -197,7 +197,7 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #888;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -207,12 +207,12 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .search-input-wrapper input::placeholder {
-  color: #888;
+  color: var(--text-muted);
 }
 
 .filter-controls {
@@ -226,14 +226,14 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 14px;
   min-width: 140px;
 }
 
 .filter-controls select option {
-  background: #081029;
-  color: #ffffff;
+  background: var(--bg-modal-dark);
+  color: var(--text-primary);
 }
 
 /* Section des fichiers */
@@ -253,7 +253,7 @@
 }
 
 .files-header h2 {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 18px;
   margin: 0;
 }
@@ -274,7 +274,7 @@
 
 .files-table th {
   background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
   padding: 12px;
   text-align: left;
@@ -287,7 +287,7 @@
 .files-table td {
   padding: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: #e0e0e0;
+  color: var(--text-secondary);
   vertical-align: middle;
 }
 
@@ -300,7 +300,7 @@
   height: 35px;
   border-radius: 4px;
   overflow: hidden;
-  background: #2a2a3e;
+  background: var(--bg-thumbnail);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -313,19 +313,19 @@
 }
 
 .file-thumbnail i {
-  color: #666;
+  color: var(--text-muted);
   font-size: 16px;
 }
 
 .file-name {
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .file-path {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -334,7 +334,7 @@
 
 .format-badge {
   background: linear-gradient(135deg, #3474db, #2a5db3);
-  color: #ffffff;
+  color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -351,17 +351,17 @@
 
 .status-ok {
   background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .status-missing {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .status-error {
   background: rgba(245, 101, 101, 0.2);
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .file-actions {
@@ -386,7 +386,7 @@
 
 .btn-view {
   background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .btn-view:hover {
@@ -395,7 +395,7 @@
 
 .btn-details {
   background: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
+  color: var(--color-info);
 }
 
 .btn-details:hover {
@@ -404,7 +404,7 @@
 
 .btn-delete {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .btn-delete:hover {
@@ -427,7 +427,7 @@
 
 .btn-primary {
   background: linear-gradient(135deg, #3474db, #2a5db3);
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .btn-primary:hover {
@@ -436,7 +436,7 @@
 
 .btn-secondary {
   background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  color: var(--text-primary);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -445,12 +445,12 @@
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: #ffffff;
+  background: linear-gradient(135deg, var(--color-error), var(--color-error-dark));
+  color: var(--text-primary);
 }
 
 .btn-danger:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  background: linear-gradient(135deg, var(--color-error-dark), var(--color-error-dark));
 }
 
 /* Loading spinner */
@@ -460,7 +460,7 @@
   justify-content: center;
   gap: 10px;
   padding: 40px 20px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .loading-spinner i {
@@ -482,7 +482,7 @@
 }
 
 .modal-content {
-  background: #081029;
+  background: var(--bg-modal-dark);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   width: 90%;
@@ -504,7 +504,7 @@
 }
 
 .modal-header h3 {
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0;
   font-size: 18px;
 }
@@ -512,7 +512,7 @@
 .modal-close {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-muted);
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -526,7 +526,7 @@
 }
 
 .modal-close:hover {
-  color: #ffffff;
+  color: var(--text-primary);
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -543,7 +543,7 @@
 }
 
 .warning-text {
-  color: #f59e0b;
+  color: var(--color-warning);
   font-size: 14px;
   margin-top: 10px;
 }
@@ -564,12 +564,12 @@
 
 .detail-item label {
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .detail-item span {
-  color: #e0e0e0;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 

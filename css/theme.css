@@ -1,0 +1,244 @@
+/**
+ * Système de thèmes Rackoon Streaming
+ * Variables CSS pour la personnalisation de l'interface
+ */
+
+:root {
+  /* ========================================
+     COULEURS PRINCIPALES
+     ======================================== */
+
+  /* Couleur primaire (bleu) */
+  --color-primary: #3474db;
+  --color-primary-dark: #2a5db3;
+  --color-primary-darker: #1e4a99;
+  --color-primary-light: #4a8aef;
+  --color-primary-lighter: #6ba3f5;
+
+  /* Couleur secondaire (pour accents) */
+  --color-secondary: #00d4ff;
+  --color-secondary-dark: #00b8e6;
+  --color-secondary-light: #33ddff;
+
+  /* ========================================
+     ARRIÈRE-PLANS
+     ======================================== */
+
+  /* Arrière-plans principaux */
+  --bg-primary: #0e2356;
+  --bg-secondary: #1e3a6d;
+  --bg-tertiary: #132b4c;
+
+  /* Arrière-plans pour cartes et panneaux */
+  --bg-card: #1d3b5f;
+  --bg-card-hover: #2a4a6b;
+  --bg-card-active: #355a8a;
+  --bg-card-alt: #1e3a5f;
+  --bg-card-alt-hover: #2a4d7a;
+
+  /* Arrière-plans sombres */
+  --bg-dark: #19283b;
+  --bg-darker: #16202a;
+
+  /* Arrière-plans pour modales et overlays */
+  --bg-modal: rgba(14, 35, 86, 0.95);
+  --bg-modal-dark: #081029;
+  --bg-modal-content: #1a1f35;
+  --bg-modal-hover: #2a3350;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-thumbnail: #2a2a3e;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
+  --gradient-primary-hover: linear-gradient(135deg, #1e3a6d 0%, #2a4a6b 100%);
+  --gradient-accent: linear-gradient(135deg, #3474db, #2a5db3);
+  --gradient-accent-hover: linear-gradient(135deg, #2a5db3 0%, #1e4a99 100%);
+  --gradient-fade: linear-gradient(90deg, #3474db 0%, transparent 100%);
+
+  /* Gradients pour les stats */
+  --gradient-stats-bg: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
+  --gradient-stats-blue: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+  --gradient-stats-green: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+  --gradient-stats-orange: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
+  --gradient-stats-purple: linear-gradient(135deg, #9d4edd 0%, #7b2cbf 100%);
+
+  /* ========================================
+     TEXTE
+     ======================================== */
+
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #b0b0b0;
+  --text-muted: #808080;
+  --text-disabled: #606060;
+  --text-faded: #7a8499;
+
+  /* Texte sur fond clair */
+  --text-on-light: #1a1a1a;
+  --text-dark: #06183F;
+
+  /* Background clair */
+  --bg-light: #f0f0f0;
+
+  /* ========================================
+     BORDURES
+     ======================================== */
+
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-color-light: rgba(255, 255, 255, 0.05);
+  --border-color-medium: rgba(255, 255, 255, 0.15);
+  --border-color-strong: rgba(255, 255, 255, 0.3);
+
+  /* ========================================
+     OMBRES
+     ======================================== */
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.4);
+
+  /* Ombre avec couleur primaire */
+  --shadow-primary: 0 4px 12px rgba(52, 116, 219, 0.3);
+  --shadow-primary-lg: 0 8px 24px rgba(52, 116, 219, 0.4);
+
+  /* ========================================
+     COULEURS DE STATUT
+     ======================================== */
+
+  --color-success: #28a745;
+  --color-success-dark: #218838;
+  --color-success-light: #5cb85c;
+
+  --color-warning: #ffc107;
+  --color-warning-dark: #e0a800;
+  --color-warning-light: #ffd454;
+
+  --color-error: #dc3545;
+  --color-error-dark: #c82333;
+  --color-error-light: #e57373;
+
+  --color-info: #17a2b8;
+  --color-info-dark: #138496;
+  --color-info-light: #5bc0de;
+
+  /* ========================================
+     COULEURS CATÉGORIES
+     ======================================== */
+
+  --color-films: #e74c3c;
+  --color-series: #3498db;
+  --color-documentaires: #f39c12;
+  --color-concerts: #9b59b6;
+  --color-unsorted: #95a5a6;
+
+  /* Gradients pour catégories */
+  --gradient-documentaires: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  --gradient-concerts: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  --gradient-series: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+
+  /* Watch Party */
+  --color-watchparty: #667eea;
+  --color-watchparty-dark: #764ba2;
+  --gradient-watchparty: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  /* Couleurs pour ratings/notes */
+  --color-rating: #ffa500;
+  --color-rating-alt: #f1c40f;
+
+  /* ========================================
+     ICÔNES ET BADGES
+     ======================================== */
+
+  --icon-color: #ffffff;
+  --icon-color-muted: #b0b0b0;
+  --badge-bg: rgba(52, 116, 219, 0.2);
+  --badge-color: #3474db;
+
+  /* ========================================
+     INPUTS ET FORMULAIRES
+     ======================================== */
+
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --input-bg-focus: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --input-border-focus: var(--color-primary);
+  --input-text: #ffffff;
+  --input-placeholder: #808080;
+
+  /* ========================================
+     BOUTONS
+     ======================================== */
+
+  --btn-primary-bg: var(--gradient-accent);
+  --btn-primary-bg-hover: var(--gradient-accent-hover);
+  --btn-primary-text: #ffffff;
+
+  --btn-secondary-bg: rgba(255, 255, 255, 0.1);
+  --btn-secondary-bg-hover: rgba(255, 255, 255, 0.2);
+  --btn-secondary-text: #ffffff;
+
+  --btn-danger-bg: var(--color-error);
+  --btn-danger-bg-hover: var(--color-error-dark);
+  --btn-danger-text: #ffffff;
+
+  --btn-other-bg: #6c757d;
+  --btn-other-bg-hover: #5a6268;
+  --btn-other-border: #5a6268;
+  --btn-other-border-hover: #4e555b;
+
+  /* ========================================
+     SCROLLBAR
+     ======================================== */
+
+  --scrollbar-track: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+
+  /* ========================================
+     TRANSITIONS
+     ======================================== */
+
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* ========================================
+     ESPACEMENTS
+     ======================================== */
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* ========================================
+     BORDER RADIUS
+     ======================================== */
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+}
+
+/* ========================================
+   CLASSES UTILITAIRES
+   ======================================== */
+
+.theme-transition {
+  transition: background-color var(--transition-normal),
+              color var(--transition-normal),
+              border-color var(--transition-normal);
+}
+
+/* Appliquer la transition sur tous les éléments lors du changement de thème */
+body.theme-changing * {
+  transition: background-color var(--transition-normal),
+              color var(--transition-normal),
+              border-color var(--transition-normal) !important;
+}

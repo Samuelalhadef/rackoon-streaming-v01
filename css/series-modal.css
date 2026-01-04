@@ -160,7 +160,7 @@
 }
 
 .series-modal .poster-quick-info {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
@@ -181,7 +181,7 @@
 .series-modal .poster-episode-info {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
-  color: #fff;
+  color: var(--text-primary);
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 13px;
@@ -244,7 +244,7 @@
 }
 
 .series-modal .rating-title {
-  color: #e0e0e0;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -305,7 +305,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   text-align: center;
   transition: all 0.3s;
@@ -313,7 +313,7 @@
 
 .series-modal .rating-input:focus {
   outline: none;
-  border-color: #3474db;
+  border-color: var(--color-primary);
   background: rgba(255, 255, 255, 0.15);
 }
 
@@ -325,7 +325,7 @@
 }
 
 .series-modal .review-title {
-  color: #e0e0e0;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -338,7 +338,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   resize: vertical;
   min-height: 60px;
@@ -347,16 +347,16 @@
 
 .series-modal .review-input:focus {
   outline: none;
-  border-color: #3474db;
+  border-color: var(--color-primary);
   background: rgba(255, 255, 255, 0.15);
 }
 
 .series-modal .review-save-btn {
   padding: 8px 16px;
   background: rgba(52, 116, 219, 0.2);
-  border: 1px solid #3474db;
+  border: 1px solid var(--color-primary);
   border-radius: 6px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -427,7 +427,7 @@
 .series-modal .modal-title {
   font-size: 42px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   line-height: 1.2;
 }
@@ -462,7 +462,7 @@
 }
 
 .series-modal .movie-year {
-  color: #b0b0b0;
+  color: var(--text-tertiary);
   font-weight: 500;
   font-size: 32px;
   line-height: 1;
@@ -493,7 +493,7 @@
 
 .series-modal .edit-button {
   background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .series-modal .edit-button:hover {
@@ -503,8 +503,8 @@
 
 .series-modal .edit-cancel-btn {
   background: rgba(244, 67, 54, 0.2);
-  border-color: #f44336;
-  color: #f44336;
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .series-modal .edit-cancel-btn:hover {
@@ -513,8 +513,8 @@
 
 .series-modal .edit-save-btn {
   background: rgba(76, 175, 80, 0.2);
-  border-color: #4caf50;
-  color: #4caf50;
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .series-modal .edit-save-btn:hover {
@@ -525,7 +525,7 @@
 .series-modal .movie-meta {
   display: flex;
   gap: 20px;
-  color: #b0b0b0;
+  color: var(--text-tertiary);
   font-size: 15px;
 }
 
@@ -541,20 +541,20 @@
 /* Synopsis */
 .series-modal .synopsis {
   background: rgba(255, 255, 255, 0.03);
-  border-left: 3px solid #3474db;
+  border-left: 3px solid var(--color-primary);
   padding: 20px 25px;
   border-radius: 8px;
 }
 
 .series-modal .synopsis-title {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 12px 0;
 }
 
 .series-modal .synopsis-content {
-  color: #d0d0d0;
+  color: var(--text-secondary);
   font-size: 15px;
   line-height: 1.7;
   margin: 0;
@@ -579,14 +579,14 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
 }
 
 .series-modal .tag-category-header i {
   font-size: 16px;
-  color: #3474db;
+  color: var(--color-primary);
 }
 
 .series-modal .tag-chips {
@@ -638,7 +638,7 @@
 }
 
 .series-modal .credit-label {
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -649,7 +649,7 @@
 .series-modal .director-name,
 .series-modal .actors-list,
 .series-modal .platform-name {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 500;
 }
@@ -679,14 +679,14 @@
 }
 
 .series-modal .season-title {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 22px;
   font-weight: 600;
   margin: 0;
 }
 
 .series-modal .season-episode-count {
-  color: #b0b0b0;
+  color: var(--text-tertiary);
   font-size: 14px;
   font-weight: 500;
 }
@@ -710,7 +710,7 @@
 
 .series-modal .episode-card:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: #3474db;
+  border-color: var(--color-primary);
   transform: translateY(-5px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
@@ -771,7 +771,7 @@
 }
 
 .series-modal .episode-play-btn:hover {
-  background: #3474db;
+  background: var(--color-primary);
   transform: translate(-50%, -50%) scale(1.1);
 }
 
@@ -780,7 +780,7 @@
 }
 
 .series-modal .episode-number {
-  color: #3474db;
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 5px;
@@ -789,7 +789,7 @@
 }
 
 .series-modal .episode-title {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 8px;
@@ -797,7 +797,7 @@
 }
 
 .series-modal .episode-meta {
-  color: #b0b0b0;
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 
@@ -810,7 +810,7 @@
 }
 
 .series-modal .viewing-stats-title {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 15px 0;
@@ -835,13 +835,13 @@
 }
 
 .series-modal .stat-label {
-  color: #888;
+  color: var(--text-muted);
   font-size: 14px;
   font-weight: 500;
 }
 
 .series-modal .stat-value {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 600;
 }
@@ -855,7 +855,7 @@
 }
 
 .series-modal .technical-info-title {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 15px 0;
@@ -876,7 +876,7 @@
 }
 
 .series-modal .tech-label {
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
@@ -884,7 +884,7 @@
 }
 
 .series-modal .tech-value {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
 }
@@ -898,10 +898,10 @@
   width: calc(100% - 40px);
   max-width: 400px;
   padding: 16px 32px;
-  background: linear-gradient(135deg, #3474db 0%, #2a5db3 100%);
+  background: var(--gradient-accent);
   border: none;
   border-radius: 50px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -915,7 +915,7 @@
 }
 
 .series-modal .floating-watch-btn:hover {
-  background: linear-gradient(135deg, #2a5db3 0%, #1e4a8f 100%);
+  background: var(--gradient-accent-hover);
   transform: translateX(-50%) translateY(-3px);
   box-shadow: 0 12px 40px rgba(52, 116, 219, 0.6);
 }

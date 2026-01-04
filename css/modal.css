@@ -36,7 +36,7 @@
   left: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, #64b5f6, #42a5f5, #2196f3);
+  background: linear-gradient(180deg, var(--color-primary-light), #42a5f5, var(--color-series));
   border-radius: 0 2px 2px 0;
 }
 
@@ -58,7 +58,7 @@
 
 .credit-label {
   font-weight: 700;
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -72,13 +72,13 @@
   content: '';
   width: 6px;
   height: 6px;
-  background: #64b5f6;
+  background: var(--color-primary-light);
   border-radius: 50%;
   box-shadow: 0 0 10px rgba(100, 181, 246, 0.6);
 }
 
 .director-name, .actors-list, .franchise-name {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 500;
   flex: 1;
@@ -121,7 +121,7 @@
 }
 
 .tag-category-header i {
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-size: 18px;
   width: 20px;
   text-align: center;
@@ -130,7 +130,7 @@
 
 .tag-category-title {
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 16px;
   text-transform: uppercase;
   letter-spacing: 1.2px;
@@ -182,31 +182,31 @@
 /* Couleurs redessinées avec glassmorphism */
 .tag-chip.genre {
   background: linear-gradient(135deg, rgba(255, 107, 107, 0.8), rgba(238, 90, 36, 0.6));
-  color: white;
+  color: var(--text-primary);
   box-shadow: 0 8px 32px rgba(255, 107, 107, 0.3);
 }
 
 .tag-chip.mood {
   background: linear-gradient(135deg, rgba(162, 155, 254, 0.8), rgba(108, 92, 231, 0.6));
-  color: white;
+  color: var(--text-primary);
   box-shadow: 0 8px 32px rgba(162, 155, 254, 0.3);
 }
 
 .tag-chip.technical {
   background: linear-gradient(135deg, rgba(0, 184, 148, 0.8), rgba(0, 160, 133, 0.6));
-  color: white;
+  color: var(--text-primary);
   box-shadow: 0 8px 32px rgba(0, 184, 148, 0.3);
 }
 
 .tag-chip.personal {
   background: linear-gradient(135deg, rgba(253, 203, 110, 0.8), rgba(225, 112, 85, 0.6));
-  color: white;
+  color: var(--text-primary);
   box-shadow: 0 8px 32px rgba(253, 203, 110, 0.3);
 }
 
 .tag-chip.collection {
   background: linear-gradient(135deg, rgba(116, 185, 255, 0.8), rgba(9, 132, 227, 0.6));
-  color: white;
+  color: var(--text-primary);
   box-shadow: 0 8px 32px rgba(116, 185, 255, 0.3);
 }
 
@@ -242,7 +242,7 @@
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
-  color: #64b5f6;
+  color: var(--color-primary-light);
   display: inline-block;
   font-weight: 600;
 }
@@ -287,7 +287,7 @@
 
 .synopsis-title {
   font-size: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 16px;
   font-weight: 700;
   background: linear-gradient(135deg, #ffffff, #e3f2fd);
@@ -600,7 +600,7 @@
   top: 15px;
   right: 15px;
   background-color: rgba(0, 0, 0, 0.5);
-  color: white;
+  color: var(--text-primary);
   border: none;
   border-radius: 50%;
   width: 36px;
@@ -673,7 +673,7 @@
 .modal-title {
   font-size: 42px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   line-height: 1.2;
   background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
@@ -695,7 +695,7 @@
 }
 
 .media-category {
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-weight: 600;
   text-transform: capitalize;
   font-size: 40px;
@@ -703,14 +703,14 @@
 }
 
 .meta-separator {
-  color: #888;
+  color: var(--text-muted);
   font-weight: 400;
   font-size: 40px;
   line-height: 1;
 }
 
 .movie-year {
-  color: #b0b0b0;
+  color: var(--text-tertiary);
   font-weight: 500;
   font-size: 32px;
   line-height: 1;
@@ -747,7 +747,7 @@
   border: 2px solid rgba(100, 181, 246, 0.4);
   border-radius: 12px;
   cursor: pointer;
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-size: 16px;
   font-weight: 600;
   padding: 12px 16px;
@@ -783,7 +783,7 @@
   border-color: rgba(100, 181, 246, 0.6);
   transform: translateY(-4px) scale(1.05);
   box-shadow: 0 8px 32px rgba(100, 181, 246, 0.4);
-  color: white;
+  color: var(--text-primary);
 }
 
 /* Boutons d'extension (save/cancel) */
@@ -811,7 +811,7 @@
 .edit-cancel-btn {
   background: linear-gradient(135deg, rgba(220, 53, 69, 0.2), rgba(220, 53, 69, 0.1));
   border-color: rgba(220, 53, 69, 0.4);
-  color: #dc3545;
+  color: var(--color-error);
   left: -60px;
   transform: translateX(0);
   opacity: 0;
@@ -827,14 +827,14 @@
   border-color: rgba(220, 53, 69, 0.6);
   transform: translateY(-4px) scale(1.05);
   box-shadow: 0 8px 32px rgba(220, 53, 69, 0.4);
-  color: white;
+  color: var(--text-primary);
 }
 
 /* Bouton sauvegarder (droite) */
 .edit-save-btn {
   background: linear-gradient(135deg, rgba(40, 167, 69, 0.2), rgba(40, 167, 69, 0.1));
   border-color: rgba(40, 167, 69, 0.4);
-  color: #28a745;
+  color: var(--color-success);
   left: 60px;
   transform: translateX(0);
   opacity: 0;
@@ -850,19 +850,19 @@
   border-color: rgba(40, 167, 69, 0.6);
   transform: translateY(-4px) scale(1.05);
   box-shadow: 0 8px 32px rgba(40, 167, 69, 0.4);
-  color: white;
+  color: var(--text-primary);
 }
 
 /* État actif (quand des modifications sont en cours) */
 .edit-save-btn.active {
-  background: linear-gradient(135deg, #28a745, #198754);
-  border-color: #28a745;
-  color: white;
+  background: linear-gradient(135deg, var(--color-success), #198754);
+  border-color: var(--color-success);
+  color: var(--text-primary);
   box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
 }
 
 .edit-save-btn.active:hover {
-  background: linear-gradient(135deg, #34ce57, #28a745);
+  background: linear-gradient(135deg, #34ce57, var(--color-success));
   box-shadow: 0 12px 40px rgba(40, 167, 69, 0.5);
 }
 
@@ -887,7 +887,7 @@
 
 .movie-meta > * {
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
   padding: 10px 16px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
   border-radius: 20px;
@@ -934,7 +934,7 @@
 
 /* Message pour les catégories de tags vides */
 .empty-tags-message {
-  color: #888;
+  color: var(--text-muted);
   font-style: italic;
   font-size: 14px;
   padding: 8px 16px;
@@ -953,7 +953,7 @@
   border-radius: 50%;
   background: linear-gradient(135deg, rgba(100, 181, 246, 0.2), rgba(100, 181, 246, 0.1));
   border: 2px dashed rgba(100, 181, 246, 0.5);
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -963,7 +963,7 @@
 
 .add-tag-btn-inline:hover {
   background: linear-gradient(135deg, rgba(100, 181, 246, 0.3), rgba(100, 181, 246, 0.2));
-  border-color: #64b5f6;
+  border-color: var(--color-primary-light);
   border-style: solid;
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(100, 181, 246, 0.3);
@@ -1015,7 +1015,7 @@
 
 .tag-selection-content h3 {
   margin: 0 0 20px 0;
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-size: 20px;
   text-align: center;
 }
@@ -1063,13 +1063,13 @@
 }
 
 .tag-selection-item i {
-  color: #64b5f6;
+  color: var(--color-primary-light);
   font-size: 16px;
 }
 
 .tag-selection-item:hover {
   background: rgba(100, 181, 246, 0.2);
-  border-color: #64b5f6;
+  border-color: var(--color-primary-light);
   transform: translateX(8px);
 }
 
@@ -1086,7 +1086,7 @@
 
 .tag-selection-close:hover {
   background: rgba(220, 53, 69, 0.3);
-  border-color: #dc3545;
+  border-color: var(--color-error);
 }
 
 /* Anciens boutons supprimés - Plus de doublons */
@@ -1100,7 +1100,7 @@
   content: '\f073';
   font-family: 'Font Awesome 5 Free';
   margin-right: 6px;
-  color: #3474db;
+  color: var(--color-primary);
 }
 
 .duration::before {
@@ -1108,7 +1108,7 @@
   font-family: 'Font Awesome 5 Free';
   font-weight: 400;
   margin-right: 6px;
-  color: #3474db;
+  color: var(--color-primary);
 }
 
 /* Genres */
@@ -1121,7 +1121,7 @@
 
 .genre-tag {
   background-color: rgba(52, 116, 219, 0.2);
-  color: #ffffff;
+  color: var(--text-primary);
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 13px;
@@ -1141,7 +1141,7 @@
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 10px;
-  color: #e0e0e0;
+  color: var(--text-secondary);
 }
 
 .synopsis-content {
@@ -1186,13 +1186,13 @@
 }
 
 .modal-star.filled {
-  color: #f1c40f;
+  color: var(--color-warning-alt);
   filter: drop-shadow(0 0 3px rgba(241, 196, 15, 0.5));
 }
 
 .modal-star:hover,
 .modal-star.hover {
-  color: #f1c40f;
+  color: var(--color-warning-alt);
   transform: scale(1.2);
   filter: drop-shadow(0 0 5px rgba(241, 196, 15, 0.7));
 }
@@ -1232,8 +1232,8 @@
 }
 
 .btn-watch-film {
-  background: linear-gradient(135deg, #3474db, #2a5db3);
-  color: white;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: var(--text-primary);
   border: none;
   padding: 14px 28px;
   border-radius: 12px;
@@ -1266,7 +1266,7 @@
 }
 
 .btn-watch-film:hover {
-  background: linear-gradient(135deg, #4284eb, #3474db);
+  background: linear-gradient(135deg, #4284eb, var(--color-primary));
   transform: translateY(-4px) scale(1.05);
   box-shadow: 0 12px 40px rgba(52, 116, 219, 0.5);
   border-color: rgba(52, 116, 219, 0.5);
@@ -1278,7 +1278,7 @@
 
 .btn-watch-toggle-modal {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
-  color: white;
+  color: var(--text-primary);
   border: 2px solid rgba(255, 255, 255, 0.2);
   padding: 12px 24px;
   border-radius: 12px;
@@ -1320,7 +1320,7 @@
 }
 
 .btn-watch-toggle-modal.watched:hover {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  background: linear-gradient(135deg, var(--color-success), #27ae60);
   box-shadow: 0 12px 40px rgba(39, 174, 96, 0.5);
 }
 
@@ -1428,7 +1428,7 @@
 .edit-mode .edit-section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #3474db;
+  color: var(--color-primary);
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1444,7 +1444,7 @@
 .edit-mode select {
   background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  color: var(--text-primary);
   padding: 8px 12px;
   border-radius: 4px;
   font-size: 15px;
@@ -1459,7 +1459,7 @@
 .edit-mode textarea:focus,
 .edit-mode select:focus {
   outline: none;
-  border-color: #3474db;
+  border-color: var(--color-primary);
 }
 
 .edit-mode textarea {
@@ -1478,7 +1478,7 @@
   display: flex;
   align-items: center;
   background-color: rgba(52, 116, 219, 0.2);
-  color: #ffffff;
+  color: var(--text-primary);
   padding: 5px 10px;
   border-radius: 20px;
   font-size: 13px;
@@ -1500,7 +1500,7 @@
 }
 
 .edit-mode .genre-chip .remove-genre:hover {
-  color: white;
+  color: var(--text-primary);
 }
 
 .edit-mode .add-genre-container {
@@ -1514,8 +1514,8 @@
 }
 
 .edit-mode .add-genre-btn {
-  background-color: #3474db;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 8px 15px;
@@ -1525,7 +1525,7 @@
 }
 
 .edit-mode .add-genre-btn:hover {
-  background-color: #2a5db3;
+  background-color: var(--color-primary-dark);
 }
 */
 
@@ -1765,7 +1765,7 @@
 }
 
 .popup-content p {
-  color: white;
+  color: var(--text-primary);
   font-size: 16px;
   margin: 0 0 25px 0;
   line-height: 1.5;
@@ -1790,7 +1790,7 @@
 
 .popup-cancel {
   background-color: rgba(239, 68, 68, 0.8);
-  color: white;
+  color: var(--text-primary);
 }
 
 .popup-cancel:hover {
@@ -1800,7 +1800,7 @@
 
 .popup-confirm {
   background-color: rgba(34, 197, 94, 0.8);
-  color: white;
+  color: var(--text-primary);
 }
 
 .popup-confirm:hover {
@@ -1852,7 +1852,7 @@
 }
 
 .advanced-confirmation-popup h3 {
-  color: white;
+  color: var(--text-primary);
   font-size: 20px;
   margin: 0 0 15px 0;
   font-weight: 700;
@@ -1907,7 +1907,7 @@
 /* Bouton secondaire (Retour/Annuler) */
 .popup-secondary {
   background: rgba(108, 117, 125, 0.8);
-  color: white;
+  color: var(--text-primary);
   border: 1px solid rgba(108, 117, 125, 0.5);
 }
 
@@ -1919,26 +1919,26 @@
 
 /* Bouton de succès (Sauvegarder) */
 .popup-success {
-  background: linear-gradient(135deg, #28a745, #20c997);
-  color: white;
+  background: linear-gradient(135deg, var(--color-success), #20c997);
+  color: var(--text-primary);
   border: 1px solid rgba(40, 167, 69, 0.5);
 }
 
 .popup-success:hover {
-  background: linear-gradient(135deg, #34ce57, #28a745);
+  background: linear-gradient(135deg, #34ce57, var(--color-success));
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5);
 }
 
 /* Bouton de danger (Annuler les modifs) */
 .popup-danger {
-  background: linear-gradient(135deg, #dc3545, #e74c3c);
-  color: white;
+  background: linear-gradient(135deg, var(--color-error), var(--color-films));
+  color: var(--text-primary);
   border: 1px solid rgba(220, 53, 69, 0.5);
 }
 
 .popup-danger:hover {
-  background: linear-gradient(135deg, #e74c3c, #dc3545);
+  background: linear-gradient(135deg, var(--color-films), var(--color-error));
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 6px 20px rgba(220, 53, 69, 0.5);
 }
@@ -1978,12 +1978,12 @@
 }
 
 .edit-tag-category-header i {
-  color: #3474db;
+  color: var(--color-primary);
   font-size: 16px;
 }
 
 .edit-tag-category-header span {
-  color: white;
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 15px;
   flex: 1;
@@ -1992,7 +1992,7 @@
 .add-tag-btn {
   background: rgba(52, 116, 219, 0.2);
   border: 1px solid rgba(52, 116, 219, 0.4);
-  color: white;
+  color: var(--text-primary);
   border-radius: 50%;
   width: 28px;
   height: 28px;
@@ -2034,7 +2034,7 @@
   display: flex;
   align-items: center;
   background: rgba(52, 116, 219, 0.25);
-  color: white;
+  color: var(--text-primary);
   padding: 6px 12px;
   border-radius: 16px;
   font-size: 13px;
@@ -2070,7 +2070,7 @@
 }
 
 .edit-tag-chip .remove-tag:hover {
-  color: white;
+  color: var(--text-primary);
   background: rgba(239, 68, 68, 0.3);
 }
 
@@ -2093,7 +2093,7 @@
   flex: 1;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  color: var(--text-primary);
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
@@ -2102,7 +2102,7 @@
 }
 
 .tag-input:focus {
-  border-color: #3474db;
+  border-color: var(--color-primary);
   background: rgba(255, 255, 255, 0.15);
 }
 
@@ -2114,7 +2114,7 @@
 .cancel-tag-btn {
   background: none;
   border: 1px solid;
-  color: white;
+  color: var(--text-primary);
   padding: 8px;
   border-radius: 6px;
   cursor: pointer;
@@ -2261,7 +2261,7 @@
   width: 100%;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  color: var(--text-primary);
   padding: 10px 14px;
   border-radius: 8px;
   font-size: 14px;
@@ -2284,7 +2284,7 @@
 .dropdown-create-btn {
   background: linear-gradient(135deg, rgba(52, 219, 52, 0.8), rgba(39, 174, 96, 0.6));
   border: 1px solid rgba(52, 219, 52, 0.4);
-  color: white;
+  color: var(--text-primary);
   padding: 10px 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -2376,7 +2376,7 @@
 .dropdown-tag-item:hover {
   background: rgba(52, 116, 219, 0.15);
   border-left-color: rgba(52, 116, 219, 0.6);
-  color: white;
+  color: var(--text-primary);
   transform: translateX(4px);
 }
 
@@ -2484,8 +2484,8 @@
 }
 
 .edit-mode .image-upload-btn {
-  background-color: #3474db;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 6px 12px;
@@ -2496,7 +2496,7 @@
 }
 
 .edit-mode .image-upload-btn:hover {
-  background-color: #2a5db3;
+  background-color: var(--color-primary-dark);
 }
 */
 
@@ -2504,7 +2504,7 @@
 /*
 .edit-mode .tmdb-search-btn {
   background-color: #01d277;
-  color: white;
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 10px 15px;
@@ -2526,8 +2526,8 @@
 }
 
 .edit-mode .exit-edit-mode {
-  background-color: #e74c3c;
-  color: white;
+  background-color: var(--color-films);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 10px 20px;
@@ -2547,7 +2547,7 @@
 /*
 .edit-mode .genre-dropdown {
   background-color: rgba(255, 255, 255, 0.1);
-  color: white;
+  color: var(--text-primary);
   border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 8px 12px;
   border-radius: 4px;
@@ -2557,13 +2557,13 @@
 }
 
 .edit-mode .genre-dropdown option {
-  background-color: #081029;
-  color: white;
+  background-color: var(--bg-modal-dark);
+  color: var(--text-primary);
 }
 
 .edit-mode .save-changes-btn {
   background-color: #27ae60;
-  color: white;
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 10px 20px;
@@ -2608,7 +2608,7 @@
 }
 
 .new-series-modal h3 {
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 20px 0;
   font-size: 24px;
   text-align: center;
@@ -2617,7 +2617,7 @@
 .new-series-modal input[type="text"] {
   background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  color: var(--text-primary);
   padding: 12px;
   border-radius: 6px;
   font-size: 16px;
@@ -2628,7 +2628,7 @@
 
 .new-series-modal input[type="text"]:focus {
   outline: none;
-  border-color: #3474db;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(52, 116, 219, 0.2);
 }
 
@@ -2656,12 +2656,12 @@
 
 .modal-buttons .btn-cancel:hover {
   background-color: rgba(255, 255, 255, 0.2);
-  color: white;
+  color: var(--text-primary);
 }
 
 .modal-buttons .btn-create {
-  background-color: #3474db;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--text-primary);
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -2672,7 +2672,7 @@
 }
 
 .modal-buttons .btn-create:hover {
-  background-color: #2a5db3;
+  background-color: var(--color-primary-dark);
 }
 
 /* ============================================ */
@@ -2793,7 +2793,7 @@
 .modal-sidebar .btn-watch-toggle-modal {
   width: 100%;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
-  color: white;
+  color: var(--text-primary);
   border: 2px solid rgba(255, 255, 255, 0.2);
   padding: 14px 24px;
   border-radius: 12px;
@@ -2836,7 +2836,7 @@
 }
 
 .evaluation-section .btn-watch-toggle-modal.watched:hover {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
+  background: linear-gradient(135deg, var(--color-success), #27ae60);
   box-shadow: 0 12px 40px rgba(39, 174, 96, 0.5);
 }
 
@@ -2921,7 +2921,7 @@
 .review-title {
   font-size: 14px;
   font-weight: 700;
-  color: #64b5f6;
+  color: var(--color-primary-light);
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -2940,7 +2940,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  color: white;
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.4;
   resize: vertical;
@@ -2965,8 +2965,8 @@
   width: 100%;
   margin-top: 10px;
   padding: 10px 16px;
-  background: linear-gradient(135deg, #64b5f6, #42a5f5);
-  color: white;
+  background: linear-gradient(135deg, var(--color-primary-light), #42a5f5);
+  color: var(--text-primary);
   border: none;
   border-radius: 8px;
   font-size: 14px;
@@ -3099,13 +3099,13 @@
   left: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, #4caf50, #66bb6a, #81c784);
+  background: linear-gradient(180deg, var(--color-success), #66bb6a, #81c784);
   border-radius: 0 2px 2px 0;
 }
 
 .technical-info-title {
   font-size: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 16px;
   font-weight: 700;
   background: linear-gradient(135deg, #ffffff, #c8e6c9);
@@ -3198,7 +3198,7 @@
 
 .viewing-stats-title {
   font-size: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 16px;
   font-weight: 700;
   background: linear-gradient(135deg, #ffffff, #f3e5f5);
@@ -3450,7 +3450,7 @@
 
 .lock-message {
   background: rgba(0, 0, 0, 0.8);
-  color: white;
+  color: var(--text-primary);
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 14px;
@@ -3507,7 +3507,7 @@
 
 .review-save-btn:disabled:hover {
   transform: none !important;
-  background: linear-gradient(135deg, #64b5f6, #42a5f5) !important;
+  background: linear-gradient(135deg, var(--color-primary-light), #42a5f5) !important;
 }
 
 /* Animation de verrouillage */
@@ -3571,7 +3571,7 @@
 .modal-overlay.edit-mode-active .edit-synopsis-field:focus,
 .modal-overlay.edit-mode-active .edit-director-field:focus,
 .modal-overlay.edit-mode-active .edit-actors-field:focus {
-  border-color: #64b5f6;
+  border-color: var(--color-primary-light);
   box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.2);
   background: rgba(100, 181, 246, 0.05);
 }
@@ -3597,7 +3597,7 @@
 }
 
 .modal-overlay.edit-mode-active .edit-title-field:focus {
-  border-color: #e74c3c !important;
+  border-color: var(--color-films) !important;
   box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2) !important;
   background: transparent;
   color: #fff !important;
@@ -3860,7 +3860,7 @@
   bottom: 30px !important;
   align-self: flex-end !important;
   margin-top: auto !important;
-  background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+  background: linear-gradient(135deg, var(--color-films), #c0392b) !important;
   color: white !important;
   border: none !important;
   border-radius: 60px !important;
@@ -3965,4 +3965,12 @@
 /* Masquer l'ancien container modal-actions s'il existe encore */
 .modal-actions {
   display: none !important;
+}
+
+/* Petit modal (pour les confirmations rapides) */
+.small-modal {
+  max-width: 550px !important;
+  width: 90% !important;
+  max-height: 80vh !important;
+  margin: auto !important;
 }

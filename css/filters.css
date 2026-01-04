@@ -28,7 +28,7 @@
   right: -380px;
   width: 380px;
   height: 100vh;
-  background-color: #0a0e27;
+  background-color: var(--bg-primary);
   box-shadow: -5px 0 25px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   display: flex;
@@ -52,7 +52,7 @@
 }
 
 .filters-sidebar-header h3 {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 22px;
   font-weight: 600;
   margin: 0;
@@ -61,7 +61,7 @@
 .filters-close-btn {
   background: transparent;
   border: none;
-  color: #a0a0a0;
+  color: var(--text-tertiary);
   font-size: 24px;
   cursor: pointer;
   padding: 5px 10px;
@@ -72,7 +72,7 @@
 
 .filters-close-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Body du sidebar (scrollable) */
@@ -109,10 +109,10 @@
 .sort-toggle-btn {
   width: 100%;
   padding: 14px 18px;
-  background: linear-gradient(135deg, #3474db 0%, #2a5db3 100%);
+  background: var(--gradient-accent);
   border: none;
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -155,7 +155,7 @@
 }
 
 .filter-section-title {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 15px;
@@ -165,7 +165,7 @@
 }
 
 .filter-section-title i {
-  color: #3474db;
+  color: var(--color-primary);
   font-size: 16px;
 }
 
@@ -194,12 +194,12 @@
 
 .sort-option input[type="radio"] {
   margin-right: 10px;
-  accent-color: #3474db;
+  accent-color: var(--color-primary);
   cursor: pointer;
 }
 
 .sort-option span {
-  color: #d0d0d0;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   user-select: none;
@@ -207,11 +207,11 @@
 
 .sort-option:has(input:checked) {
   background-color: rgba(52, 116, 219, 0.15);
-  border-color: #3474db;
+  border-color: var(--color-primary);
 }
 
 .sort-option:has(input:checked) span {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Checkboxes de filtres */
@@ -239,14 +239,14 @@
 
 .filter-checkbox input[type="checkbox"] {
   margin-right: 10px;
-  accent-color: #3474db;
+  accent-color: var(--color-primary);
   cursor: pointer;
   width: 18px;
   height: 18px;
 }
 
 .filter-checkbox span {
-  color: #d0d0d0;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   user-select: none;
@@ -254,11 +254,11 @@
 
 .filter-checkbox:has(input:checked) {
   background-color: rgba(52, 116, 219, 0.15);
-  border-color: #3474db;
+  border-color: var(--color-primary);
 }
 
 .filter-checkbox:has(input:checked) span {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Recherche de genre */
@@ -272,7 +272,7 @@
   background-color: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s;
 }
@@ -283,7 +283,7 @@
 
 .genre-search-input:focus {
   outline: none;
-  border-color: #3474db;
+  border-color: var(--color-primary);
   background-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -303,7 +303,7 @@
 }
 
 .year-range-values span {
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
 }
@@ -332,7 +332,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #3474db;
+  background: var(--color-primary);
   cursor: pointer;
   border: 2px solid #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -349,7 +349,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #3474db;
+  background: var(--color-primary);
   cursor: pointer;
   border: 2px solid #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -404,7 +404,7 @@
 }
 
 .rating-label {
-  color: #a0a0a0;
+  color: var(--text-tertiary);
   font-size: 13px;
   text-align: center;
   margin-top: 5px;
@@ -423,7 +423,7 @@
   background-color: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -453,7 +453,7 @@
   height: 22px;
   padding: 0 6px;
   background-color: #ff6b6b;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 700;
   border-radius: 11px;

@@ -25,7 +25,7 @@
   width: 90%;
   max-width: 1200px;
   max-height: 80vh;
-  background: #000;
+  background: black;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
@@ -40,7 +40,7 @@
   width: 100%;
   height: auto;
   display: block;
-  background: #000;
+  background: black;
   outline: none;
 }
 
@@ -131,7 +131,7 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: #ff6b6b;
+  background: var(--color-error-light);
   border-radius: 3px;
   width: 0;
   transition: width 0.1s ease;
@@ -153,9 +153,9 @@
   transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
-  background: #ff6b6b;
+  background: var(--color-error-light);
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: 2px solid white;
   opacity: 0;
   transition: opacity 0.2s ease;
   cursor: grab;
@@ -351,7 +351,7 @@
 
 .speed-option.active {
   background: rgba(255, 107, 107, 0.3);
-  color: #ff6b6b;
+  color: var(--color-error-light);
 }
 
 /* Menus audio et sous-titres */
@@ -409,7 +409,7 @@
 .audio-option.active,
 .subtitle-option.active {
   background: rgba(255, 107, 107, 0.3);
-  color: #ff6b6b;
+  color: var(--color-error-light);
 }
 
 .subtitle-option.image-based {
