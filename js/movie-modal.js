@@ -2100,9 +2100,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           console.log('🔄 Téléchargement de l\'image TMDB lors de la sauvegarde...');
           const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, title);
-          
+
           if (downloadResult.success) {
-            finalImageUrl = `file://${downloadResult.localPath}`;
+            const filename = downloadResult.localPath.split(/[\\/]/).pop();
+            finalImageUrl = `../data/thumbnails/${filename}`;
             console.log(`✅ Image TMDB sauvegardée localement: ${downloadResult.filename}`);
           } else {
             console.warn(`⚠️ Échec du téléchargement de l'image TMDB: ${downloadResult.message}`);

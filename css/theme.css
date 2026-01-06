@@ -37,27 +37,27 @@
   --bg-card-alt-hover: #2a4d7a;
 
   /* Arrière-plans sombres */
-  --bg-dark: #19283b;
-  --bg-darker: #16202a;
+  --bg-dark: var(--bg-primary);
+  --bg-darker: var(--bg-primary);
 
   /* Arrière-plans pour modales et overlays */
-  --bg-modal: rgba(14, 35, 86, 0.95);
-  --bg-modal-dark: #081029;
-  --bg-modal-content: #1a1f35;
-  --bg-modal-hover: #2a3350;
+  --bg-modal: var(--bg-primary);
+  --bg-modal-dark: var(--bg-primary);
+  --bg-modal-content: var(--bg-secondary);
+  --bg-modal-hover: var(--bg-card-hover);
   --bg-overlay: rgba(0, 0, 0, 0.7);
-  --bg-thumbnail: #2a2a3e;
+  --bg-thumbnail: var(--bg-card);
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
-  --gradient-primary-hover: linear-gradient(135deg, #1e3a6d 0%, #2a4a6b 100%);
-  --gradient-accent: linear-gradient(135deg, #3474db, #2a5db3);
-  --gradient-accent-hover: linear-gradient(135deg, #2a5db3 0%, #1e4a99 100%);
-  --gradient-fade: linear-gradient(90deg, #3474db 0%, transparent 100%);
+  --gradient-primary: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  --gradient-primary-hover: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card-hover) 100%);
+  --gradient-accent: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  --gradient-accent-hover: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-darker) 100%);
+  --gradient-fade: linear-gradient(90deg, var(--color-primary) 0%, transparent 100%);
 
   /* Gradients pour les stats */
-  --gradient-stats-bg: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
-  --gradient-stats-blue: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+  --gradient-stats-bg: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-card) 100%);
+  --gradient-stats-blue: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
   --gradient-stats-green: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
   --gradient-stats-orange: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
   --gradient-stats-purple: linear-gradient(135deg, #9d4edd 0%, #7b2cbf 100%);
@@ -133,14 +133,14 @@
   --color-unsorted: #95a5a6;
 
   /* Gradients pour catégories */
-  --gradient-documentaires: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-  --gradient-concerts: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-  --gradient-series: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  --gradient-documentaires: linear-gradient(135deg, var(--color-documentaires) 0%, #e67e22 100%);
+  --gradient-concerts: linear-gradient(135deg, var(--color-concerts) 0%, #8e44ad 100%);
+  --gradient-series: linear-gradient(135deg, var(--color-series) 0%, #2980b9 100%);
 
   /* Watch Party */
   --color-watchparty: #667eea;
   --color-watchparty-dark: #764ba2;
-  --gradient-watchparty: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-watchparty: linear-gradient(135deg, var(--color-watchparty) 0%, var(--color-watchparty-dark) 100%);
 
   /* Couleurs pour ratings/notes */
   --color-rating: #ffa500;
@@ -186,6 +186,13 @@
   --btn-other-bg-hover: #5a6268;
   --btn-other-border: #5a6268;
   --btn-other-border-hover: #4e555b;
+
+  /* Boutons spéciaux */
+  --btn-live-color-1: #ff0000;
+  --btn-live-color-2: #8b0000;
+  --btn-live-bg: linear-gradient(135deg, var(--btn-live-color-1), var(--btn-live-color-2));
+  --btn-live-shadow: 0 2px 8px rgba(255, 0, 0, 0.3);
+  --btn-live-shadow-hover: 0 4px 12px rgba(255, 0, 0, 0.5);
 
   /* ========================================
      SCROLLBAR

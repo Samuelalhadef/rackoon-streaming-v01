@@ -278,7 +278,13 @@ class DashboardCategories {
     
     const thumbnail = card.querySelector('.media-thumbnail');
     if (thumbnail) {
-      thumbnail.src = movie.thumbnail || window.DEFAULT_THUMBNAIL;
+      // Si movie.thumbnail existe, utiliser le chemin relatif
+      if (movie.thumbnail) {
+        const thumbnailName = movie.thumbnail.split(/[\\/]/).pop();
+        thumbnail.src = `../data/thumbnails/${thumbnailName}`;
+      } else {
+        thumbnail.src = window.DEFAULT_THUMBNAIL;
+      }
       thumbnail.alt = movie.title || 'Sans titre';
     }
     

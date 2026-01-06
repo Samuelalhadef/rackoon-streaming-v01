@@ -789,7 +789,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (movie.posterUrl) {
         thumbnailSrc = movie.posterUrl;
       } else if (movie.thumbnail) {
-        thumbnailSrc = `file://${movie.thumbnail}`;
+        const thumbnailName = movie.thumbnail.split(/[\\/]/).pop();
+        thumbnailSrc = `../data/thumbnails/${thumbnailName}`;
       } else {
         thumbnailSrc = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFlM2E2ZCIvPgo8dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zZW0iPkF1Y3VuZSBpbWFnZTwvdGV4dD4KPC9zdmc+";
       }
@@ -1234,7 +1235,9 @@ function createCategorySection(categoryTitle, moviesInCategory) {
         if (card) {
           const img = card.querySelector('.media-thumbnail img');
           if (img && result.thumbnail) {
-            img.src = `file://${result.thumbnail}`;
+            // Extraire juste le nom du fichier et utiliser le chemin relatif
+            const thumbnailName = result.thumbnail.split(/[\\/]/).pop();
+            img.src = `../data/thumbnails/${thumbnailName}`;
           }
         }
         return true;

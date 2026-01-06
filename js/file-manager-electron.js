@@ -515,8 +515,8 @@ class FileManagerElectron {
       </td>
       <td>
         <div class="file-thumbnail">
-          ${file.thumbnail ? 
-            `<img src="file://${file.thumbnail}" alt="Miniature" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          ${file.thumbnail ?
+            `<img src="../data/thumbnails/${file.thumbnail.split(/[\\/]/).pop()}" alt="Miniature" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
              <i class="fas fa-film" style="display: none;"></i>` :
             `<i class="fas fa-film"></i>`
           }
@@ -874,7 +874,9 @@ class FileManagerElectron {
         
         if (file.thumbnail) {
           thumbnailStatus.textContent = 'Disponible';
-          thumbnailImg.src = `file://${file.thumbnail}`;
+          // Extraire juste le nom du fichier et utiliser le chemin relatif
+          const thumbnailName = file.thumbnail.split(/[\\/]/).pop();
+          thumbnailImg.src = `../data/thumbnails/${thumbnailName}`;
           thumbnailImg.style.display = 'block';
           thumbnailPreview.style.display = 'block';
         } else {

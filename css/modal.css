@@ -555,7 +555,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: var(--bg-overlay);
   backdrop-filter: blur(5px);
   display: flex;
   justify-content: center;
@@ -573,14 +573,14 @@
 
 /* Container de la modal - VERSION AGRANDIE CORRIGÉE */
 .movie-modal {
-  background: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
+  background: var(--gradient-primary);
   width: 95vw;
   max-width: 1400px;
   min-height: 80vh;
   max-height: 90vh;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-xl);
   display: flex;
   position: relative;
   transform: translateY(30px);

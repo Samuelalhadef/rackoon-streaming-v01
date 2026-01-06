@@ -92,7 +92,13 @@ class ThemeManager {
 
     // Appliquer chaque couleur comme variable CSS
     Object.entries(colors).forEach(([key, value]) => {
-      root.style.setProperty(`--color-${key}`, value);
+      // Si la clé commence par "bg-" ou "text-", on l'applique directement
+      // Sinon on ajoute le préfixe "--color-"
+      if (key.startsWith('bg-') || key.startsWith('text-')) {
+        root.style.setProperty(`--${key}`, value);
+      } else {
+        root.style.setProperty(`--color-${key}`, value);
+      }
     });
 
     // Recréer les gradients avec les nouvelles couleurs
