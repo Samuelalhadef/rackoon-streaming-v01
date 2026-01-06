@@ -286,7 +286,7 @@ body {
 
 .filter-button {
   background-color: var(--bg-tertiary);
-  color: white;
+  color: var(--text-primary);
   border: none;
   padding: 8px 20px;
   border-radius: 4px;
@@ -320,7 +320,7 @@ body {
 /* Bouton toggle Vue Sections/Global */
 .view-toggle-button {
   background-color: var(--bg-card-hover);
-  color: white;
+  color: var(--text-primary);
   border: none;
   padding: 8px 18px;
   border-radius: 4px;
@@ -389,16 +389,16 @@ body {
 /* Bouton de tri (similaire au filtre mais avec distinction visuelle) */
 .sort-button {
   background-color: var(--bg-card-alt);
-  color: white;
+  color: var(--text-primary);
   border: none;
   padding: 8px 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s;
+  transition: var(--transition-fast);
   height: 40px;
 }
 
@@ -655,7 +655,7 @@ body {
 
 /* Bouton à voir/vu visible en haut normalement */
 .btn-watch-toggle {
-  background-color: white;
+  background-color: var(--bg-light);
   color: var(--text-dark);
   border: none;
   padding: 6px 12px;
@@ -673,35 +673,35 @@ body {
 
 .btn-watch-toggle.watched {
   background-color: var(--color-success);
-  color: white;
+  color: var(--btn-primary-text);
   animation: pulseGreen 0.6s ease;
 }
 
 /* Statut: En cours */
 .btn-watch-toggle.in-progress {
   background: var(--gradient-documentaires);
-  color: white;
+  color: var(--btn-primary-text);
   animation: pulseOrange 0.6s ease;
 }
 
 /* Statut: Abandonné */
 .btn-watch-toggle.dropped {
   background-color: var(--color-films);
-  color: white;
+  color: var(--btn-primary-text);
   animation: pulseRed 0.6s ease;
 }
 
 /* Statut: À revoir */
 .btn-watch-toggle.rewatch {
   background: var(--gradient-concerts);
-  color: white;
+  color: var(--btn-primary-text);
   animation: pulsePurple 0.6s ease;
 }
 
 /* Statut: Planifié */
 .btn-watch-toggle.planned {
   background: var(--gradient-series);
-  color: white;
+  color: var(--btn-primary-text);
   animation: pulseBlue 0.6s ease;
 }
 
@@ -916,7 +916,7 @@ body {
   bottom: 30px;
   right: 30px;
   background-color: var(--color-primary);
-  color: white;
+  color: var(--btn-primary-text);
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -992,7 +992,7 @@ body {
 
 .scan-btn {
   background-color: var(--color-primary);
-  color: white;
+  color: var(--btn-primary-text);
   border: none;
   padding: 12px;
   border-radius: 4px;

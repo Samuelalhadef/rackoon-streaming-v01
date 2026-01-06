@@ -1835,7 +1835,8 @@ function startLocalVideoServer() {
       const range = req.headers.range;
 
       // Si une piste audio spécifique est demandée et FFmpeg est disponible
-      if (audioTrack !== null && FFMPEG_PATH) {
+      // audioTrack doit être une chaîne non vide et différente de "0" (piste par défaut)
+      if (audioTrack && audioTrack !== '0' && FFMPEG_PATH) {
         const cacheKey = `${videoPath}|${audioTrack}`;
 
         // Vérifier si le fichier remuxé existe déjà en cache

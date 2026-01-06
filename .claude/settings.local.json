@@ -59,7 +59,11 @@
       "Bash(timeout /t 3 /nobreak)",
       "Bash(del \"dist\\\\Rackoon-Streaming-1.0.0-Portable.exe\" \"dist\\\\Rackoon Streaming Setup 1.0.0.exe\")",
       "Bash(for file in modal.css video-player.css filters.css file-manager.css watch-party.css series-modal.css import-classification.css file-manager-new.css)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(xargs:*)",
+      "Bash(ls:*)",
+      "Bash(done)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []
