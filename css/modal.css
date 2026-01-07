@@ -286,10 +286,9 @@
 
 .synopsis-content {
   font-size: 15px;
-  line-height: 1.7;
-  color: #e8f4f8;
-  /* Bulle retirée - style simplifié */
-  padding: 0;
+  line-height: 1.6;
+  color: #c0c0c0;
+  padding: 2px;
   margin: 0;
 }
 
@@ -599,22 +598,34 @@
 
 /* Layout de la modal en deux colonnes - VERSION CORRIGÉE */
 .modal-poster {
-  flex: 0 0 350px;
-  background-color: rgba(0, 0, 0, 0.3);
-  overflow: hidden;
   position: relative;
-  border-radius: 16px 0 0 16px;
+  flex: 0 0 350px;
+  width: 100%;
+  height: 520px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 5;
+  margin: 0 auto;
   aspect-ratio: 2/3;
   min-height: 525px;
+  animation: slideInLeft 0.8s ease-out 0.2s both;
+}
+
+.modal-poster:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .modal-poster img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   display: block;
-  transition: transform 0.5s ease;
+  transition: transform 0.4s ease;
 }
 
 .modal-poster:hover img {
@@ -623,11 +634,25 @@
 
 .modal-content {
   flex: 1;
-  padding: 40px 50px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   position: relative;
   min-height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  justify-content: flex-start;
+  align-items: stretch;
+  height: 100%;
+  animation: slideInRight 0.8s ease-out 0.4s both;
+}
+
+.modal-content > * {
+  margin-bottom: 28px;
+}
+
+.modal-content > *:last-child {
+  margin-bottom: 0;
 }
 
 /* En-tête modernisé avec hiérarchie visuelle améliorée */
@@ -1122,13 +1147,6 @@
   color: var(--text-secondary);
 }
 
-.synopsis-content {
-  color: #c0c0c0;
-  line-height: 1.6;
-  margin-bottom: 25px;
-  max-height: 150px;
-  overflow-y: auto;
-  padding-right: 10px;
 }
 
 .synopsis-content::-webkit-scrollbar {
@@ -1332,10 +1350,6 @@
     transform: translateX(0);
   }
 }
-
-@keyframes slideInRight {
-  0% {
-    opacity: 0;
     transform: translateX(50px);
   }
   100% {
@@ -1344,14 +1358,7 @@
   }
 }
 
-/* Appliquer les animations séquentielles */
-.modal-poster {
-  animation: slideInLeft 0.8s ease-out 0.2s both;
-}
 
-.modal-content {
-  animation: slideInRight 0.8s ease-out 0.4s both;
-}
 
 /* Responsive design */
 @media (max-width: 768px) {
@@ -2471,36 +2478,6 @@
   padding: 20px 10px 20px 0 !important;
   max-width: 100% !important;
   width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Sidebar avec affiche et évaluation - largeur optimisée */
-.modal-sidebar {
-  width: 350px !important;
-  flex-shrink: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 20px !important;
-}
-
-/* Affiche dans la sidebar */
-.modal-poster {
-  position: relative !important;
-  width: 100% !important;
-  height: 520px !important;
-  border-radius: 16px !important;
-  overflow: hidden !important;
-  background: rgba(0, 0, 0, 0.4) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-  z-index: 5 !important;
-  margin: 0 auto !important;
-}
-
-.modal-poster:hover {
-  transform: translateY(-8px) scale(1.02) !important;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
-}
 
 .modal-poster img {
   width: 100% !important;
@@ -2763,24 +2740,6 @@
   opacity: 0.9 !important;
 }
 
-/* Contenu principal unifié - padding optimisé pour respirer */
-.modal-content {
-  flex: 1 !important;
-  padding: 0 !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  justify-content: flex-start !important;
-  align-items: stretch !important;
-  height: 100% !important;
-}
-
-.modal-content > * {
-  margin-bottom: 28px !important;
-}
-
-.modal-content > *:last-child {
-  margin-bottom: 0 !important;
-}
 
 /* Forcer les nouvelles sections à occuper plus d'espace vertical */
 .technical-info, .viewing-stats {
@@ -2789,14 +2748,7 @@
 }
 
 /* Assurer que les tags occupent l'espace restant si disponible */
-.tags-container {
-  flex-grow: 2 !important;
-  min-height: auto !important;
-}
 
-.tag-category {
-  margin-bottom: 0 !important;
-}
 
 /* ============================================ */
 /* NOUVELLES SECTIONS : INFORMATIONS TECHNIQUES ET HISTORIQUE */
@@ -3028,11 +2980,6 @@
     margin-left: 0;
     margin-top: 8px;
   }
-}
-
-.synopsis-content {
-  padding: 2px !important;
-  line-height: 1.6 !important;
 }
 
 /* Bouton fermer modernisé */
