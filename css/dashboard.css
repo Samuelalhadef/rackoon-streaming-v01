@@ -178,7 +178,7 @@ body {
   padding: 8px 16px;
   color: var(--text-secondary);
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   transition: all 0.3s ease;
   font-weight: 500;
   font-size: 14px;
@@ -213,7 +213,7 @@ body {
   font-weight: 500;
   background-color: var(--btn-secondary-bg);
   padding: 6px 12px;
-  border-radius: 20px;
+  border-radius: var(--radius-2xl);
   transition: all 0.3s;
 }
 
@@ -233,7 +233,7 @@ body {
 .user-profile img {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin-right: 8px;
 }
 
@@ -242,7 +242,7 @@ body {
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   padding: 8px 15px;
-  border-radius: 20px;
+  border-radius: var(--radius-2xl);
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
@@ -289,7 +289,7 @@ body {
   color: var(--text-primary);
   border: none;
   padding: 8px 20px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 14px;
   display: flex;
@@ -323,7 +323,7 @@ body {
   color: var(--text-primary);
   border: none;
   padding: 8px 18px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 14px;
   display: flex;
@@ -428,7 +428,7 @@ body {
   height: 40px;
   background-color: var(--bg-tertiary);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0 15px 0 35px;
   color: var(--text-primary);
   font-size: 14px;
@@ -457,7 +457,7 @@ body {
 /* Card de base - styles communs */
 .media-card {
   position: relative;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
   cursor: pointer;
@@ -499,7 +499,7 @@ body {
   background: var(--color-warning);
   color: var(--btn-primary-text);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 600;
   display: flex;
@@ -567,7 +567,7 @@ body {
 .play-btn {
   background: var(--color-primary);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   width: 60px;
   height: 60px;
   color: var(--btn-primary-text);
@@ -659,7 +659,7 @@ body {
   color: var(--text-dark);
   border: none;
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -892,7 +892,7 @@ body {
   max-width: 600px;
   height: 4px;
   background-color: var(--bg-dark);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   margin-top: 10px;
 }
@@ -919,7 +919,7 @@ body {
   color: var(--btn-primary-text);
   width: 56px;
   height: 56px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -959,7 +959,7 @@ body {
   bottom: 100px;
   right: 30px;
   background-color: var(--bg-darker);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 18px;
   width: 280px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
@@ -995,7 +995,7 @@ body {
   color: var(--btn-primary-text);
   border: none;
   padding: 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 14px;
   display: flex;
@@ -1127,7 +1127,7 @@ body {
   font-size: 14px;
   background-color: var(--badge-bg);
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 .category-grid {
@@ -1242,7 +1242,7 @@ body {
   background-color: rgba(255, 255, 255, 0.1);
   color: var(--text-tertiary);
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-size: 14px;
   font-weight: 500;
 }
@@ -1256,7 +1256,7 @@ body {
 .category-card {
   background: linear-gradient(135deg, var(--btn-secondary-bg), var(--input-bg));
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1289,7 +1289,7 @@ body {
   align-items: center;
   justify-content: center;
   background: var(--btn-secondary-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 
 .category-info {
@@ -1356,7 +1356,7 @@ body {
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.3s;
   font-size: 14px;
@@ -1445,7 +1445,7 @@ body {
   font-size: 14px;
   background-color: var(--badge-bg);
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-weight: 500;
 }
 
@@ -1543,7 +1543,7 @@ body {
   color: var(--text-primary);
   border: none;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1627,7 +1627,7 @@ body {
 .new-category-card {
   background: transparent;
   border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1708,7 +1708,7 @@ body {
   font-size: 14px;
   background-color: var(--badge-bg);
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-weight: 500;
 }
 
@@ -1811,7 +1811,7 @@ body {
   width: 40px;
   height: 6px;
   background: var(--gradient-fade);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 .alphabetical-count {
@@ -1819,7 +1819,7 @@ body {
   font-size: 14px;
   background-color: var(--badge-bg);
   padding: 6px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-weight: 600;
   border: 1px solid var(--border-color-medium);
 }
