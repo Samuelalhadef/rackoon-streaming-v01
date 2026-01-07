@@ -286,9 +286,10 @@
 
 .synopsis-content {
   font-size: 15px;
-  line-height: 1.6;
-  color: #c0c0c0;
-  padding: 2px;
+  line-height: 1.7;
+  color: #e8f4f8;
+  /* Bulle retirée - style simplifié */
+  padding: 0;
   margin: 0;
 }
 
@@ -1147,6 +1148,13 @@
   color: var(--text-secondary);
 }
 
+.synopsis-content {
+  color: #c0c0c0;
+  line-height: 1.6;
+  margin-bottom: 25px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 .synopsis-content::-webkit-scrollbar {
@@ -1350,6 +1358,10 @@
     transform: translateX(0);
   }
 }
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
     transform: translateX(50px);
   }
   100% {
@@ -1358,6 +1370,10 @@
   }
 }
 
+/* Appliquer les animations séquentielles */
+.modal-poster {
+  animation: slideInLeft 0.8s ease-out 0.2s both;
+}
 
 
 /* Responsive design */
@@ -1465,7 +1481,6 @@
 }
 
 .modal-overlay.edit-mode-active .modal-content {
-  background: linear-gradient(135deg, #051326 0%, #0a1b3d 50%, #0f2454 100%) !important;
   border: 1px solid rgba(40, 80, 150, 0.3);
   /* Hériter de la mise en page optimisée */
   flex: 1 !important;
@@ -2478,6 +2493,7 @@
   padding: 20px 10px 20px 0 !important;
   max-width: 100% !important;
   width: 100% !important;
+}
 
 .modal-poster img {
   width: 100% !important;
@@ -2748,7 +2764,14 @@
 }
 
 /* Assurer que les tags occupent l'espace restant si disponible */
+.tags-container {
+  flex-grow: 2 !important;
+  min-height: auto !important;
+}
 
+.tag-category {
+  margin-bottom: 0 !important;
+}
 
 /* ============================================ */
 /* NOUVELLES SECTIONS : INFORMATIONS TECHNIQUES ET HISTORIQUE */
@@ -2980,6 +3003,11 @@
     margin-left: 0;
     margin-top: 8px;
   }
+}
+
+.synopsis-content {
+  padding: 2px !important;
+  line-height: 1.6 !important;
 }
 
 /* Bouton fermer modernisé */
