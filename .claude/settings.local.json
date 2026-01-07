@@ -63,7 +63,9 @@
       "Bash(xargs:*)",
       "Bash(ls:*)",
       "Bash(done)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(awk:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
