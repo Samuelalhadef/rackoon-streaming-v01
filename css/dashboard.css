@@ -48,7 +48,6 @@ body {
 .tabs-navigation {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid var(--border-color);
   position: relative;
 }
 
@@ -143,7 +142,6 @@ body {
   z-index: 1000;
   box-shadow: var(--shadow-md);
   height: 70px;
-  border-bottom: 1px solid var(--border-color-light);
   width: 100%;
   box-sizing: border-box;
 }
@@ -186,7 +184,6 @@ body {
 
 .nav-link:hover {
   color: var(--text-primary);
-  background: var(--btn-secondary-bg);
 }
 
 .nav-link.active {
@@ -388,7 +385,7 @@ body {
 
 /* Bouton de tri (similaire au filtre mais avec distinction visuelle) */
 .sort-button {
-  background-color: var(--bg-card-alt);
+  background-color: var(--color-primary);
   color: var(--text-primary);
   border: none;
   padding: 8px 20px;
@@ -1799,7 +1796,7 @@ body {
 .alphabetical-divider {
   flex: 1;
   height: 2px;
-  background: linear-gradient(90deg, rgba(52, 116, 219, 0.5) 0%, transparent 100%);
+  background: linear-gradient(90deg, var(--color-primary) 0%, transparent 100%);
   position: relative;
 }
 
