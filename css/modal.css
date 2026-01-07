@@ -251,28 +251,6 @@
 /* MODE ÉDITION - THÈME DIFFÉRENT */
 /* ============================================ */
 
-/* STYLES OBSOLÈTES - Ancienne version du mode édition - Désactivés pour éviter conflits */
-/*
-.movie-modal.edit-mode {
-  background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
-  border: 2px solid #ffd700;
-  box-shadow: 0 20px 50px rgba(255, 215, 0, 0.3);
-}
-
-.movie-modal.edit-mode .modal-content {
-  background: rgba(255, 215, 0, 0.05);
-}
-
-.movie-modal.edit-mode .edit-button {
-  background: #ffd700;
-  color: #1a1a2e;
-}
-
-.movie-modal.edit-mode .edit-button:hover {
-  background: #ffed4e;
-  transform: scale(1.1);
-}
-*/
 
 /* ============================================ */
 /* AUTRES ÉLÉMENTS AGRANDIS */
@@ -1408,126 +1386,8 @@
   }
 }
 
-/* ANCIENS STYLES MODE ÉDITION - Désactivés pour éviter conflits avec le nouveau système */
-/*
-.edit-mode {
-  background: rgba(8, 16, 41, 0.97);
-}
 
-.edit-mode .modal-content {
-  max-height: 80vh;
-}
-*/
 
-/* ANCIENS STYLES .edit-mode - Désactivés (suite) */
-/*
-.edit-mode .edit-section {
-  margin-bottom: 20px;
-}
-
-.edit-mode .edit-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-primary);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.edit-mode .edit-field {
-  margin-bottom: 15px;
-}
-
-.edit-mode input[type="text"],
-.edit-mode input[type="date"],
-.edit-mode textarea,
-.edit-mode select {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--text-primary);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 15px;
-  width: 100%;
-}
-*/
-
-/* ANCIENS STYLES .edit-mode - Suite désactivée */
-/*
-.edit-mode input[type="text"]:focus,
-.edit-mode input[type="date"]:focus,
-.edit-mode textarea:focus,
-.edit-mode select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.edit-mode textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-
-.edit-mode .genres-edit {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.edit-mode .genre-chip {
-  display: flex;
-  align-items: center;
-  background-color: rgba(52, 116, 219, 0.2);
-  color: var(--text-primary);
-  padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid rgba(52, 116, 219, 0.3);
-}
-
-.edit-mode .genre-chip .remove-genre {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  font-size: 14px;
-  margin-left: 8px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.edit-mode .genre-chip .remove-genre:hover {
-  color: var(--text-primary);
-}
-
-.edit-mode .add-genre-container {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.edit-mode .add-genre-input {
-  flex: 1;
-}
-
-.edit-mode .add-genre-btn {
-  background-color: var(--color-primary);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  padding: 8px 15px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.edit-mode .add-genre-btn:hover {
-  background-color: var(--color-primary-dark);
-}
-*/
 
 /* Mode édition - couleurs plus sombres et dimensions identiques */
 .modal-overlay.edit-mode-active {
@@ -2453,134 +2313,9 @@
   }
 }
 
-/* ANCIENS STYLES .edit-mode - Sélection d'image - Désactivés */
-/*
-.edit-mode .image-upload-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 2/3;
-  background-color: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  overflow: hidden;
-  margin-bottom: 15px;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
-}
 
-.edit-mode .image-upload-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
-.edit-mode .image-upload-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-}
 
-.edit-mode .image-upload-btn {
-  background-color: var(--color-primary);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.edit-mode .image-upload-btn:hover {
-  background-color: var(--color-primary-dark);
-}
-*/
-
-/* ANCIENS STYLES .edit-mode - TMDB et boutons - Désactivés */
-/*
-.edit-mode .tmdb-search-btn {
-  background-color: #01d277;
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  padding: 10px 15px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  transition: all 0.2s;
-}
-
-.edit-mode .tmdb-search-btn:hover {
-  background-color: #00b568;
-}
-
-.edit-mode .tmdb-search-btn i {
-  font-size: 16px;
-}
-
-.edit-mode .exit-edit-mode {
-  background-color: var(--color-films);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  padding: 10px 20px;
-  cursor: pointer;
-  font-weight: 600;
-  margin-top: 20px;
-  transition: all 0.2s;
-  width: 100%;
-}
-
-.edit-mode .exit-edit-mode:hover {
-  background-color: #c0392b;
-}
-*/
-
-/* ANCIENS STYLES .edit-mode - Dropdowns et boutons - Désactivés */
-/*
-.edit-mode .genre-dropdown {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  width: auto;
-  min-width: 150px;
-}
-
-.edit-mode .genre-dropdown option {
-  background-color: var(--bg-modal-dark);
-  color: var(--text-primary);
-}
-
-.edit-mode .save-changes-btn {
-  background-color: #27ae60;
-  color: var(--text-primary);
-  border: none;
-  border-radius: 4px;
-  padding: 10px 20px;
-  cursor: pointer;
-  font-weight: 600;
-  margin-top: 20px;
-  transition: all 0.2s;
-  width: 100%;
-}
-*/
-
-/* ANCIEN STYLE .edit-mode - Hover bouton - Désactivé */
-/*
-.edit-mode .save-changes-btn:hover {
-  background-color: #219653;
-}
-*/
 
 /* Modal pour nouvelle série */
 .new-series-modal-overlay {
@@ -3836,20 +3571,6 @@
 /* MASQUER LES ÉLÉMENTS D'ÉDITION EN MODE LECTURE */
 /* ============================================ */
 
-/* Masquer tous les éléments d'édition obsolètes (ANCIEN SYSTÈME) - TOUJOURS CACHÉS */
-.tmdb-search-btn,
-.exit-edit-mode,
-.save-changes-btn,
-#tmdb-search-btn,
-#exit-edit-mode,
-#save-changes-btn,
-.edit-section,
-.edit-header {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
 
 /* ============================================ */
 /* BOUTON FLOTTANT "REGARDER LE FILM" */
@@ -3962,10 +3683,6 @@
   }
 }
 
-/* Masquer l'ancien container modal-actions s'il existe encore */
-.modal-actions {
-  display: none !important;
-}
 
 /* Petit modal (pour les confirmations rapides) */
 .small-modal {
