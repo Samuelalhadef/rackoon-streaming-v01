@@ -232,6 +232,118 @@
   --radius-xl: 16px;
   --radius-2xl: 24px;
   --radius-full: 9999px;
+
+  /* ========================================
+     MODAL SPECIFIC COLORS
+     ======================================== */
+
+  /* Overlays transparents blancs */
+  --modal-white-03: rgba(255, 255, 255, 0.03);
+  --modal-white-08: rgba(255, 255, 255, 0.08);
+  --modal-white-04: rgba(255, 255, 255, 0.4);
+  --modal-white-05: rgba(255, 255, 255, 0.5);
+
+  /* Bleu primaire (100, 181, 246) */
+  --modal-blue-primary: rgb(100, 181, 246);
+  --modal-blue-primary-01: rgba(100, 181, 246, 0.1);
+  --modal-blue-primary-02: rgba(100, 181, 246, 0.2);
+  --modal-blue-primary-03: rgba(100, 181, 246, 0.3);
+  --modal-blue-primary-04: rgba(100, 181, 246, 0.4);
+  --modal-blue-primary-05: rgba(100, 181, 246, 0.5);
+  --modal-blue-primary-06: rgba(100, 181, 246, 0.6);
+  --modal-blue-primary-08: rgba(100, 181, 246, 0.08);
+
+  /* Bleu secondaire (52, 116, 219) */
+  --modal-blue-secondary-02: rgba(52, 116, 219, 0.2);
+  --modal-blue-secondary-03: rgba(52, 116, 219, 0.3);
+  --modal-blue-secondary-04: rgba(52, 116, 219, 0.4);
+  --modal-blue-secondary-05: rgba(52, 116, 219, 0.5);
+
+  /* Bleu tertiaire (40, 80, 150) */
+  --modal-blue-tertiary-03: rgba(40, 80, 150, 0.3);
+
+  /* Couleurs fixes bleues */
+  --modal-blue-light: #e3f2fd;
+  --modal-blue-bright: #42a5f5;
+
+  /* Noir transparent (shadows, overlays) */
+  --modal-black-03: rgba(0, 0, 0, 0.3);
+  --modal-black-04: rgba(0, 0, 0, 0.4);
+  --modal-black-05: rgba(0, 0, 0, 0.5);
+  --modal-black-06: rgba(0, 0, 0, 0.6);
+  --modal-black-07: rgba(0, 0, 0, 0.7);
+  --modal-black-08: rgba(0, 0, 0, 0.8);
+  --modal-black-09: rgba(0, 0, 0, 0.9);
+  --modal-black-095: rgba(0, 0, 0, 0.95);
+
+  /* Shadows spécifiques au poster */
+  --modal-poster-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --modal-poster-shadow-hover: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.15);
+
+  /* Étoiles (rating) */
+  --modal-star-color: #ffd700;
+  --modal-star-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+  --modal-star-shadow-strong: 0 0 12px rgba(255, 215, 0, 0.8);
+  --modal-star-shadow-light: 0 0 4px rgba(0, 0, 0, 0.5);
+  --modal-star-glow: 0 8px 16px rgba(255, 215, 0, 0.4);
+
+  /* Tags colors (catégories de tags) */
+  --modal-tag-red: rgba(255, 107, 107, 0.8);
+  --modal-tag-red-light: rgba(238, 90, 36, 0.6);
+  --modal-tag-red-shadow: rgba(255, 107, 107, 0.3);
+  --modal-tag-red-shadow-strong: rgba(255, 107, 107, 0.5);
+
+  --modal-tag-purple: rgba(162, 155, 254, 0.8);
+  --modal-tag-purple-light: rgba(108, 92, 231, 0.6);
+  --modal-tag-purple-shadow: rgba(162, 155, 254, 0.3);
+  --modal-tag-purple-shadow-strong: rgba(162, 155, 254, 0.5);
+
+  --modal-tag-green: rgba(0, 184, 148, 0.8);
+  --modal-tag-green-light: rgba(0, 160, 133, 0.6);
+  --modal-tag-green-shadow: rgba(0, 184, 148, 0.3);
+  --modal-tag-green-shadow-strong: rgba(0, 184, 148, 0.5);
+
+  --modal-tag-yellow: rgba(253, 203, 110, 0.8);
+  --modal-tag-yellow-light: rgba(225, 112, 85, 0.6);
+  --modal-tag-yellow-shadow: rgba(253, 203, 110, 0.3);
+  --modal-tag-yellow-shadow-strong: rgba(253, 203, 110, 0.5);
+
+  --modal-tag-blue: rgba(116, 185, 255, 0.8);
+  --modal-tag-blue-light: rgba(9, 132, 227, 0.6);
+  --modal-tag-blue-shadow: rgba(116, 185, 255, 0.3);
+  --modal-tag-blue-shadow-strong: rgba(116, 185, 255, 0.5);
+
+  /* Rouge (delete, danger) */
+  --modal-red: rgba(220, 53, 69, 0.8);
+  --modal-red-02: rgba(220, 53, 69, 0.2);
+  --modal-red-03: rgba(220, 53, 69, 0.3);
+  --modal-red-04: rgba(220, 53, 69, 0.4);
+  --modal-red-05: rgba(220, 53, 69, 0.5);
+
+  /* Vert (success) */
+  --modal-green: rgba(39, 174, 96, 0.5);
+  --modal-green-light: #27ae60;
+  --modal-green-secondary-04: rgba(40, 167, 69, 0.4);
+  --modal-green-secondary-05: rgba(40, 167, 69, 0.5);
+
+  /* Backgrounds spécifiques */
+  --modal-bg-gradient-blue: linear-gradient(135deg, rgba(100, 181, 246, 0.08), rgba(100, 181, 246, 0.04));
+  --modal-bg-gradient-gold: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 215, 0, 0.04));
+  --modal-bg-gradient-white: linear-gradient(135deg, #ffffff, #e3f2fd);
+  --modal-bg-edit-mode: rgba(5, 15, 35, 0.95);
+
+  /* Couleurs additionnelles pour modal */
+  --modal-white-25: rgba(255, 255, 255, 0.25);
+  --modal-white-60: rgba(255, 255, 255, 0.6);
+  --modal-blue-primary-04: rgba(100, 181, 246, 0.04);
+  --modal-blue-primary-15: rgba(100, 181, 246, 0.15);
+  --modal-blue-secondary-06: rgba(52, 116, 219, 0.6);
+  --modal-gold-01: rgba(255, 215, 0, 0.1);
+  --modal-gold-02: rgba(255, 215, 0, 0.2);
+  --modal-gold-04: rgba(255, 215, 0, 0.4);
+  --modal-gold-bright: rgba(241, 196, 15, 0.5);
+  --modal-red-bright: rgba(231, 76, 60, 0.5);
+  --modal-red-01: rgba(220, 53, 69, 0.1);
 }
 
 /* ========================================
