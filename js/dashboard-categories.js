@@ -220,6 +220,7 @@ class DashboardCategories {
 
     // Écouter les mises à jour de note pour mettre à jour les cartes en temps réel
     window.addEventListener('ratingUpdated', (e) => {
+      console.log('📢 Événement ratingUpdated reçu:', e.detail);
       this.updateCardRating(e.detail.movieId, e.detail.rating);
     });
   }
@@ -227,10 +228,21 @@ class DashboardCategories {
   // Mettre à jour la note sur une carte spécifique
   updateCardRating(movieId, rating) {
     const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
-    if (!card) return;
+    if (!card) {
+      console.warn(`⚠️ Carte non trouvée pour l'ID: ${movieId}`);
+      return;
+    }
 
-    const starsContainer = card.querySelector('.stars-container');
-    if (!starsContainer) return;
+    // Chercher les étoiles (compatible avec les deux systèmes)
+    let starsContainer = card.querySelector('.stars-container');
+    if (!starsContainer) {
+      starsContainer = card.querySelector('.rating-stars');
+    }
+
+    if (!starsContainer) {
+      console.warn(`⚠️ Container d'étoiles non trouvé pour l'ID: ${movieId}`);
+      return;
+    }
 
     const stars = starsContainer.querySelectorAll('.star');
     const fullStars = Math.floor(rating);
@@ -243,7 +255,7 @@ class DashboardCategories {
       }
     });
 
-    console.log(`🔄 Carte mise à jour: ${movieId} - Note: ${rating}/5`);
+    console.log(`✅ Carte mise à jour: ${movieId} - Note: ${rating}/5`);
   }
 
 

@@ -428,9 +428,13 @@
   }
 
   function filterMedias(medias) {
+    console.log('🔍 État des filtres:', filtersState);
+    console.log('📊 Médias à filtrer:', medias.length);
+
     return medias.filter(media => {
       // Filtre par type de média
       if (!filtersState.mediaTypes.includes(media.category)) {
+        console.log(`❌ Média filtré (type): ${media.title} - catégorie: ${media.category}, types acceptés:`, filtersState.mediaTypes);
         return false;
       }
 
@@ -1167,6 +1171,13 @@
         if (filtersState.mediaTypes && !filtersState.mediaTypes.includes('unsorted')) {
           filtersState.mediaTypes.push('unsorted');
           console.log('🔄 Migration: ajout de "unsorted" aux types de médias');
+          saveFiltersToStorage(); // Sauvegarder la migration
+        }
+
+        // MIGRATION: Ajouter 'short' si absent (pour rétrocompatibilité)
+        if (filtersState.mediaTypes && !filtersState.mediaTypes.includes('short')) {
+          filtersState.mediaTypes.push('short');
+          console.log('🔄 Migration: ajout de "short" aux types de médias');
           saveFiltersToStorage(); // Sauvegarder la migration
         }
 

@@ -169,9 +169,35 @@ window.handleImageError = function(img, defaultSrc = window.DEFAULT_THUMBNAIL) {
 
 // Mise à jour de l'affichage des étoiles
 window.updateStarsDisplay = function(container, rating) {
-  if (!container) return;
-  
-  const stars = container.querySelectorAll('.star');
+  console.log('🌟 updateStarsDisplay appelé - container:', container, 'rating:', rating);
+
+  if (!container) {
+    console.warn('⚠️ Container non fourni');
+    return;
+  }
+
+  // Si le container est une carte, chercher le container d'étoiles dedans
+  let starsContainer = container;
+  if (container.classList && container.classList.contains('media-card')) {
+    console.log('📦 Container est une carte, recherche du container d\'étoiles...');
+    starsContainer = container.querySelector('.rating-stars') || container.querySelector('.stars-container');
+    if (!starsContainer) {
+      console.warn('⚠️ Container d\'étoiles non trouvé dans la carte');
+      console.log('🔍 Classes de la carte:', container.className);
+      console.log('🔍 HTML de la carte:', container.innerHTML.substring(0, 500));
+      return;
+    }
+    console.log('✅ Container d\'étoiles trouvé:', starsContainer.className);
+  }
+
+  const stars = starsContainer.querySelectorAll('.star');
+  if (stars.length === 0) {
+    console.warn('⚠️ Aucune étoile trouvée dans le container');
+    console.log('🔍 HTML du container:', starsContainer.innerHTML);
+    return;
+  }
+
+  console.log(`✨ ${stars.length} étoiles trouvées, mise à jour...`);
   stars.forEach((star, index) => {
     if (index < rating) {
       star.classList.add('filled');
@@ -179,6 +205,8 @@ window.updateStarsDisplay = function(container, rating) {
       star.classList.remove('filled');
     }
   });
+
+  console.log(`✅ Étoiles mises à jour: ${rating}/5`);
 };
 
 // Configuration d'interaction avec les étoiles

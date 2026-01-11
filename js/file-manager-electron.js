@@ -412,11 +412,11 @@ class FileManagerElectron {
         
         // Attacher l'événement
         folderCheckbox.addEventListener('change', folderHandler);
-        
+
         console.log(`✅ Événement attaché pour le dossier: ${folder.path} (ID: ${folderId})`);
-      } else {
-        console.error(`❌ Impossible de trouver la checkbox du dossier: ${folder.path} (ID: ${folderId})`);
       }
+      // Pas de checkbox trouvée = le dossier n'a pas été affiché (probablement un import de fichier unique)
+      // Ce n'est pas une erreur, c'est normal
     });
   }
 

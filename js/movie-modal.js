@@ -1108,6 +1108,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card) {
         window.updateStarsDisplay(card, value);
       }
+
+      // Déclencher un événement pour mettre à jour la carte sur le dashboard
+      window.dispatchEvent(new CustomEvent('ratingUpdated', {
+        detail: { movieId: currentMovieId, rating: value }
+      }));
     });
   });
   
