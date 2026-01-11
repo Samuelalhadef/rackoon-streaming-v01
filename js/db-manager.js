@@ -18,7 +18,8 @@ class JSONDatabase {
       seriesEpisodes: path.join(this.dbDir, 'series_episodes.json'),
       seriesMetadata: path.join(this.dbDir, 'series_metadata.json'),
       seriesSeasons: path.join(this.dbDir, 'series_seasons.json'),
-      appConfig: path.join(this.dbDir, 'app_config.json')
+      appConfig: path.join(this.dbDir, 'app_config.json'),
+      userPrefs: path.join(this.dbDir, 'user_prefs.json')
     };
 
     // Ancien fichier pour migration
@@ -33,7 +34,8 @@ class JSONDatabase {
       seriesEpisodes: [],
       seriesMetadata: [],
       seriesSeasons: {},
-      config: null
+      config: null,
+      userPrefs: null
     };
 
     // Throttling des sauvegardes
@@ -156,6 +158,12 @@ class JSONDatabase {
       this.getDefaultConfig()
     );
 
+    // Charger les préférences utilisateur
+    this.data.userPrefs = await this.loadFileWithBackup(
+      this.paths.userPrefs,
+      this.getDefaultUserPrefs()
+    );
+
     console.log(`✅ Base chargée: ${this.data.uniqueMedias.length} médias uniques, ${this.data.seriesEpisodes.length} épisodes, ${this.data.seriesMetadata.length} séries`);
   }
 
@@ -202,6 +210,19 @@ class JSONDatabase {
         customTags: [],
         tagStats: {}
       }
+    };
+  }
+
+  /**
+   * Préférences utilisateur par défaut
+   */
+  getDefaultUserPrefs() {
+    return {
+      ratings: {},
+      watchedMovies: {},
+      watchCount: {},
+      lastWatched: {},
+      playProgress: {}
     };
   }
 
@@ -278,6 +299,54 @@ class JSONDatabase {
     return this.saveThrottled('config', () =>
       this.saveFileAtomic(this.paths.appConfig, this.data.config)
     );
+  }
+
+  /**
+   * Sauvegarder uniquement les préférences utilisateur (throttled)
+   */
+  async saveUserPrefs() {
+    return this.saveThrottled('userPrefs', () =>
+      this.saveFileAtomic(this.paths.userPrefs, this.data.userPrefs)
+    );
+  }
+
+  /**
+   * Sauvegarder les préférences utilisateur immédiatement (SANS throttling)
+   */
+  async saveUserPrefsImmediate() {
+    return this.saveFileAtomic(this.paths.userPrefs, this.data.userPrefs);
+  }
+
+  /**
+   * Récupérer les préférences utilisateur
+   */
+  async getUserPrefs() {
+    if (!this.data.userPrefs) await this.load();
+    return this.data.userPrefs;
+  }
+
+  /**
+   * Mettre à jour une note utilisateur
+   */
+  async updateRating(mediaId, rating) {
+    if (!this.data.userPrefs) await this.load();
+    this.data.userPrefs.ratings[mediaId] = rating;
+    await this.saveUserPrefsImmediate();
+    return { success: true };
+  }
+
+  /**
+   * Mettre à jour le statut "vu/à voir"
+   */
+  async updateWatchStatus(mediaId, isWatched) {
+    if (!this.data.userPrefs) await this.load();
+    if (isWatched) {
+      this.data.userPrefs.watchedMovies[mediaId] = true;
+    } else {
+      delete this.data.userPrefs.watchedMovies[mediaId];
+    }
+    await this.saveUserPrefsImmediate();
+    return { success: true };
   }
 
   /**

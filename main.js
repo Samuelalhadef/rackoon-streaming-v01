@@ -65,9 +65,6 @@ function findFfmpegPaths() {
       return false;
     }
   }) || 'ffprobe';
-  
-  console.log('FFmpeg trouvé à:', FFMPEG_PATH);
-  console.log('FFprobe trouvé à:', FFPROBE_PATH);
 }
 
 // Utiliser FFmpeg statique préinstallé
@@ -88,13 +85,11 @@ function setupStaticFfmpeg() {
     if (ffmpegPath && ffprobePath) {
       FFMPEG_PATH = ffmpegPath;
       FFPROBE_PATH = ffprobePath;
-      console.log('✅ FFmpeg statique configuré');
-      console.log('FFmpeg statique à:', FFMPEG_PATH);
-      console.log('FFprobe statique à:', FFPROBE_PATH);
+      console.log('✅ FFmpeg configuré');
       return true;
     }
   } catch (error) {
-    console.log('⚠️ Modules FFmpeg statiques non disponibles:', error.message);
+    // FFmpeg non disponible
   }
 
   return false;
@@ -133,20 +128,15 @@ function createWindow() {
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
   }
-  
-  console.log('Fenêtre principale créée');
 }
 
 // Vérifier si ffmpeg est disponible
 function checkFfmpegInstalled() {
   try {
-    // Essayer d'exécuter FFmpeg avec le chemin trouvé
-    const output = execSync(`"${FFMPEG_PATH}" -version`, { encoding: 'utf8' });
-    console.log('FFmpeg est installé:', output.split('\n')[0]);
+    execSync(`"${FFMPEG_PATH}" -version`, { encoding: 'utf8' });
     return true;
   } catch (error) {
-    console.log('FFmpeg n\'est pas installé ou n\'est pas accessible');
-    console.log('Les miniatures ne seront pas générées automatiquement');
+    console.log('⚠️ FFmpeg non accessible - Les miniatures ne seront pas générées');
     return false;
   }
 }
@@ -209,23 +199,26 @@ function extractThumbnail(videoPath, outputPath) {
     try {
       // Créer le dossier de sortie s'il n'existe pas
       fs.ensureDirSync(path.dirname(outputPath));
-      
-      // Commande ffmpeg pour extraire une frame à 20 secondes
-      const command = `"${FFMPEG_PATH}" -ss 00:00:20 -i "${videoPath}" -vframes 1 -q:v 2 "${outputPath}" -y`;
-      
+
+      // Commande ffmpeg pour extraire une frame à 15 secondes
+      // -update 1 : nécessaire pour écrire un seul fichier image (sinon FFmpeg attend un pattern de séquence)
+      const command = `"${FFMPEG_PATH}" -ss 00:00:15 -i "${videoPath}" -vframes 1 -update 1 -q:v 2 "${outputPath}" -y`;
+
       exec(command, (error, stdout, stderr) => {
         if (error) {
-          // Si échec à 20s, essayer à 5s
-          const fallbackCommand = `"${FFMPEG_PATH}" -ss 00:00:05 -i "${videoPath}" -vframes 1 -q:v 2 "${outputPath}" -y`;
-          
+          // Si échec à 15s, essayer à 5s
+          const fallbackCommand = `"${FFMPEG_PATH}" -ss 00:00:05 -i "${videoPath}" -vframes 1 -update 1 -q:v 2 "${outputPath}" -y`;
+
           exec(fallbackCommand, (err, stdout, stderr) => {
             if (err) {
               console.error('Erreur extraction miniature:', err.message);
+              console.error('Stderr FFmpeg:', stderr);
               reject(err);
               return;
             }
-            
+
             if (fs.existsSync(outputPath)) {
+              console.log(`✅ Thumbnail créé (fallback 5s): ${outputPath}`);
               resolve(outputPath);
             } else {
               reject(new Error('Miniature non créée'));
@@ -233,8 +226,9 @@ function extractThumbnail(videoPath, outputPath) {
           });
           return;
         }
-        
+
         if (fs.existsSync(outputPath)) {
+          console.log(`✅ Thumbnail créé: ${outputPath}`);
           resolve(outputPath);
         } else {
           reject(new Error('Miniature non créée'));
@@ -316,6 +310,179 @@ function formatFileSize(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// ========================================
+// SERVEUR HTTP & WATCH PARTY
+// ========================================
+
+// Fonction utilitaire pour obtenir l'IP locale
+function getLocalIPAddress() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      // IPv4, pas localhost, pas interne
+      const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4;
+      if (net.family === familyV4Value && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return 'localhost';
+}
+
+// Fonction pour démarrer le serveur HTTP (appelée au démarrage de l'app)
+function startHTTPServer() {
+  return new Promise((resolve, reject) => {
+    // Si le serveur est déjà démarré
+    if (httpServer) {
+      resolve(true);
+      return;
+    }
+
+    // Créer le serveur HTTP avec support streaming vidéo et thumbnails
+    httpServer = http.createServer((req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+
+      // Route pour streamer la vidéo (Watch Party)
+      if (url.pathname.startsWith('/video/')) {
+        const sessionCode = url.pathname.split('/')[2];
+
+        if (!watchPartyManager) {
+          res.writeHead(503, { 'Content-Type': 'text/plain' });
+          res.end('Watch Party non actif');
+          return;
+        }
+
+        const session = watchPartyManager.activeSessions.get(sessionCode);
+        if (!session || !session.video || !session.video.path) {
+          res.writeHead(404);
+          res.end('Vidéo introuvable');
+          return;
+        }
+
+        const videoPath = session.video.path;
+
+        // Vérifier que le fichier existe
+        if (!fs.existsSync(videoPath)) {
+          res.writeHead(404);
+          res.end('Fichier vidéo introuvable');
+          return;
+        }
+
+        const stat = fs.statSync(videoPath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
+        // Support des range requests pour le seeking
+        if (range) {
+          const parts = range.replace(/bytes=/, "").split("-");
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+          const chunksize = (end - start) + 1;
+          const file = fs.createReadStream(videoPath, { start, end });
+
+          const head = {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunksize,
+            'Content-Type': 'video/mp4',
+            'Access-Control-Allow-Origin': '*'
+          };
+
+          res.writeHead(206, head);
+          file.pipe(res);
+        } else {
+          // Streaming complet
+          const head = {
+            'Content-Length': fileSize,
+            'Content-Type': 'video/mp4',
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*'
+          };
+
+          res.writeHead(200, head);
+          fs.createReadStream(videoPath).pipe(res);
+        }
+      }
+      // Route pour servir les thumbnails
+      else if (url.pathname.startsWith('/thumbnails/')) {
+        const thumbnailName = url.pathname.split('/thumbnails/')[1];
+        const thumbnailPath = path.join(DATA_DIR, 'thumbnails', thumbnailName);
+
+        // Vérifier que le fichier existe
+        if (!fs.existsSync(thumbnailPath)) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Thumbnail not found');
+          return;
+        }
+
+        // Servir l'image
+        const stat = fs.statSync(thumbnailPath);
+        const img = fs.readFileSync(thumbnailPath);
+
+        res.writeHead(200, {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': stat.size,
+          'Cache-Control': 'public, max-age=86400', // Cache 24h
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(img);
+      }
+      else {
+        // Route par défaut
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Rackoon Streaming Server - HTTP OK');
+      }
+    });
+
+    // Démarrer le serveur sur le port 3001
+    const PORT = 3001;
+    httpServer.listen(PORT, '0.0.0.0', (err) => {
+      if (err) {
+        console.error('❌ Erreur démarrage serveur HTTP:', err.message);
+        httpServer = null;
+        reject(err);
+        return;
+      }
+
+      console.log('✅ Serveur HTTP démarré (port 3001)');
+      resolve(true);
+    });
+  });
+}
+
+// Fonction pour démarrer Watch Party (Socket.io) - le serveur HTTP doit déjà être actif
+function startWatchPartyServer() {
+  return new Promise((resolve, reject) => {
+    // Si Watch Party est déjà actif
+    if (watchPartyManager) {
+      resolve(true);
+      return;
+    }
+
+    // Vérifier que le serveur HTTP est actif
+    if (!httpServer) {
+      console.error('❌ Le serveur HTTP doit être démarré avant Watch Party');
+      reject(new Error('Serveur HTTP non disponible'));
+      return;
+    }
+
+    // Initialiser Socket.io sur le serveur HTTP existant
+    io = new Server(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
+    });
+
+    // Créer le gestionnaire de sessions
+    watchPartyManager = new WatchPartyManager(io, db);
+    watchPartyManager.initialize();
+
+    console.log('✅ Watch Party initialisé');
+    resolve(true);
+  });
 }
 
 // Configuration des gestionnaires de messages IPC avec stockage JSON
@@ -632,6 +799,109 @@ function setupIPCHandlers() {
     } catch (error) {
       console.error('Erreur lors de la suppression de tous les médias:', error);
       return { success: false, message: error.message };
+    }
+  });
+
+  // ============================================
+  // HANDLERS POUR LES PRÉFÉRENCES UTILISATEUR
+  // ============================================
+
+  // Récupérer les préférences utilisateur
+  ipcMain.handle('userPrefs:get', async () => {
+    try {
+      const prefs = await db.getUserPrefs();
+      return { success: true, prefs };
+    } catch (error) {
+      console.error('Erreur lors de la récupération des préférences:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Mettre à jour une note
+  ipcMain.handle('userPrefs:updateRating', async (event, mediaId, rating) => {
+    try {
+      const result = await db.updateRating(mediaId, rating);
+      console.log(`⭐ Note mise à jour pour ${mediaId}: ${rating}/5`);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la note:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Mettre à jour le statut vu/à voir
+  ipcMain.handle('userPrefs:updateWatchStatus', async (event, mediaId, isWatched) => {
+    try {
+      const result = await db.updateWatchStatus(mediaId, isWatched);
+      console.log(`👁️ Statut mis à jour pour ${mediaId}: ${isWatched ? 'vu' : 'à voir'}`);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Sauvegarder toutes les préférences (pour synchronisation localStorage)
+  ipcMain.handle('userPrefs:save', async (event, prefs) => {
+    try {
+      db.data.userPrefs = prefs;
+      await db.saveUserPrefsImmediate();
+      console.log('💾 Préférences utilisateur sauvegardées');
+      return { success: true };
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des préférences:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  // Handler pour générer un thumbnail à la demande
+  ipcMain.handle('medias:generateThumbnail', async (event, mediaId) => {
+    try {
+      // Récupérer le média depuis la DB
+      const medias = await db.getAllMedias();
+      const media = medias.find(m => m.id === mediaId);
+
+      if (!media) {
+        throw new Error(`Média non trouvé: ${mediaId}`);
+      }
+
+      // Vérifier si le fichier vidéo existe
+      if (!fs.existsSync(media.path)) {
+        throw new Error(`Fichier vidéo non trouvé: ${media.path}`);
+      }
+
+      // Vérifier si le thumbnail existe déjà
+      if (media.thumbnail) {
+        const thumbnailPath = path.join(DATA_DIR, 'thumbnails', media.thumbnail);
+        if (fs.existsSync(thumbnailPath)) {
+          return { success: true, thumbnail: media.thumbnail };
+        }
+      }
+
+      // Générer un nouveau thumbnail
+      if (!ffmpegInstalled) {
+        throw new Error('FFmpeg n\'est pas installé');
+      }
+
+      const thumbnailName = media.thumbnail || `thumb_${Date.now()}.jpg`;
+      const thumbnailPath = path.join(DATA_DIR, 'thumbnails', thumbnailName);
+
+      await extractThumbnail(media.path, thumbnailPath);
+
+      // Vérifier que le fichier a vraiment été créé
+      if (!fs.existsSync(thumbnailPath)) {
+        throw new Error(`Thumbnail non créé malgré succès de la commande: ${thumbnailPath}`);
+      }
+
+      console.log(`✅ Thumbnail: ${thumbnailName}`);
+
+      // Mettre à jour la DB avec le thumbnail
+      await db.updateMedia(mediaId, { thumbnail: thumbnailName });
+
+      return { success: true, thumbnail: thumbnailName };
+    } catch (error) {
+      console.error(`❌ Erreur thumbnail:`, error.message);
+      return { success: false, error: error.message };
     }
   });
 
@@ -1594,140 +1864,6 @@ function setupIPCHandlers() {
   // WATCH PARTY IPC HANDLERS
   // ========================================
 
-  // Fonction utilitaire pour obtenir l'IP locale
-  function getLocalIPAddress() {
-    const nets = os.networkInterfaces();
-    for (const name of Object.keys(nets)) {
-      for (const net of nets[name]) {
-        // IPv4, pas localhost, pas interne
-        const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4;
-        if (net.family === familyV4Value && !net.internal) {
-          return net.address;
-        }
-      }
-    }
-    return 'localhost';
-  }
-
-  // Fonction pour démarrer le serveur Watch Party à la demande
-  function startWatchPartyServer() {
-    return new Promise((resolve, reject) => {
-      // Si le serveur est déjà démarré
-      if (watchPartyManager) {
-        console.log('✅ Serveur Watch Party déjà actif');
-        resolve(true);
-        return;
-      }
-
-      console.log('🚀 Démarrage du serveur Watch Party...');
-
-      // Créer le serveur HTTP avec support streaming vidéo
-      httpServer = http.createServer((req, res) => {
-        const url = new URL(req.url, `http://${req.headers.host}`);
-
-        // Route pour streamer la vidéo
-        if (url.pathname.startsWith('/video/')) {
-          const sessionCode = url.pathname.split('/')[2];
-          console.log(`📺 Demande de streaming pour session: ${sessionCode}`);
-
-          if (!watchPartyManager) {
-            res.writeHead(404);
-            res.end('Serveur non initialisé');
-            return;
-          }
-
-          const session = watchPartyManager.activeSessions.get(sessionCode);
-          if (!session || !session.video || !session.video.path) {
-            console.error(`❌ Session ou vidéo introuvable: ${sessionCode}`);
-            res.writeHead(404);
-            res.end('Vidéo introuvable');
-            return;
-          }
-
-          const videoPath = session.video.path;
-          console.log(`📁 Chemin vidéo: ${videoPath}`);
-
-          // Vérifier que le fichier existe
-          if (!fs.existsSync(videoPath)) {
-            console.error(`❌ Fichier vidéo introuvable: ${videoPath}`);
-            res.writeHead(404);
-            res.end('Fichier vidéo introuvable');
-            return;
-          }
-
-          const stat = fs.statSync(videoPath);
-          const fileSize = stat.size;
-          const range = req.headers.range;
-
-          // Support des range requests pour le seeking
-          if (range) {
-            const parts = range.replace(/bytes=/, "").split("-");
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-            const chunksize = (end - start) + 1;
-            const file = fs.createReadStream(videoPath, { start, end });
-
-            const head = {
-              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-              'Accept-Ranges': 'bytes',
-              'Content-Length': chunksize,
-              'Content-Type': 'video/mp4',
-              'Access-Control-Allow-Origin': '*'
-            };
-
-            res.writeHead(206, head);
-            file.pipe(res);
-            console.log(`📡 Stream range: ${start}-${end}/${fileSize}`);
-          } else {
-            // Streaming complet
-            const head = {
-              'Content-Length': fileSize,
-              'Content-Type': 'video/mp4',
-              'Accept-Ranges': 'bytes',
-              'Access-Control-Allow-Origin': '*'
-            };
-
-            res.writeHead(200, head);
-            fs.createReadStream(videoPath).pipe(res);
-            console.log(`📡 Stream complet: ${fileSize} bytes`);
-          }
-        } else {
-          // Route par défaut
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          res.end('Rackoon Streaming Watch Party Server');
-        }
-      });
-
-      // Démarrer le serveur sur le port 3001
-      const PORT = 3001;
-      httpServer.listen(PORT, '0.0.0.0', (err) => {
-        if (err) {
-          console.error('❌ Erreur démarrage serveur:', err.message);
-          httpServer = null;
-          reject(err);
-          return;
-        }
-
-        console.log('🎬 Serveur Watch Party démarré sur le port 3001');
-        console.log(`   IP locale: ${getLocalIPAddress()}`);
-
-        // Initialiser Socket.io
-        io = new Server(httpServer, {
-          cors: {
-            origin: "*",
-            methods: ["GET", "POST"]
-          }
-        });
-
-        // Créer le gestionnaire de sessions
-        watchPartyManager = new WatchPartyManager(io, db);
-        watchPartyManager.initialize();
-
-        resolve(true);
-      });
-    });
-  }
-
   // Créer une session Watch Party
   ipcMain.handle('watchparty:create', async (event, videoInfo) => {
     try {
@@ -2032,19 +2168,16 @@ Ou convertissez le fichier avec MKVToolNix + OCR
 
 // Quand Electron est prêt
 app.whenReady().then(async () => {
-  // D'abord essayer les modules statiques, puis les chemins classiques
+  // Configurer FFmpeg
   let ffmpegConfigured = setupStaticFfmpeg();
   if (!ffmpegConfigured) {
-    console.log('🔍 Recherche de FFmpeg installé manuellement...');
     findFfmpegPaths();
   }
 
-  // Initialiser la base de données JSON dans un dossier accessible en écriture
-  // Utiliser userData au lieu de __dirname pour les applications empaquetées
-  const userDataPath = app.getPath('userData');
-  DATA_DIR = path.join(userDataPath, 'data');
+  // Initialiser la base de données
+  // Utiliser le dossier du projet pour le développement
+  DATA_DIR = path.join(__dirname, 'data');
 
-  // Créer le dossier data et thumbnails s'ils n'existent pas
   try {
     fs.ensureDirSync(DATA_DIR);
     fs.ensureDirSync(path.join(DATA_DIR, 'thumbnails'));
@@ -2053,18 +2186,21 @@ app.whenReady().then(async () => {
   }
 
   const dbPath = path.join(DATA_DIR, 'medias.json');
-  console.log('📂 Chemin de la base de données:', dbPath);
-
   db = new JSONDatabase(dbPath);
   await db.load();
-  console.log('📊 Base de données JSON initialisée');
-  
+  console.log('✅ Base de données prête');
+
   // Créer la fenêtre
   createWindow();
 
-  console.log('ℹ️  Le serveur Watch Party sera démarré lors de la création d\'une session');
+  // Démarrer le serveur HTTP immédiatement (pour thumbnails et Watch Party)
+  try {
+    await startHTTPServer();
+  } catch (error) {
+    console.error('❌ Impossible de démarrer le serveur HTTP:', error);
+  }
 
-  // Vérifier si ffmpeg est installé
+  // Vérifier FFmpeg
   const ffmpegInstalled = checkFfmpegInstalled();
 
   setupIPCHandlers();

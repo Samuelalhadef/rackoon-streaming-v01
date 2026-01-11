@@ -14,7 +14,7 @@ class VideoPlayer {
     this.isFullscreen = false;
     this.currentTime = 0;
     this.duration = 0;
-    this.volume = 1;
+    this.volume = 0.5; // Volume par défaut à 60%
     this.playbackRate = 1;
     this.controlsVisible = true;
     this.isClosing = false;

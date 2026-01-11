@@ -24,7 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
   downloadTMDBImage: (imageUrl, mediaTitle) => ipcRenderer.invoke('medias:downloadTMDBImage', imageUrl, mediaTitle),
   updateMediasMetadata: () => ipcRenderer.invoke('medias:updateMetadata'),
-  
+  generateThumbnail: (mediaId) => ipcRenderer.invoke('medias:generateThumbnail', mediaId),
+
   // APIs pour informations vidéo
   getVideoInfo: (filePath) => ipcRenderer.invoke('video:getInfo', filePath),
   extractSubtitle: (videoPath, trackIndex) => ipcRenderer.invoke('video:extractSubtitle', videoPath, trackIndex),
@@ -54,6 +55,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeTagsFromMedia: (mediaId, tags, tagType) => ipcRenderer.invoke('tags:removeFromMedia', mediaId, tags, tagType),
   searchMediasByTags: (searchTags, operator) => ipcRenderer.invoke('tags:searchMedias', searchTags, operator),
   getTagSuggestions: (query, limit) => ipcRenderer.invoke('tags:getSuggestions', query, limit),
+
+  // APIs pour les préférences utilisateur
+  getUserPrefs: () => ipcRenderer.invoke('userPrefs:get'),
+  updateRating: (mediaId, rating) => ipcRenderer.invoke('userPrefs:updateRating', mediaId, rating),
+  updateWatchStatus: (mediaId, isWatched) => ipcRenderer.invoke('userPrefs:updateWatchStatus', mediaId, isWatched),
+  saveUserPrefs: (prefs) => ipcRenderer.invoke('userPrefs:save', prefs),
 
   // APIs Watch Party
   createWatchParty: (videoInfo) => ipcRenderer.invoke('watchparty:create', videoInfo),

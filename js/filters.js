@@ -895,15 +895,15 @@
     card.dataset.id = media.id;
     card.dataset.title = (media.title || media.name || '').toLowerCase();
 
-    // Configurer l'image
-    const thumbnailSrc = media.thumbnail
-      ? `../data/thumbnails/${media.thumbnail}`
-      : window.DEFAULT_THUMBNAIL;
-
+    // Configurer l'image avec génération automatique de thumbnail
     const img = card.querySelector('.media-thumbnail');
-    img.src = thumbnailSrc;
-    img.alt = media.title || media.name || 'Sans titre';
-    img.onerror = () => { img.src = window.DEFAULT_THUMBNAIL; };
+    window.setupImageWithFallback(
+      img,
+      media.id,
+      media.posterUrl,
+      media.thumbnail,
+      media.title || media.name || 'Sans titre'
+    );
 
     // Configurer le titre
     card.querySelector('.media-title').textContent = media.title || media.name || 'Sans titre';

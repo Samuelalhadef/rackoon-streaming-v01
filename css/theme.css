@@ -315,16 +315,22 @@
 
   /* Rouge (delete, danger) */
   --modal-red: rgba(220, 53, 69, 0.8);
+  --modal-red-01: rgba(220, 53, 69, 0.1);
   --modal-red-02: rgba(220, 53, 69, 0.2);
   --modal-red-03: rgba(220, 53, 69, 0.3);
   --modal-red-04: rgba(220, 53, 69, 0.4);
   --modal-red-05: rgba(220, 53, 69, 0.5);
+  --modal-red-06: rgba(220, 53, 69, 0.6);
 
   /* Vert (success) */
   --modal-green: rgba(39, 174, 96, 0.5);
   --modal-green-light: #27ae60;
+  --modal-green-secondary-01: rgba(40, 167, 69, 0.1);
+  --modal-green-secondary-02: rgba(40, 167, 69, 0.2);
+  --modal-green-secondary-03: rgba(40, 167, 69, 0.3);
   --modal-green-secondary-04: rgba(40, 167, 69, 0.4);
   --modal-green-secondary-05: rgba(40, 167, 69, 0.5);
+  --modal-green-secondary-06: rgba(40, 167, 69, 0.6);
 
   /* Backgrounds spécifiques */
   --modal-bg-gradient-blue: linear-gradient(135deg, rgba(100, 181, 246, 0.08), rgba(100, 181, 246, 0.04));
@@ -343,7 +349,6 @@
   --modal-gold-04: rgba(255, 215, 0, 0.4);
   --modal-gold-bright: rgba(241, 196, 15, 0.5);
   --modal-red-bright: rgba(231, 76, 60, 0.5);
-  --modal-red-01: rgba(220, 53, 69, 0.1);
 }
 
 /* ========================================

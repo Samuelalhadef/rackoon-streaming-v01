@@ -35,7 +35,7 @@ window.formatFileSize = function(bytes) {
 window.userPreferences = {
   load: function() {
     try {
-      return JSON.parse(localStorage.getItem('userPreferences') || '{}');
+      return JSON.parse(localStorage.getItem('userPrefs_global') || '{}');
     } catch (e) {
       console.error('Erreur lors du chargement des préférences:', e);
       return {};
@@ -46,7 +46,7 @@ window.userPreferences = {
     try {
       const existing = this.load();
       const updated = { ...existing, ...prefs };
-      localStorage.setItem('userPreferences', JSON.stringify(updated));
+      localStorage.setItem('userPrefs_global', JSON.stringify(updated));
     } catch (e) {
       console.error('Erreur lors de la sauvegarde des préférences:', e);
     }
@@ -97,9 +97,74 @@ window.movieEdits = {
   }
 };
 
-// Gestion des images par défaut
+// Gestion intelligente des images avec génération automatique de thumbnails
+window.setupImageWithFallback = async function(img, mediaId, posterUrl, thumbnailName, alt = '') {
+  img.alt = alt;
+
+  // Priorité 1: POSTER (affiche officielle)
+  if (posterUrl) {
+    img.onerror = () => {
+      // Si le poster échoue, essayer le thumbnail
+      setupImageThumbnailWithGeneration(img, mediaId, thumbnailName);
+    };
+    img.src = posterUrl;
+    return;
+  }
+
+  // Priorité 2: THUMBNAIL (avec génération automatique si manquant)
+  setupImageThumbnailWithGeneration(img, mediaId, thumbnailName);
+};
+
+// Fonction helper pour gérer le thumbnail avec génération automatique
+async function setupImageThumbnailWithGeneration(img, mediaId, thumbnailName) {
+  if (thumbnailName) {
+    // Utiliser l'URL HTTP du serveur local au lieu du chemin relatif
+    const thumbnailFilename = thumbnailName.split(/[\\\/]/).pop();
+    const thumbnailUrl = `http://localhost:3001/thumbnails/${thumbnailFilename}`;
+
+    let attemptedGeneration = false;
+
+    img.onerror = async () => {
+      // Éviter les boucles infinies
+      if (img.dataset.errorHandled === 'true') return;
+      img.dataset.errorHandled = 'true';
+
+      // Si le thumbnail n'existe pas et qu'on n'a pas encore essayé de le générer
+      if (!attemptedGeneration && mediaId && window.electronAPI && window.electronAPI.generateThumbnail) {
+        attemptedGeneration = true;
+
+        try {
+          const result = await window.electronAPI.generateThumbnail(mediaId);
+          if (result.success && result.thumbnail) {
+            // Réessayer de charger l'image avec le nouveau thumbnail via HTTP
+            img.dataset.errorHandled = 'false';
+            const newThumbnailFilename = result.thumbnail.split(/[\\\/]/).pop();
+            img.src = `http://localhost:3001/thumbnails/${newThumbnailFilename}`;
+            return;
+          }
+        } catch (error) {
+          console.error(`❌ Thumbnail:`, error);
+        }
+      }
+
+      // Fallback final: image par défaut
+      img.src = window.DEFAULT_THUMBNAIL;
+      img.onerror = null;
+    };
+
+    img.src = thumbnailUrl;
+  } else {
+    // Pas de thumbnail, utiliser l'image par défaut
+    img.src = window.DEFAULT_THUMBNAIL;
+  }
+}
+
+// Ancienne fonction pour compatibilité (deprecated)
 window.handleImageError = function(img, defaultSrc = window.DEFAULT_THUMBNAIL) {
-  img.onerror = () => { img.src = defaultSrc; };
+  img.onerror = () => {
+    img.src = defaultSrc;
+    img.onerror = null;
+  };
 };
 
 // Mise à jour de l'affichage des étoiles

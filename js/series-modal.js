@@ -8,6 +8,7 @@ class SeriesModal {
     this.currentSeries = null;
     this.currentSeriesId = null;
     this.USER_PREFS_KEY = 'userPrefs_global';
+    this.isOpening = false; // Protection contre les ouvertures multiples
     this.attachEventListeners();
   }
 
@@ -45,7 +46,9 @@ class SeriesModal {
     // Fermeture en cliquant sur l'overlay
     if (this.modal) {
       this.modal.addEventListener('click', (e) => {
+        // Vérifier que le clic est bien sur l'overlay et pas sur ses enfants
         if (e.target === this.modal) {
+          e.stopPropagation(); // Empêcher la propagation
           this.hide();
         }
       });
@@ -215,8 +218,29 @@ class SeriesModal {
   }
 
   async show(seriesId) {
+    // Bloquer si une ouverture est déjà en cours
+    if (this.isOpening) {
+      console.log('⏳ Ouverture de modale série déjà en cours, veuillez patienter...');
+      return;
+    }
+
     try {
+      this.isOpening = true;
       console.log('📺 Affichage de la série:', seriesId);
+
+      // Vérifier si la modale est déjà ouverte
+      if (this.modal && this.modal.classList.contains('active')) {
+        console.log('⚠️ La modale série est déjà ouverte, fermeture en cours...');
+        // Forcer la fermeture immédiate sans animation
+        this.modal.classList.remove('active');
+        this.modal.style.display = 'none';
+        document.body.style.overflow = '';
+        this.currentSeries = null;
+        this.currentSeriesId = null;
+        // Attendre un peu pour laisser le navigateur traiter les changements
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
       this.currentSeriesId = seriesId;
 
       // Récupérer les données de la série
@@ -231,27 +255,55 @@ class SeriesModal {
       this.populateModal(this.currentSeries);
       this.loadUserPreferences();
 
+      // Réinitialiser complètement l'état de la modale
+      this.modal.classList.remove('active');
       this.modal.style.display = 'flex';
 
-      // Animation d'apparition
+      // Forcer un reflow du navigateur
+      void this.modal.offsetHeight;
+
+      // Afficher avec animation
       requestAnimationFrame(() => {
         this.modal.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Empêcher le défilement
+        console.log('✅ Modale série activée et affichée');
       });
 
     } catch (error) {
       console.error('❌ Erreur lors de l\'affichage de la série:', error);
+      // Nettoyer en cas d'erreur
+      if (this.modal) {
+        this.modal.classList.remove('active');
+        this.modal.style.display = 'none';
+      }
+      document.body.style.overflow = '';
+    } finally {
+      // Libérer le verrou après la fin de l'animation CSS (300ms de transition)
+      setTimeout(() => {
+        this.isOpening = false;
+      }, 350);
     }
   }
 
   hide() {
-    if (this.modal) {
-      this.modal.classList.remove('active');
-      setTimeout(() => {
-        this.modal.style.display = 'none';
-      }, 400);
+    try {
+      if (this.modal) {
+        this.modal.classList.remove('active');
+        setTimeout(() => {
+          this.modal.style.display = 'none';
+        }, 400);
+      }
+      this.currentSeries = null;
+      this.currentSeriesId = null;
+    } finally {
+      // TOUJOURS restaurer le scroll
+      document.body.style.overflow = '';
+
+      // Réinitialiser le verrou pour permettre une nouvelle ouverture
+      this.isOpening = false;
+
+      console.log('✅ Scroll du body restauré et verrou libéré (série)');
     }
-    this.currentSeries = null;
-    this.currentSeriesId = null;
   }
 
   loadUserPreferences() {
@@ -355,25 +407,33 @@ class SeriesModal {
     }
 
     if (posterElement) {
-      let posterSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+';
+      const defaultSeriesPoster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+';
+      let posterSrc = defaultSeriesPoster;
 
-      // Utiliser la miniature du premier épisode comme poster de série
-      if (series.seasons && series.seasons[0] && series.seasons[0].episodes && series.seasons[0].episodes[0]) {
+      // Priorité 1: POSTER officiel de la série (si disponible)
+      if (series.posterUrl) {
+        posterSrc = series.posterUrl;
+        console.log('📸 Utilisation du poster officiel:', posterSrc);
+      }
+      // Priorité 2: THUMBNAIL du premier épisode
+      else if (series.seasons && series.seasons[0] && series.seasons[0].episodes && series.seasons[0].episodes[0]) {
         const firstEpisode = series.seasons[0].episodes[0];
         if (firstEpisode.thumbnail) {
           const thumbnailName = firstEpisode.thumbnail.split('\\').pop().split('/').pop();
           posterSrc = `data/thumbnails/${thumbnailName}`;
-          console.log('📸 Chargement du poster série depuis:', posterSrc);
+          console.log('📸 Chargement du poster série depuis thumbnail:', posterSrc);
         }
       }
+      // Priorité 3: Image par défaut (déjà définie ci-dessus)
 
-      posterElement.src = posterSrc;
-      posterElement.alt = series.name;
-
+      // IMPORTANT: Définir l'handler d'erreur AVANT de charger l'image
       posterElement.onerror = () => {
         console.log('❌ Erreur de chargement du poster, utilisation du placeholder');
-        posterElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+';
+        posterElement.src = defaultSeriesPoster;
+        posterElement.onerror = null;
       };
+      posterElement.src = posterSrc;
+      posterElement.alt = series.name;
     }
 
     // Afficher les tags

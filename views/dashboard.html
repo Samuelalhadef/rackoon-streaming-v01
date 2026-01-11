@@ -16,7 +16,6 @@
   <link rel="stylesheet" href="../css/series-modal.css">
   <link rel="stylesheet" href="../css/filters.css">
   <link rel="stylesheet" href="../css/file-manager.css">
-  <link rel="stylesheet" href="../css/file-manager-new.css">
   <link rel="stylesheet" href="../css/watch-party.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -1017,188 +1016,28 @@
 
         </div>
       </div>
-      
-      <!-- ANCIEN SYSTÈME SUPPRIMÉ - Le mode édition se fait maintenant directement dans view-mode -->
-      <!-- <div class="edit-mode" id="edit-mode" style="display: none;">
-        <div class="modal-content">
-          <!-- Titre du mode édition -->
-          <div class="edit-header">
-            <h2>Sortir du mode édition</h2>
-          </div>
-          
-          <!-- Bouton de recherche sur TMDB -->
-          <button class="tmdb-search-btn" id="tmdb-search-btn">
-            <i class="fas fa-search"></i> Rechercher sur The Movie Database
-          </button>
-          
-          <!-- Titre -->
-          <div class="edit-section">
-            <div class="edit-section-title">Nom</div>
-            <div class="edit-field">
-              <input type="text" id="edit-title-input" placeholder="Titre du film">
-            </div>
-          </div>
-          
-          <!-- Année et date de sortie -->
-          <div class="edit-section">
-            <div class="edit-section-title">Date de sortie</div>
-            <div class="edit-field">
-              <input type="date" id="edit-release-date" placeholder="Date de sortie">
-            </div>
-          </div>
-          
-          <!-- Genres -->
-          <div class="edit-section">
-            <div class="edit-section-title">Genres</div>
-            <!-- Genres prédéfinis -->
-            <div class="edit-field genre-selection">
-              <select class="genre-dropdown" id="genre-dropdown">
-                <option value="">Choisir un genre</option>
-                <option value="Action">Action</option>
-                <option value="Aventure">Aventure</option>
-                <option value="Animation">Animation</option>
-                <option value="Comédie">Comédie</option>
-                <option value="Crime">Crime</option>
-                <option value="Documentaire">Documentaire</option>
-                <option value="Drame">Drame</option>
-                <option value="Famille">Famille</option>
-                <option value="Fantastique">Fantastique</option>
-                <option value="Histoire">Histoire</option>
-                <option value="Horreur">Horreur</option>
-                <option value="Musique">Musique</option>
-                <option value="Mystère">Mystère</option>
-                <option value="Romance">Romance</option>
-                <option value="Science-Fiction">Science-Fiction</option>
-                <option value="Thriller">Thriller</option>
-                <option value="Guerre">Guerre</option>
-                <option value="Western">Western</option>
-              </select>
-              <button class="add-genre-btn" id="add-predefined-genre">Ajouter</button>
-            </div>
-            
-            <!-- Affichage des genres sélectionnés -->
-            <div class="genres-edit" id="edit-genres-container">
-              <!-- Les genres seront ajoutés ici dynamiquement -->
-            </div>
-            
-            <!-- Ajout de genres personnalisés -->
-            <div class="add-genre-container">
-              <input type="text" class="add-genre-input" id="custom-genre-input" placeholder="Genre personnalisé">
-              <button class="add-genre-btn" id="add-custom-genre">Ajouter</button>
-            </div>
-          </div>
-
-          <!-- Système de tags avancé -->
-          <div class="edit-section">
-            <div class="edit-section-title">
-              <i class="fas fa-tags"></i> Tags personnalisés
-            </div>
-
-            <!-- Tags par catégories -->
-            <div class="edit-tags-container">
-              <!-- Ambiance/Mood Tags -->
-              <div class="edit-tag-category">
-                <div class="edit-tag-category-header">
-                  <i class="fas fa-heart"></i>
-                  <span>Ambiance</span>
-                  <button class="add-tag-btn smart-add-btn" data-category="mood">
-                    <i class="fas fa-plus"></i>
-                  </button>
-                </div>
-                <div class="edit-tag-chips" id="edit-mood-tags"></div>
-
-                <!-- Nouveau système de dropdown intelligent -->
-                <div class="smart-tag-dropdown" id="mood-dropdown" style="display: none;">
-                  <div class="dropdown-search-container">
-                    <input type="text" class="dropdown-search" placeholder="Rechercher ou créer un tag...">
-                    <button class="dropdown-create-btn" style="display: block;">
-                      <i class="fas fa-plus"></i> Créer nouveau tag
-                    </button>
-                  </div>
-                  <div class="dropdown-tags-list">
-                    <!-- Les tags existants apparaîtront ici -->
-                  </div>
-                </div>
-              </div>
-
-              <!-- Technical Tags -->
-              <div class="edit-tag-category">
-                <div class="edit-tag-category-header">
-                  <i class="fas fa-cog"></i>
-                  <span>Technique</span>
-                  <button class="add-tag-btn smart-add-btn" data-category="technical">
-                    <i class="fas fa-plus"></i>
-                  </button>
-                </div>
-                <div class="edit-tag-chips" id="edit-technical-tags"></div>
-
-                <!-- Nouveau système de dropdown intelligent -->
-                <div class="smart-tag-dropdown" id="technical-dropdown" style="display: none;">
-                  <div class="dropdown-search-container">
-                    <input type="text" class="dropdown-search" placeholder="Rechercher ou créer un tag...">
-                    <button class="dropdown-create-btn" style="display: block;">
-                      <i class="fas fa-plus"></i> Créer nouveau tag
-                    </button>
-                  </div>
-                  <div class="dropdown-tags-list">
-                    <!-- Les tags existants apparaîtront ici -->
-                  </div>
-                </div>
-              </div>
-
-              <!-- Personal Tags -->
-              <div class="edit-tag-category">
-                <div class="edit-tag-category-header">
-                  <i class="fas fa-user"></i>
-                  <span>Personnel</span>
-                  <button class="add-tag-btn smart-add-btn" data-category="personal">
-                    <i class="fas fa-plus"></i>
-                  </button>
-                </div>
-                <div class="edit-tag-chips" id="edit-personal-tags"></div>
-
-                <!-- Nouveau système de dropdown intelligent -->
-                <div class="smart-tag-dropdown" id="personal-dropdown" style="display: none;">
-                  <div class="dropdown-search-container">
-                    <input type="text" class="dropdown-search" placeholder="Rechercher ou créer un tag...">
-                    <button class="dropdown-create-btn" style="display: block;">
-                      <i class="fas fa-plus"></i> Créer nouveau tag
-                    </button>
-                  </div>
-                  <div class="dropdown-tags-list">
-                    <!-- Les tags existants apparaîtront ici -->
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Image -->
-          <div class="edit-section">
-            <div class="edit-section-title">Image</div>
-            <div class="image-upload-container">
-              <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMxZTNhNmQiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2Ij7wn46sIEZpbG08L3RleHQ+PC9zdmc+" class="image-upload-preview" id="image-preview">
-              <div class="image-upload-controls">
-                <button class="image-upload-btn" id="upload-image-btn">Changer l'image</button>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Synopsis -->
-          <div class="edit-section">
-            <div class="edit-section-title">Synopsis</div>
-            <div class="edit-field">
-              <textarea id="edit-synopsis-input" placeholder="Synopsis du film"></textarea>
-            </div>
-          </div>
-          
-          <!-- Boutons d'action -->
-          <button class="save-changes-btn" id="save-changes-btn">Enregistrer les modifications</button>
-          <button class="exit-edit-mode" id="exit-edit-mode">Sortir du mode édition</button>
-        </div>
-      </div>
     </div>
   </div>
+  </div>
+
+  <!-- Éléments cachés nécessaires au JavaScript (ancien système d'édition) -->
+  <div style="display: none;">
+    <input type="text" id="edit-title-input">
+    <input type="date" id="edit-release-date">
+    <div id="edit-genres-container"></div>
+    <select id="genre-dropdown"></select>
+    <button id="add-predefined-genre"></button>
+    <input type="text" id="custom-genre-input">
+    <button id="add-custom-genre"></button>
+    <img id="image-preview">
+    <button id="upload-image-btn"></button>
+    <textarea id="edit-synopsis-input"></textarea>
+    <button id="save-changes-btn"></button>
+    <button id="exit-edit-mode"></button>
+    <button id="tmdb-search-btn"></button>
+    <div id="edit-mood-tags"></div>
+    <div id="edit-technical-tags"></div>
+    <div id="edit-personal-tags"></div>
   </div>
 
   <!-- Modal de présentation des séries -->
@@ -2099,7 +1938,6 @@
   <script src="../js/filters.js"></script>
   <script src="../js/dashboard.js"></script>
   <script src="../js/dashboard-categories.js"></script>
-  <script src="../js/import-simple.js"></script>
   <script src="../js/file-manager-electron.js"></script>
   <script src="../js/stats-manager.js"></script>
 

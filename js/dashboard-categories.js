@@ -278,14 +278,13 @@ class DashboardCategories {
     
     const thumbnail = card.querySelector('.media-thumbnail');
     if (thumbnail) {
-      // Si movie.thumbnail existe, utiliser le chemin relatif
-      if (movie.thumbnail) {
-        const thumbnailName = movie.thumbnail.split(/[\\/]/).pop();
-        thumbnail.src = `../data/thumbnails/${thumbnailName}`;
-      } else {
-        thumbnail.src = window.DEFAULT_THUMBNAIL;
-      }
-      thumbnail.alt = movie.title || 'Sans titre';
+      window.setupImageWithFallback(
+        thumbnail,
+        movie.id,
+        movie.posterUrl,
+        movie.thumbnail,
+        movie.title || 'Sans titre'
+      );
     }
     
     const title = card.querySelector('.media-title');
@@ -321,7 +320,7 @@ class DashboardCategories {
 
   // Charger les préférences utilisateur depuis localStorage
   loadUserPreferences() {
-    const stored = localStorage.getItem('userPreferences');
+    const stored = localStorage.getItem('userPrefs_global');
     if (stored) {
       return JSON.parse(stored);
     }

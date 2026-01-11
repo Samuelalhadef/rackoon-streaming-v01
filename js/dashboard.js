@@ -1,9 +1,47 @@
 
 // dashboard.js - Logique pour l'interface principale style Netflix simplifiée
 
-document.addEventListener('DOMContentLoaded', () => {
+// Fonction pour synchroniser les préférences utilisateur depuis le fichier JSON vers localStorage
+async function syncUserPreferencesFromDatabase() {
+  if (!window.electronAPI || !window.electronAPI.getUserPrefs) {
+    console.warn('⚠️ API Electron non disponible pour charger les préférences');
+    return;
+  }
+
+  try {
+    console.log('🔄 Chargement des préférences utilisateur depuis le fichier JSON...');
+    const result = await window.electronAPI.getUserPrefs();
+
+    if (result.success && result.prefs) {
+      // Fusionner avec les préférences localStorage existantes (localStorage prioritaire pour les nouvelles)
+      const localPrefs = localStorage.getItem('userPrefs_global');
+      let currentPrefs = localPrefs ? JSON.parse(localPrefs) : {};
+
+      // Utiliser les préférences du fichier comme base
+      const mergedPrefs = {
+        ...result.prefs,
+        ...currentPrefs  // localStorage a la priorité (pour les changements non encore sauvegardés)
+      };
+
+      // Sauvegarder dans localStorage
+      localStorage.setItem('userPrefs_global', JSON.stringify(mergedPrefs));
+
+      console.log('✅ Préférences synchronisées:', {
+        ratings: Object.keys(mergedPrefs.ratings || {}).length,
+        watched: Object.keys(mergedPrefs.watchedMovies || {}).length
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors de la synchronisation des préférences:', error);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
   // Plus de système de connexion - application directe
   console.log('Application Rackoon Streaming démarrée');
+
+  // Synchroniser les préférences utilisateur depuis le fichier JSON vers localStorage
+  await syncUserPreferencesFromDatabase();
 
   // Fonction helper pour ouvrir une modale de film de manière robuste
   function safeOpenMovieModal(movieId) {

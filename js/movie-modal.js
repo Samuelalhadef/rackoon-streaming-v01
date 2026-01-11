@@ -72,7 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Exposer la fonction openMovieModal immédiatement pour éviter les problèmes de timing
   window.openMovieModal = async function(movieId) {
-    console.log('🎬 openMovieModal appelée avec ID:', movieId);
+    console.log('🎬 openMovieModal appelée avec ID:', movieId, '| Verrou actif:', isModalOpening);
+
+    // Bloquer si une ouverture est déjà en cours
+    if (isModalOpening) {
+      console.warn('⏳ Ouverture de modale déjà en cours (verrou actif), requête ignorée');
+      return;
+    }
 
     // Vérifier que les éléments essentiels existent
     if (!modalOverlay) {
@@ -86,14 +92,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
+      isModalOpening = true;
+
+      // Vérifier si la modale est déjà ouverte
+      if (modalOverlay.classList.contains('active')) {
+        console.log('⚠️ La modale est déjà ouverte, fermeture en cours...');
+        // Forcer la fermeture immédiate sans animation
+        modalOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+        currentMovieId = null;
+        currentMoviePath = null;
+        currentMovieData = {};
+        selectedGenres = [];
+        posterImageFile = null;
+        // Attendre un peu pour laisser le navigateur traiter les changements
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
       return await openMovieModalInternal(movieId);
     } catch (error) {
       console.error('❌ Erreur dans openMovieModal:', error);
+      // Restaurer le scroll en cas d'erreur
+      document.body.style.overflow = '';
+      modalOverlay.classList.remove('active');
+    } finally {
+      // Libérer le verrou après la fin de l'animation CSS (300ms de transition)
+      setTimeout(() => {
+        isModalOpening = false;
+      }, 350);
     }
   };
 
   console.log('✅ window.openMovieModal exposée');
-  
+
+  // Fonction utilitaire pour forcer la restauration du scroll
+  window.forceRestoreBodyScroll = function() {
+    document.body.style.overflow = '';
+    document.body.style.removeProperty('overflow');
+    console.log('🔧 Scroll du body forcé à la restauration');
+  };
+
+  // Restaurer le scroll au chargement de la page (au cas où)
+  window.addEventListener('load', () => {
+    if (!modalOverlay || !modalOverlay.classList.contains('active')) {
+      window.forceRestoreBodyScroll();
+    }
+  });
+
   // Variables globales pour le film actuel
   let currentMovieId = null;
   let currentMoviePath = null;
@@ -101,6 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedGenres = [];
   let posterImageFile = null;
   let tmdbGenresCache = null;
+
+  // Variable pour éviter les ouvertures multiples rapides
+  let isModalOpening = false;
 
   // Variables pour le système de boutons extensibles
   let isEditMode = false;
@@ -488,6 +536,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Fonction pour sauvegarder une note dans le fichier JSON
+  async function saveRatingToDatabase(mediaId, rating) {
+    if (window.electronAPI && window.electronAPI.updateRating) {
+      try {
+        await window.electronAPI.updateRating(mediaId, rating);
+        console.log(`💾 Note sauvegardée dans le fichier JSON: ${rating}/5`);
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde de la note dans le fichier:', error);
+      }
+    }
+  }
+
   // Fonction pour automatiquement marquer comme "Vu"
   function autoMarkAsWatched() {
     if (!currentMovieId) return;
@@ -711,10 +771,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      currentMovieId = movieId;
+      // S'assurer que la modale est complètement fermée avant de l'ouvrir
+      modalOverlay.classList.remove('active');
+      // Nettoyer les styles inline qui pourraient rester
+      modalOverlay.style.pointerEvents = '';
+      await new Promise(resolve => requestAnimationFrame(resolve));
 
-      // Réinitialiser le mode d'affichage
+      currentMovieId = movieId;
+      console.log('✅ currentMovieId défini à:', currentMovieId);
+
+      // Réinitialiser le mode d'affichage et forcer la visibilité
       viewMode.style.display = 'flex';
+      viewMode.style.opacity = '1';
+      viewMode.style.visibility = 'visible';
       
       // Récupérer les modifications précédentes du film
       const savedEdits = window.movieEdits.get(movieId);
@@ -744,23 +813,14 @@ document.addEventListener('DOMContentLoaded', () => {
       currentMovieData = movie;
       console.log("Données du film après fusion:", currentMovieData);
 
-      // Configurer l'image de couverture
-      let posterSrc = window.DEFAULT_THUMBNAIL;
-      
-      // Utiliser l'URL sauvegardée en priorité
-      if (movie.posterUrl) {
-        posterSrc = movie.posterUrl;
-      }
-      // Sinon, utiliser l'image de miniature si disponible
-      else if (movie.thumbnail) {
-        // Convertir le chemin absolu en chemin relatif pour le navigateur
-        const thumbnailName = movie.thumbnail.split(/[\\\/]/).pop();
-        posterSrc = `../data/thumbnails/${thumbnailName}`;
-      }
-      
-      modalPoster.src = posterSrc;
-      modalPoster.alt = movie.title;
-      window.handleImageError(modalPoster);
+      // Configurer l'image de couverture avec génération automatique
+      window.setupImageWithFallback(
+        modalPoster,
+        movie.id,
+        movie.posterUrl,
+        movie.thumbnail,
+        movie.title
+      );
       
       // Configurer les informations du film
       modalTitle.textContent = movie.title;
@@ -864,9 +924,14 @@ document.addEventListener('DOMContentLoaded', () => {
       selectedGenres = movie.genres || [];
       updateEditGenresDisplay();
       
-      // Configurer l'image d'aperçu
-      imagePreview.src = posterSrc;
-      window.handleImageError(imagePreview);
+      // Configurer l'image d'aperçu (pour le mode édition)
+      window.setupImageWithFallback(
+        imagePreview,
+        movie.id,
+        movie.posterUrl,
+        movie.thumbnail,
+        movie.title
+      );
       
       // Configurer le synopsis
       editSynopsisInput.value = movie.description || '';
@@ -893,63 +958,90 @@ document.addEventListener('DOMContentLoaded', () => {
         window.tagSystem.loadMediaTags(movie);
       }
 
+      // Forcer un reflow du navigateur pour s'assurer que tous les styles sont appliqués
+      void modalOverlay.offsetHeight;
+
       // Afficher la modal avec animation
-      modalOverlay.classList.add('active');
-      document.body.style.overflow = 'hidden'; // Empêcher le défilement
-      
+      requestAnimationFrame(() => {
+        modalOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Empêcher le défilement
+        console.log('✅ Modale activée et affichée');
+      });
+
     } catch (error) {
       console.error('Erreur lors de l\'ouverture de la modal:', error);
+      // Nettoyer en cas d'erreur
+      modalOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+      throw error; // Propager l'erreur pour le catch externe
     }
   }
   
   // Fonction pour fermer la modal
   async function closeMovieModal() {
-    // Vérifier si on est en mode édition avec des modifications
-    if (isEditMode && hasUnsavedChanges) {
-      const result = await createAdvancedConfirmationPopup(
-        'Modifications en cours',
-        'Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?',
-        [
-          { text: 'Retour', class: 'popup-secondary', action: 'return' },
-          { text: 'Sauvegarder et fermer', class: 'popup-success', action: 'save' },
-          { text: 'Fermer sans sauvegarder', class: 'popup-danger', action: 'discard' }
-        ]
-      );
+    try {
+      // Vérifier si on est en mode édition avec des modifications
+      if (isEditMode && hasUnsavedChanges) {
+        const result = await createAdvancedConfirmationPopup(
+          'Modifications en cours',
+          'Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?',
+          [
+            { text: 'Retour', class: 'popup-secondary', action: 'return' },
+            { text: 'Sauvegarder et fermer', class: 'popup-success', action: 'save' },
+            { text: 'Fermer sans sauvegarder', class: 'popup-danger', action: 'discard' }
+          ]
+        );
 
-      switch (result) {
-        case 'return':
-          return; // Ne pas fermer la modale
-        case 'save':
-          await saveChanges();
-          deactivateEditMode();
-          break;
-        case 'discard':
-          discardChangesAndExit();
-          break;
-        default:
-          return; // Annulation
+        switch (result) {
+          case 'return':
+            return; // Ne pas fermer la modale
+          case 'save':
+            await saveChanges();
+            deactivateEditMode();
+            break;
+          case 'discard':
+            discardChangesAndExit();
+            break;
+          default:
+            return; // Annulation
+        }
+      } else if (isEditMode) {
+        // Mode édition mais pas de modifications, juste revenir au mode lecture
+        deactivateEditMode();
       }
-    } else if (isEditMode) {
-      // Mode édition mais pas de modifications, juste revenir au mode lecture
-      deactivateEditMode();
-    }
 
-    // Fermeture normale de la modale
-    modalOverlay.classList.remove('active');
-    document.body.style.overflow = ''; // Réactiver le défilement
-    currentMovieId = null;
-    currentMoviePath = null;
-    currentMovieData = {};
-    selectedGenres = [];
-    posterImageFile = null;
+      // Fermeture normale de la modale
+      modalOverlay.classList.remove('active');
 
-    // Nettoyer l'éditeur d'avis
-    if (reviewInput) {
-      reviewInput.value = '';
-    }
-    if (reviewSaveBtn) {
-      reviewSaveBtn.textContent = 'Sauvegarder';
-      reviewSaveBtn.disabled = true;
+      // Forcer la suppression de pointer-events pour être sûr que l'overlay ne bloque plus
+      setTimeout(() => {
+        if (!modalOverlay.classList.contains('active')) {
+          modalOverlay.style.pointerEvents = 'none';
+        }
+      }, 50);
+
+      currentMovieId = null;
+      currentMoviePath = null;
+      currentMovieData = {};
+      selectedGenres = [];
+      posterImageFile = null;
+
+      // Nettoyer l'éditeur d'avis
+      if (reviewInput) {
+        reviewInput.value = '';
+      }
+      if (reviewSaveBtn) {
+        reviewSaveBtn.textContent = 'Sauvegarder';
+        reviewSaveBtn.disabled = true;
+      }
+    } finally {
+      // TOUJOURS restaurer le scroll, même en cas d'erreur
+      document.body.style.overflow = '';
+
+      // Réinitialiser le verrou pour permettre une nouvelle ouverture
+      isModalOpening = false;
+
+      console.log('✅ Scroll du body restauré et verrou libéré');
     }
   }
   
@@ -958,7 +1050,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fermer la modal en cliquant en dehors
   modalOverlay.addEventListener('click', (e) => {
+    // Vérifier que le clic est bien sur l'overlay et pas sur ses enfants
     if (e.target === modalOverlay) {
+      e.stopPropagation(); // Empêcher la propagation
       closeMovieModal();
     }
   });
@@ -992,13 +1086,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Clic pour noter
-    star.addEventListener('click', () => {
+    star.addEventListener('click', async () => {
       if (!currentMovieId) return;
 
       const value = parseInt(star.dataset.value);
       const userPrefs = loadUserPreferences();
       userPrefs.ratings[currentMovieId] = value;
       saveUserPreferences(userPrefs);
+
+      // Sauvegarder aussi dans le fichier JSON
+      await saveRatingToDatabase(currentMovieId, value);
 
       // Automatiquement marquer comme "Vu"
       autoMarkAsWatched();
@@ -1094,6 +1191,9 @@ document.addEventListener('DOMContentLoaded', () => {
           userPrefs.ratings[currentMovieId] = rating;
           saveUserPreferences(userPrefs);
 
+          // Sauvegarder aussi dans le fichier JSON
+          saveRatingToDatabase(currentMovieId, rating);
+
           // Automatiquement marquer comme "Vu"
           autoMarkAsWatched();
 
@@ -1110,6 +1210,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const userPrefs = loadUserPreferences();
         userPrefs.ratings[currentMovieId] = currentRating;
         saveUserPreferences(userPrefs);
+
+        // Sauvegarder aussi dans le fichier JSON
+        saveRatingToDatabase(currentMovieId, currentRating);
 
         // Automatiquement marquer comme "Vu"
         autoMarkAsWatched();
@@ -1188,6 +1291,9 @@ document.addEventListener('DOMContentLoaded', () => {
       userPrefs.ratings[currentMovieId] = currentRating;
       saveUserPreferences(userPrefs);
 
+      // Sauvegarder aussi dans le fichier JSON
+      saveRatingToDatabase(currentMovieId, currentRating);
+
       // Automatiquement marquer comme "Vu"
       autoMarkAsWatched();
 
@@ -1244,24 +1350,18 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('ID du film manquant');
       }
 
-      if (!currentMovieData || !currentMovieData.path) {
-        throw new Error('Chemin du fichier vidéo manquant');
-      }
-
-      // Vérifier que le fichier existe toujours sur le disque
-      const fileExists = await window.electronAPI.checkFileExists(currentMovieData.path);
-      if (!fileExists) {
-        throw new Error('Fichier vidéo introuvable sur le disque');
-      }
-
-      const title = currentMovieData.title || 'Film sans titre';
+      // IMPORTANT: Sauvegarder l'ID AVANT de fermer la modale (qui le réinitialise)
+      const movieIdToPlay = currentMovieId;
 
       // Fermer la modal
       closeMovieModal();
 
-      // Ouvrir le lecteur vidéo (le lecteur s'occupe de formater l'URL)
-      // Les paramètres sont : (movieId, title, path)
-      window.openVideoPlayer(currentMovieId, title, currentMovieData.path);
+      // Utiliser la même fonction que les cartes médias (récupère les infos de la DB)
+      if (window.playMedia) {
+        await window.playMedia(movieIdToPlay);
+      } else {
+        throw new Error('Fonction playMedia non disponible');
+      }
     } catch (error) {
       console.error('Erreur lors de la lecture du film:', error);
       alert('Erreur lors de la lecture de la vidéo: ' + error.message);
