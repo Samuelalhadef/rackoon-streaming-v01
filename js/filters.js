@@ -1117,8 +1117,8 @@
 
     document.getElementById('year-min-slider').value = 1900;
     document.getElementById('year-max-slider').value = 2030;
-    document.getElementById('year-min-value').textContent = '1990';
-    document.getElementById('year-max-value').textContent = '2024';
+    document.getElementById('year-min-value').textContent = '1900';
+    document.getElementById('year-max-value').textContent = '2030';
 
     document.querySelectorAll('input[name="watch-status"]').forEach(radio => {
       radio.checked = radio.value === 'all';

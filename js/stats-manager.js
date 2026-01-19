@@ -324,7 +324,12 @@ class StatsManager {
     if (!prefs.watchTime) prefs.watchTime = {};
 
     // Mettre à jour les données de visionnage
-    if (!prefs.watchedMovies[movieId]) {
+    // Vérifier si l'entrée existe et est un objet (pas un booléen d'ancienne version)
+    const existingEntry = prefs.watchedMovies[movieId];
+    const isValidObject = existingEntry && typeof existingEntry === 'object' && !Array.isArray(existingEntry);
+
+    if (!existingEntry || !isValidObject) {
+      // Créer une nouvelle entrée (ou remplacer un booléen legacy)
       prefs.watchedMovies[movieId] = {
         viewCount: 1,
         lastWatched: new Date().toISOString(),

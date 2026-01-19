@@ -230,49 +230,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     filterMedias(searchTerm);
   });
 
-  // Fonction pour afficher les films avec miniatures
-  function displayMedias(movies) {
-    const mediaGrid = document.getElementById('media-grid');
-    mediaGrid.innerHTML = '';
-
-    if (!movies || movies.length === 0) {
-      mediaGrid.innerHTML = '<p class="no-movies">Aucun film trouvé. Utilisez le bouton + pour scanner un dossier.</p>';
-      return;
-    }
-
-    movies.forEach(movie => {
-      const movieCard = document.createElement('div');
-      movieCard.className = 'media-card movie-card';
-
-      // Gérer l'affichage des miniatures
-      let thumbnailSrc = window.DEFAULT_THUMBNAIL;
-      if (movie.thumbnail) {
-        // Utiliser le chemin local de la miniature
-        thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
-      }
-
-      movieCard.innerHTML = `
-        <div class="media-thumbnail-container">
-          <img src="${thumbnailSrc}" alt="${movie.title}" class="media-thumbnail" onerror="this.src='${window.DEFAULT_THUMBNAIL}'">
-          <div class="media-overlay">
-            <button class="play-btn" onclick="playMedia('${movie.id}')">
-              <i class="fas fa-play"></i>
-            </button>
-          </div>
-        </div>
-        <div class="media-info">
-          <h3 class="media-title">${movie.title}</h3>
-          <div class="media-details">
-            <span class="media-duration">${window.formatTime ? window.formatTime(movie.duration) : '0min'}</span>
-            <span class="media-format">${movie.format.toUpperCase()}</span>
-            ${movie.dateAdded ? `<span class="media-date">Ajouté ${new Date(movie.dateAdded).toLocaleDateString()}</span>` : ''}
-          </div>
-        </div>
-      `;
-      mediaGrid.appendChild(movieCard);
-    });
-  }
-  
   // Fonction pour jouer un film
   window.playMedia = async function(mediaId) {
     try {
@@ -1001,7 +958,9 @@ function setupMediaCard(mediaCard, movie) {
   if (movie.posterUrl) {
     thumbnailSrc = movie.posterUrl;
   } else if (movie.thumbnail) {
-    thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
+    // Utiliser le serveur HTTP local pour les thumbnails
+    const thumbnailFilename = movie.thumbnail.split(/[\\\/]/).pop();
+    thumbnailSrc = `http://localhost:3001/thumbnails/${thumbnailFilename}`;
   } else {
     thumbnailSrc = window.DEFAULT_THUMBNAIL;
   }

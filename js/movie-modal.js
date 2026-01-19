@@ -501,8 +501,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Basculer vers le mode édition avec changement visuel
-  // FONCTION SUPPRIMÉE - toggleEditMode obsolète avec le nouveau système
-  
+  function toggleEditMode(enable) {
+    const modalContent = document.querySelector('.modal-content');
+    const editableFields = document.querySelectorAll('.editable-field');
+    const addTagButtons = document.querySelectorAll('.add-tag-btn-inline');
+
+    if (enable) {
+      // Activer le mode édition
+      if (modalContent) {
+        modalContent.classList.add('edit-mode-active');
+      }
+
+      // Rendre les champs éditables visibles
+      editableFields.forEach(field => {
+        field.classList.add('editing');
+      });
+
+      // Préremplir les champs d'édition avec les valeurs actuelles
+      if (editTitleInput && currentMovieData.title) {
+        editTitleInput.value = currentMovieData.title;
+      }
+      if (editSynopsisInput && currentMovieData.description) {
+        editSynopsisInput.value = currentMovieData.description;
+      }
+      if (editReleaseDateInput && currentMovieData.releaseDate) {
+        // Convertir JJ/MM/AAAA en AAAA-MM-JJ pour l'input date
+        const parts = currentMovieData.releaseDate.split('/');
+        if (parts.length === 3) {
+          editReleaseDateInput.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+      }
+
+      // Copier les genres actuels
+      selectedGenres = [...(currentMovieData.genres || [])];
+
+      // Rafraîchir l'affichage des tags pour montrer les boutons d'ajout
+      displayOrganizedTags(currentMovieData);
+
+    } else {
+      // Désactiver le mode édition
+      if (modalContent) {
+        modalContent.classList.remove('edit-mode-active');
+      }
+
+      // Masquer les champs éditables
+      editableFields.forEach(field => {
+        field.classList.remove('editing');
+      });
+
+      // Rafraîchir l'affichage des tags sans les boutons d'ajout
+      displayOrganizedTags(currentMovieData);
+    }
+  }
+
   // Fonctions utilitaires pour les préférences globales
   function loadUserPreferences() {
     try {
@@ -652,23 +703,119 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('Mode édition désactivé');
   }
 
-  function saveChanges() {
+  async function saveChanges() {
     if (!hasUnsavedChanges) {
       console.log('Aucune modification à sauvegarder');
       return;
     }
 
-    // TODO: Implémenter la sauvegarde
-    console.log('Sauvegarde des modifications...');
+    if (!currentMovieId) {
+      console.error('❌ Pas de film sélectionné');
+      return;
+    }
 
-    // Simuler la sauvegarde
-    hasUnsavedChanges = false;
-    updateSaveButtonState();
+    console.log('💾 Sauvegarde des modifications...');
 
-    // Mettre à jour les données originales
-    originalMovieData = { ...currentMovieData };
+    try {
+      // Récupérer les valeurs des champs d'édition
+      const title = editTitleInput.value.trim() || currentMovieData.title;
 
-    console.log('Modifications sauvegardées');
+      // Convertir la date au format JJ/MM/AAAA
+      let formattedDate = '';
+      if (editReleaseDateInput.value) {
+        const dateParts = editReleaseDateInput.value.split('-');
+        if (dateParts.length === 3) {
+          formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+        }
+      }
+
+      // Capture l'URL de l'image actuelle
+      let finalImageUrl = imagePreview.src || currentMovieData.posterUrl;
+
+      // Télécharger l'image TMDB si c'est une URL TMDB
+      if (finalImageUrl && finalImageUrl.includes('image.tmdb.org')) {
+        try {
+          console.log('🔄 Téléchargement de l\'image TMDB...');
+          const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, title);
+          if (downloadResult.success) {
+            const filename = downloadResult.localPath.split(/[\\/]/).pop();
+            finalImageUrl = `http://localhost:3001/tmdb-images/${filename}`;
+            console.log(`✅ Image TMDB téléchargée: ${filename}`);
+          }
+        } catch (error) {
+          console.warn('⚠️ Échec téléchargement image, utilisation URL originale');
+        }
+      }
+
+      // Extraire l'année
+      let year = null;
+      if (editReleaseDateInput.value) {
+        year = new Date(editReleaseDateInput.value).getFullYear();
+      }
+
+      // Préparer les données à sauvegarder
+      const movieUpdates = {
+        title: title,
+        releaseDate: formattedDate,
+        genres: selectedGenres || [],
+        description: editSynopsisInput.value.trim(),
+        posterUrl: finalImageUrl,
+        year: year,
+        mood: currentMovieData.mood || [],
+        technical: currentMovieData.technical || [],
+        personalTags: currentMovieData.personalTags || []
+      };
+
+      console.log('📝 Données à sauvegarder:', movieUpdates);
+
+      // Sauvegarder dans localStorage (backup local)
+      window.movieEdits.save(currentMovieId, movieUpdates);
+
+      // Sauvegarder dans la base de données via l'API
+      if (window.electronAPI && window.electronAPI.updateMedia) {
+        const result = await window.electronAPI.updateMedia(currentMovieId, movieUpdates);
+        if (result.success) {
+          console.log('✅ Modifications enregistrées dans la base de données');
+
+          // Mettre à jour l'affichage
+          modalTitle.textContent = title;
+          movieYear.textContent = year ? `(${year})` : '';
+          releaseDate.textContent = formattedDate;
+          modalPoster.src = finalImageUrl;
+
+          // Mettre à jour le synopsis
+          if (movieUpdates.description) {
+            synopsisContent.textContent = movieUpdates.description;
+            synopsisContent.style.fontStyle = 'normal';
+          }
+
+          // Mettre à jour les données locales
+          currentMovieData = { ...currentMovieData, ...movieUpdates };
+          originalMovieData = { ...currentMovieData };
+
+          // Rafraîchir le dashboard
+          if (typeof window.refreshDashboard === 'function') {
+            window.refreshDashboard();
+          }
+        } else {
+          console.error('❌ Échec de l\'enregistrement:', result.message);
+          alert('Erreur lors de la sauvegarde: ' + result.message);
+          return;
+        }
+      } else {
+        console.error('❌ API updateMedia non disponible');
+        alert('Erreur: API de sauvegarde non disponible');
+        return;
+      }
+
+      hasUnsavedChanges = false;
+      updateSaveButtonState();
+      console.log('✅ Modifications sauvegardées avec succès');
+
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde:', error);
+      alert('Erreur lors de la sauvegarde: ' + error.message);
+    }
   }
 
   function cancelChanges() {
@@ -1045,21 +1192,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // Événement de fermeture
-  modalClose.addEventListener('click', closeMovieModal);
-  
+  // Événement de fermeture - Listener direct
+  if (modalClose) {
+    modalClose.addEventListener('click', (e) => {
+      console.log('🔴 Bouton fermer cliqué (direct)');
+      e.preventDefault();
+      e.stopPropagation();
+      closeMovieModal();
+    });
+    console.log('✅ Listener sur #modal-close attaché');
+  } else {
+    console.error('❌ Élément #modal-close non trouvé');
+  }
+
+  // Backup: Délégation d'événements sur la modal pour le bouton fermer
+  if (movieModal) {
+    movieModal.addEventListener('click', (e) => {
+      const target = e.target.closest('.modal-close');
+      if (target && target.id === 'modal-close') {
+        console.log('🔴 Bouton fermer cliqué (délégation)');
+        e.preventDefault();
+        e.stopPropagation();
+        closeMovieModal();
+      }
+    });
+  }
+
   // Fermer la modal en cliquant en dehors
   modalOverlay.addEventListener('click', (e) => {
     // Vérifier que le clic est bien sur l'overlay et pas sur ses enfants
     if (e.target === modalOverlay) {
-      e.stopPropagation(); // Empêcher la propagation
+      console.log('🔴 Clic sur overlay - fermeture');
+      e.stopPropagation();
       closeMovieModal();
     }
   });
-  
+
   // Fermer la modal avec la touche Echap
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+      console.log('🔴 Touche Échap - fermeture');
       closeMovieModal();
     }
   });
@@ -1490,686 +1662,349 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Fonction pour récupérer les genres disponibles sur TMDB
-  async function fetchTMDBGenres() {
+  // ============================================
+  // SYSTÈME TMDB UNIFIÉ
+  // ============================================
+
+  // Rechercher des films sur TMDB
+  async function searchTMDB(query) {
     try {
-      if (tmdbGenresCache) {
-        return tmdbGenresCache;
-      }
-      
-      const response = await fetch(`${TMDB_API_BASE_URL}/genre/movie/list?language=fr-FR`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${TMDB_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la récupération des genres: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      tmdbGenresCache = data.genres;
-      return tmdbGenresCache;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des genres TMDB:', error);
-      return [];
-    }
-  }
-  
-  // Fonction pour rechercher un film sur TMDB
-  async function searchTMDBMovie(query) {
-    try {
-      const url = `${TMDB_API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&language=fr-FR&include_adult=false`;
-      
+      const url = `${TMDB_API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&language=fr-FR&include_adult=false&page=1`;
       const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${TMDB_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${TMDB_TOKEN}` }
       });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la recherche: ${response.status}`);
-      }
-      
+
+      if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
       const data = await response.json();
-      return data.results;
+      return data.results || [];
     } catch (error) {
-      console.error('Erreur lors de la recherche TMDB:', error);
+      console.error('Erreur recherche TMDB:', error);
       throw error;
     }
   }
-  
-  // Fonction pour récupérer les détails d'un film sur TMDB
-  async function getTMDBMovieDetails(movieId) {
+
+  // Récupérer les détails complets d'un film TMDB
+  async function getTMDBDetails(tmdbId) {
     try {
-      const url = `${TMDB_API_BASE_URL}/movie/${movieId}?language=fr-FR&append_to_response=credits,videos`;
-      
+      const url = `${TMDB_API_BASE_URL}/movie/${tmdbId}?language=fr-FR&append_to_response=credits`;
       const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${TMDB_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${TMDB_TOKEN}` }
       });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur lors de la récupération des détails: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data;
+
+      if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
+      return await response.json();
     } catch (error) {
-      console.error('Erreur lors de la récupération des détails du film:', error);
+      console.error('Erreur détails TMDB:', error);
       throw error;
     }
   }
-  
-  // Fonction pour convertir les IDs de genres TMDB en noms
-  async function convertGenreIdsToNames(genreIds) {
-    try {
-      const genres = await fetchTMDBGenres();
-      return genreIds.map(id => {
-        const genre = genres.find(g => g.id === id);
-        return genre ? genre.name : '';
-      }).filter(name => name !== '');
-    } catch (error) {
-      console.error('Erreur lors de la conversion des IDs de genre:', error);
-      return [];
-    }
-  }
 
-  // Fonction pour générer automatiquement des tags basés sur les données TMDB
-  function generateTMDBTags(movieDetails, formattedMovie) {
-    if (!window.tagSystem || typeof window.tagSystem.getMediaTags !== 'function') {
-      console.warn('Système de tags non disponible');
-      return;
-    }
+  // Ouvrir la modal de recherche TMDB
+  function openTMDBSearch() {
+    // Supprimer une ancienne modal si elle existe
+    const existingModal = document.getElementById('tmdb-search-modal');
+    if (existingModal) existingModal.remove();
 
-    // Récupérer les tags actuels
-    const currentTags = window.tagSystem.getMediaTags();
+    // Récupérer le titre actuel pour la recherche initiale
+    const titleInput = document.querySelector('.edit-title-field') || editTitleInput;
+    const initialQuery = titleInput ? titleInput.value.trim() : '';
 
-    // Tags d'ambiance basés sur les genres
-    const moodTags = [];
-    const genreToMoodMapping = {
-      'Action': ['Dynamique', 'Intense'],
-      'Aventure': ['Épique', 'Aventurier'],
-      'Animation': ['Familial', 'Imaginatif'],
-      'Comédie': ['Léger', 'Divertissant'],
-      'Crime': ['Sombre', 'Tendu'],
-      'Documentaire': ['Éducatif', 'Informatif'],
-      'Drame': ['Émotionnel', 'Profond'],
-      'Famille': ['Familial', 'Bienveillant'],
-      'Fantastique': ['Magique', 'Imaginatif'],
-      'Histoire': ['Historique', 'Épique'],
-      'Horreur': ['Effrayant', 'Sombre'],
-      'Musique': ['Musical', 'Rythmé'],
-      'Mystère': ['Intriguant', 'Mystérieux'],
-      'Romance': ['Romantique', 'Émouvant'],
-      'Science-Fiction': ['Futuriste', 'Innovant'],
-      'Thriller': ['Suspense', 'Tendu'],
-      'Guerre': ['Intense', 'Historique'],
-      'Western': ['Classique', 'Aventurier']
-    };
-
-    formattedMovie.genres.forEach(genre => {
-      if (genreToMoodMapping[genre]) {
-        moodTags.push(...genreToMoodMapping[genre]);
-      }
-    });
-
-    // Tags techniques basés sur les informations du film
-    const technicalTags = [];
-
-    // Tags basés sur l'année de sortie
-    const year = formattedMovie.year;
-    if (year) {
-      if (year < 1970) technicalTags.push('Classique ancien');
-      else if (year < 1990) technicalTags.push('Rétro');
-      else if (year < 2000) technicalTags.push('Années 90');
-      else if (year < 2010) technicalTags.push('Années 2000');
-      else if (year < 2020) technicalTags.push('Années 2010');
-      else technicalTags.push('Récent');
-    }
-
-    // Tags basés sur la popularité (vote_average)
-    if (movieDetails.vote_average) {
-      if (movieDetails.vote_average >= 8) technicalTags.push('Très bien noté');
-      else if (movieDetails.vote_average >= 7) technicalTags.push('Bien noté');
-      else if (movieDetails.vote_average < 5) technicalTags.push('Note faible');
-    }
-
-    // Tags basés sur le nombre de votes (popularité)
-    if (movieDetails.vote_count && movieDetails.vote_count > 1000) {
-      technicalTags.push('Populaire');
-    }
-
-    // Tags personnels basés sur le synopsis
-    const personalTags = [];
-    const overview = movieDetails.overview ? movieDetails.overview.toLowerCase() : '';
-
-    const keywordMapping = {
-      'amour': 'Coup de cœur',
-      'ami': 'Amitié',
-      'famille': 'Valeurs familiales',
-      'guerre': 'Conflit',
-      'voyage': 'Voyage',
-      'aventure': 'Exploration',
-      'magie': 'Fantaisie',
-      'super': 'Super-héros',
-      'héros': 'Héroïque',
-      'vampire': 'Surnaturel',
-      'zombie': 'Horreur',
-      'space': 'Spatial',
-      'robot': 'Robotique',
-      'alien': 'Extraterrestre'
-    };
-
-    Object.keys(keywordMapping).forEach(keyword => {
-      if (overview.includes(keyword)) {
-        personalTags.push(keywordMapping[keyword]);
-      }
-    });
-
-    // Appliquer les tags automatiquement sans doublons
-    const autoTags = {
-      mood: [...new Set([...currentTags.mood, ...moodTags])],
-      technical: [...new Set([...currentTags.technical, ...technicalTags])],
-      personal: [...new Set([...currentTags.personal, ...personalTags])]
-    };
-
-    // Simuler l'ajout des tags dans l'interface
-    Object.keys(autoTags).forEach(category => {
-      const container = document.getElementById(`edit-${category}-tags`);
-      if (container) {
-        // Vider d'abord le conteneur
-        container.innerHTML = '';
-
-        // Ajouter tous les tags (anciens + nouveaux)
-        autoTags[category].forEach(tag => {
-          const tagChip = createAutoTagChip(tag, category);
-          container.appendChild(tagChip);
-        });
-      }
-    });
-
-    // Mettre à jour le système de tags
-    if (window.tagSystem && typeof window.tagSystem.loadMediaTags === 'function') {
-      window.tagSystem.loadMediaTags({ tags: autoTags });
-    }
-
-    console.log('🏷️ Tags automatiques générés:', autoTags);
-  }
-
-  // Fonction helper pour créer un tag chip automatique
-  function createAutoTagChip(tagValue, category) {
-    const tagChip = document.createElement('div');
-    tagChip.className = 'edit-tag-chip adding';
-    tagChip.innerHTML = `
-      <span>${tagValue}</span>
-      <button class="remove-tag" data-tag="${tagValue}" data-category="${category}">
-        <i class="fas fa-times"></i>
-      </button>
-    `;
-
-    // Ajouter l'événement de suppression
-    const removeBtn = tagChip.querySelector('.remove-tag');
-    removeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      removeAutoTag(tagValue, category, tagChip);
-    });
-
-    return tagChip;
-  }
-
-  // Fonction pour supprimer un tag automatique
-  function removeAutoTag(tagValue, category, tagElement) {
-    // Ajouter l'effet de transparence et d'animation
-    tagElement.classList.add('removing');
-
-    setTimeout(() => {
-      // Supprimer l'élément du DOM
-      tagElement.remove();
-
-      // Mettre à jour le système de tags si disponible
-      if (window.tagSystem && typeof window.tagSystem.getMediaTags === 'function') {
-        const currentTags = window.tagSystem.getMediaTags();
-        const index = currentTags[category].indexOf(tagValue);
-        if (index > -1) {
-          currentTags[category].splice(index, 1);
-          window.tagSystem.loadMediaTags({ tags: currentTags });
-        }
-      }
-    }, 300);
-  }
-  
-  // Créer une modal pour afficher les résultats de recherche TMDB
-  function createTMDBResultsModal() {
-    // Vérifier si la modal existe déjà
-    let resultsModal = document.getElementById('tmdb-results-modal');
-    if (resultsModal) {
-      document.body.removeChild(resultsModal);
-    }
-    
-    // Créer une nouvelle modal
-    resultsModal = document.createElement('div');
-    resultsModal.id = 'tmdb-results-modal';
-    resultsModal.className = 'tmdb-results-modal';
-    
-    // Structure de la modal
-    resultsModal.innerHTML = `
-      <div class="tmdb-results-content">
-        <div class="tmdb-results-header">
-          <h3>Résultats de recherche TMDB</h3>
-          <button class="tmdb-results-close">&times;</button>
+    // Créer la modal
+    const modal = document.createElement('div');
+    modal.id = 'tmdb-search-modal';
+    modal.className = 'tmdb-modal-overlay';
+    modal.innerHTML = `
+      <div class="tmdb-modal-container">
+        <div class="tmdb-modal-header">
+          <h2><i class="fas fa-film"></i> Recherche TMDB</h2>
+          <button class="tmdb-close-btn" id="tmdb-close-btn">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-        <div class="tmdb-results-body">
-          <div class="tmdb-search-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Recherche en cours...</p>
+
+        <div class="tmdb-search-bar">
+          <input type="text" id="tmdb-search-field" placeholder="Rechercher un film..." value="${initialQuery}">
+          <button id="tmdb-search-action" class="tmdb-search-btn">
+            <i class="fas fa-search"></i> Rechercher
+          </button>
+        </div>
+
+        <div class="tmdb-results-area">
+          <div id="tmdb-status" class="tmdb-status">
+            <i class="fas fa-info-circle"></i>
+            <span>Entrez un titre et cliquez sur Rechercher</span>
           </div>
-          <div class="tmdb-results-list"></div>
+          <div id="tmdb-results-grid" class="tmdb-results-grid"></div>
         </div>
       </div>
     `;
-    
-    // Ajouter la modal au document
-    document.body.appendChild(resultsModal);
-    
-    // Gérer la fermeture de la modal
-    const closeBtn = resultsModal.querySelector('.tmdb-results-close');
-    closeBtn.addEventListener('click', () => {
-      resultsModal.classList.remove('active');
-      setTimeout(() => {
-        if (document.body.contains(resultsModal)) {
-          document.body.removeChild(resultsModal);
-        }
-      }, 300);
-    });
-    
-    // Ajouter le style CSS pour la modal
-    const style = document.createElement('style');
-    style.textContent = `
-      .tmdb-results-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.8);
-        backdrop-filter: blur(5px);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 3000;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
-      }
-      
-      .tmdb-results-modal.active {
-        opacity: 1;
-        visibility: visible;
-      }
-      
-      .tmdb-results-content {
-        background: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
-        width: 90%;
-        max-width: 800px;
-        max-height: 80vh;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: column;
-        transform: translateY(30px);
-        opacity: 0;
-        transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.4s ease;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      
-      .tmdb-results-modal.active .tmdb-results-content {
-        transform: translateY(0);
-        opacity: 1;
-      }
-      
-      .tmdb-results-header {
-        padding: 15px 20px;
-        background-color: rgba(0, 0, 0, 0.2);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-      
-      .tmdb-results-header h3 {
-        color: white;
-        margin: 0;
-        font-size: 18px;
-      }
-      
-      .tmdb-results-close {
-        background: none;
-        border: none;
-        color: white;
-        font-size: 24px;
-        cursor: pointer;
-        height: 30px;
-        width: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: all 0.3s;
-      }
-      
-      .tmdb-results-close:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-      }
-      
-      .tmdb-results-body {
-        padding: 20px;
-        overflow-y: auto;
-        max-height: calc(80vh - 60px);
-      }
-      
-      .tmdb-search-loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        padding: 30px;
-      }
-      
-      .tmdb-search-loading i {
-        font-size: 40px;
-        margin-bottom: 15px;
-      }
-      
-      .tmdb-results-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 20px;
-      }
-      
-      .tmdb-movie-card {
-        background-color: rgba(0, 0, 0, 0.3);
-        border-radius: 8px;
-        overflow: hidden;
-        cursor: pointer;
-        transition: all 0.3s;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
-      
-      .tmdb-movie-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-        border-color: rgba(52, 116, 219, 0.5);
-      }
-      
-      .tmdb-movie-poster {
-        width: 100%;
-        aspect-ratio: 2/3;
-        background-color: #0e1a3a;
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .tmdb-movie-poster img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform 0.3s;
-      }
-      
-      .tmdb-movie-card:hover .tmdb-movie-poster img {
-        transform: scale(1.05);
-      }
-      
-      .tmdb-movie-info {
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        flex-grow: 1;
-      }
-      
-      .tmdb-movie-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: white;
-        margin-bottom: 4px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      
-      .tmdb-movie-year {
-        font-size: 12px;
-        color: #a0a0a0;
-      }
-      
-      .tmdb-no-results {
-        color: white;
-        text-align: center;
-        padding: 30px;
-        width: 100%;
-      }
-    `;
-    
-    document.head.appendChild(style);
-    
-    return resultsModal;
-  }
-  
-  // Afficher les résultats de recherche dans la modal
-  function displayTMDBResults(results) {
-    const resultsModal = document.getElementById('tmdb-results-modal');
-    const loadingElement = resultsModal.querySelector('.tmdb-search-loading');
-    const resultsListElement = resultsModal.querySelector('.tmdb-results-list');
-    
-    // Cacher le chargement
-    loadingElement.style.display = 'none';
-    
-    // Vider la liste des résultats
-    resultsListElement.innerHTML = '';
-    
-    if (!results || results.length === 0) {
-      resultsListElement.innerHTML = `
-        <div class="tmdb-no-results">
-          <p>Aucun résultat trouvé. Essayez avec un autre titre.</p>
-        </div>
-      `;
-      return;
-    }
-    
-    // Afficher chaque résultat
-    results.forEach((movie) => {
-      // Utiliser directement l'URL TMDB pour l'affichage (pas de téléchargement)
-      const posterPath = movie.poster_path
-        ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}`
-        : window.DEFAULT_THUMBNAIL;
-      
-      const releaseYear = movie.release_date 
-        ? new Date(movie.release_date).getFullYear() 
-        : 'N/A';
-      
-      const movieCard = document.createElement('div');
-      movieCard.className = 'tmdb-movie-card';
-      movieCard.dataset.movieId = movie.id;
-      
-      movieCard.innerHTML = `
-        <div class="tmdb-movie-poster">
-          <img src="${posterPath}" alt="${movie.title}" onload="window.handleImageError(this)">
-        </div>
-        <div class="tmdb-movie-info">
-          <div class="tmdb-movie-title">${movie.title}</div>
-          <div class="tmdb-movie-year">${releaseYear}</div>
-        </div>
-      `;
-      
-      // Ajouter un écouteur pour la sélection du film
-      movieCard.addEventListener('click', () => selectTMDBMovie(movie.id));
-      
-      resultsListElement.appendChild(movieCard);
-    });
-  }
-  
-  // Sélectionner un film et récupérer ses détails
-  async function selectTMDBMovie(movieId) {
-    try {
-      const resultsModal = document.getElementById('tmdb-results-modal');
-      const loadingElement = resultsModal.querySelector('.tmdb-search-loading');
-      const resultsListElement = resultsModal.querySelector('.tmdb-results-list');
-      
-      // Afficher le chargement
-      loadingElement.style.display = 'flex';
-      resultsListElement.style.display = 'none';
-      
-      // Récupérer les détails complets du film
-      const movieDetails = await getTMDBMovieDetails(movieId);
-      
-      // Convertir les IDs de genres en noms
-      const genreNames = movieDetails.genres.map(genre => genre.name);
-      
-      // Formater les données (pas de téléchargement ici, juste préparation)
-      const formattedMovie = {
-        title: movieDetails.title,
-        release_date: movieDetails.release_date,
-        poster_path: movieDetails.poster_path ? `${TMDB_IMAGE_BASE_URL}${movieDetails.poster_path}` : null,
-        tmdb_poster_path: movieDetails.poster_path, // Garder le chemin TMDB original pour le téléchargement
-        overview: movieDetails.overview,
-        genres: genreNames,
-        year: movieDetails.release_date ? new Date(movieDetails.release_date).getFullYear() : null
-      };
-      
-      // Remplir les champs avec les résultats
-      editTitleInput.value = formattedMovie.title;
-      
-      // Formater la date pour l'input date
-      if (formattedMovie.release_date) {
-        editReleaseDateInput.value = formattedMovie.release_date;
-      }
-      
-      // Mettre à jour les genres
-      selectedGenres = formattedMovie.genres;
-      updateEditGenresDisplay();
-      
-      // Mettre à jour l'image
-      if (formattedMovie.poster_path) {
-        imagePreview.src = formattedMovie.poster_path;
-        currentMovieData.posterUrl = formattedMovie.poster_path;
-      }
-      
-      // Mettre à jour le synopsis
-      editSynopsisInput.value = formattedMovie.overview;
 
-      // Générer et appliquer les tags automatiques basés sur les données TMDB
-      generateTMDBTags(movieDetails, formattedMovie);
+    document.body.appendChild(modal);
 
-      // Fermer la modal
-      resultsModal.classList.remove('active');
-      setTimeout(() => {
-        if (document.body.contains(resultsModal)) {
-          document.body.removeChild(resultsModal);
-        }
-      }, 300);
-      
-    } catch (error) {
-      console.error('Erreur lors de la récupération des détails du film:', error);
-      alert('Erreur lors de la récupération des détails du film: ' + error.message);
-      
-      // Revenir à l'affichage des résultats en cas d'erreur
-      const resultsModal = document.getElementById('tmdb-results-modal');
-      if (resultsModal) {
-        const loadingElement = resultsModal.querySelector('.tmdb-search-loading');
-        const resultsListElement = resultsModal.querySelector('.tmdb-results-list');
-        loadingElement.style.display = 'none';
-        resultsListElement.style.display = 'grid';
-      }
-    }
-  }
-  
-  // Rechercher sur TMDB
-  tmdbSearchBtn.addEventListener('click', async () => {
-    try {
-      const movieTitle = editTitleInput.value.trim();
-      
-      if (!movieTitle) {
-        alert('Veuillez entrer un titre de film pour la recherche');
+    // Éléments de la modal
+    const searchField = document.getElementById('tmdb-search-field');
+    const searchBtn = document.getElementById('tmdb-search-action');
+    const closeBtn = document.getElementById('tmdb-close-btn');
+    const statusDiv = document.getElementById('tmdb-status');
+    const resultsGrid = document.getElementById('tmdb-results-grid');
+
+    // Focus sur le champ de recherche
+    setTimeout(() => searchField.focus(), 100);
+
+    // Fermer la modal
+    const closeModal = () => modal.remove();
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Fonction de recherche
+    const doSearch = async () => {
+      const query = searchField.value.trim();
+      if (!query) {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Veuillez entrer un titre</span>';
+        statusDiv.style.display = 'flex';
         return;
       }
-      
-      // Créer et afficher la modal de résultats
-      const resultsModal = createTMDBResultsModal();
-      resultsModal.classList.add('active');
-      
-      // Référence aux éléments de la modal
-      const loadingElement = resultsModal.querySelector('.tmdb-search-loading');
-      const resultsListElement = resultsModal.querySelector('.tmdb-results-list');
-      
+
       // Afficher le chargement
-      loadingElement.style.display = 'flex';
-      resultsListElement.style.display = 'none';
-      
-      // Rechercher le film sur TMDB
-      const searchResults = await searchTMDBMovie(movieTitle);
-      
-      // Afficher les résultats
-      resultsListElement.style.display = 'grid';
-      displayTMDBResults(searchResults);
-      
-    } catch (error) {
-      console.error('Erreur lors de la recherche TMDB:', error);
-      alert('Erreur lors de la recherche sur TMDB: ' + error.message);
-      
-      // Fermer la modal en cas d'erreur
-      const resultsModal = document.getElementById('tmdb-results-modal');
-      if (resultsModal) {
-        resultsModal.classList.remove('active');
-        setTimeout(() => {
-          if (document.body.contains(resultsModal)) {
-            document.body.removeChild(resultsModal);
-          }
-        }, 300);
+      statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Recherche en cours...</span>';
+      statusDiv.style.display = 'flex';
+      resultsGrid.innerHTML = '';
+
+      try {
+        const results = await searchTMDB(query);
+
+        if (results.length === 0) {
+          statusDiv.innerHTML = '<i class="fas fa-search"></i><span>Aucun résultat trouvé</span>';
+          return;
+        }
+
+        statusDiv.style.display = 'none';
+        displayTMDBResults(results, resultsGrid, closeModal);
+      } catch (error) {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Erreur de connexion à TMDB</span>';
       }
+    };
+
+    // Events
+    searchBtn.addEventListener('click', doSearch);
+    searchField.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    // Recherche automatique si on a un titre
+    if (initialQuery) {
+      setTimeout(doSearch, 300);
     }
-  });
+  }
+
+  // Afficher les résultats TMDB
+  function displayTMDBResults(results, container, onSelect) {
+    container.innerHTML = '';
+    console.log('📽️ Affichage de', results.length, 'résultats TMDB');
+
+    const fallbackImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450"%3E%3Crect fill="%23222" width="300" height="450"/%3E%3Ctext x="150" y="225" fill="%23555" text-anchor="middle" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
+
+    results.slice(0, 20).forEach(movie => {
+      const card = document.createElement('div');
+      card.className = 'tmdb-result-card';
+
+      const posterUrl = movie.poster_path
+        ? `${TMDB_IMAGE_BASE_URL}${movie.poster_path}`
+        : fallbackImage;
+
+      const year = movie.release_date ? movie.release_date.substring(0, 4) : '----';
+      const rating = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
+
+      // Échapper le titre pour éviter les problèmes XSS et d'attributs
+      const safeTitle = (movie.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      card.innerHTML = `
+        <div class="tmdb-card-poster">
+          <img src="${posterUrl}" alt="${safeTitle}" loading="lazy" referrerpolicy="no-referrer">
+          <div class="tmdb-card-rating">
+            <i class="fas fa-star"></i> ${rating}
+          </div>
+        </div>
+        <div class="tmdb-card-info">
+          <h4>${safeTitle}</h4>
+          <span class="tmdb-card-year">${year}</span>
+        </div>
+      `;
+
+      // Ajouter un gestionnaire d'erreur pour l'image
+      const img = card.querySelector('img');
+      if (img) {
+        img.onerror = function() {
+          console.warn('⚠️ Erreur de chargement image TMDB:', posterUrl);
+          this.src = fallbackImage;
+          this.onerror = null; // Éviter boucle infinie
+        };
+        img.onload = function() {
+          console.log('✅ Image TMDB chargée:', movie.title);
+        };
+      }
+
+      card.addEventListener('click', () => selectTMDBMovie(movie.id, onSelect));
+      container.appendChild(card);
+    });
+  }
+
+  // Sélectionner un film TMDB et appliquer les données
+  async function selectTMDBMovie(tmdbId, closeModal) {
+    try {
+      // Afficher un indicateur de chargement
+      const statusDiv = document.getElementById('tmdb-status');
+      if (statusDiv) {
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Chargement des détails...</span>';
+        statusDiv.style.display = 'flex';
+      }
+
+      // Récupérer les détails complets
+      const details = await getTMDBDetails(tmdbId);
+      console.log('Détails TMDB récupérés:', details);
+
+      // Extraire les informations
+      const title = details.title || '';
+      const year = details.release_date ? details.release_date.substring(0, 4) : '';
+      const synopsis = details.overview || '';
+      const genres = details.genres ? details.genres.map(g => g.name) : [];
+      const posterPath = details.poster_path ? `${TMDB_IMAGE_BASE_URL}${details.poster_path}` : null;
+
+      // Extraire réalisateur et acteurs
+      let director = '';
+      let actors = [];
+      if (details.credits) {
+        const directorInfo = details.credits.crew?.find(p => p.job === 'Director');
+        director = directorInfo ? directorInfo.name : '';
+        actors = details.credits.cast?.slice(0, 5).map(a => a.name) || [];
+      }
+
+      // Appliquer le titre
+      const titleInput = document.querySelector('.edit-title-field') || editTitleInput;
+      if (titleInput) titleInput.value = title;
+
+      // Appliquer la date de sortie
+      if (details.release_date && editReleaseDateInput) {
+        editReleaseDateInput.value = details.release_date;
+      }
+
+      // Appliquer le synopsis
+      const synopsisInput = document.querySelector('.edit-synopsis-field') || editSynopsisInput;
+      if (synopsisInput) synopsisInput.value = synopsis;
+
+      // Appliquer l'affiche
+      let downloadedPosterUrl = null;
+      if (posterPath) {
+        // Télécharger l'image localement
+        try {
+          console.log('Téléchargement du poster TMDB...');
+          const downloadResult = await window.electronAPI.downloadTMDBImage(posterPath, title);
+
+          if (downloadResult.success) {
+            const filename = downloadResult.localPath.split(/[\\/]/).pop();
+            downloadedPosterUrl = `http://localhost:3001/tmdb-images/${filename}`;
+
+            if (imagePreview) {
+              imagePreview.src = downloadedPosterUrl;
+            }
+            console.log('Poster téléchargé:', downloadedPosterUrl);
+          } else {
+            // Fallback: utiliser l'URL TMDB directement
+            downloadedPosterUrl = posterPath;
+            if (imagePreview) imagePreview.src = posterPath;
+          }
+        } catch (err) {
+          console.warn('Erreur téléchargement poster:', err);
+          downloadedPosterUrl = posterPath;
+          if (imagePreview) imagePreview.src = posterPath;
+        }
+      }
+
+      // Appliquer les genres
+      if (genres.length > 0) {
+        selectedGenres = [...genres];
+        if (typeof updateEditGenresDisplay === 'function') {
+          updateEditGenresDisplay();
+        }
+      }
+
+      // Mettre à jour currentMovieData
+      if (currentMovieData) {
+        currentMovieData.title = title;
+        currentMovieData.description = synopsis;
+        currentMovieData.releaseDate = details.release_date ?
+          details.release_date.split('-').reverse().join('/') : '';
+        currentMovieData.genres = genres;
+        currentMovieData.tmdb_id = tmdbId;
+        currentMovieData.director = director;
+        currentMovieData.actors = actors;
+        if (downloadedPosterUrl) {
+          currentMovieData.posterUrl = downloadedPosterUrl;
+        }
+      }
+
+      // Marquer comme modifié et afficher les boutons de sauvegarde
+      hasUnsavedChanges = true;
+      if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
+      if (typeof showExtensionButtons === 'function') showExtensionButtons();
+
+      console.log('Données TMDB appliquées avec succès');
+
+      // Fermer la modal TMDB
+      if (closeModal) closeModal();
+
+    } catch (error) {
+      console.error('Erreur lors de la sélection TMDB:', error);
+      alert('Erreur lors du chargement des données TMDB');
+    }
+  }
   
+  // Bouton de recherche TMDB
+  tmdbSearchBtn.addEventListener('click', () => openTMDBSearch());
+
   // Fonction pour mettre à jour immédiatement la carte dans la bibliothèque
   function updateMediaCardInLibrary(movieId, updates) {
     try {
       const movieCard = document.querySelector(`.media-card[data-id="${movieId}"]`);
       if (!movieCard) {
-        console.log('Carte de film non trouvée dans la bibliothèque');
+        console.log('Carte de film non trouvée dans la bibliothèque pour ID:', movieId);
         return;
       }
-      
+
       // Mettre à jour le titre
       if (updates.title) {
         const titleElement = movieCard.querySelector('.media-title');
         if (titleElement) {
           titleElement.textContent = updates.title;
+          console.log('Titre mis à jour:', updates.title);
         }
+        // Mettre à jour aussi le data-title pour la recherche/filtrage
+        movieCard.dataset.title = updates.title.toLowerCase();
       }
-      
-      // Mettre à jour l'image
+
+      // Mettre à jour l'image - chercher dans plusieurs emplacements possibles
       if (updates.posterUrl) {
-        const imageElement = movieCard.querySelector('.media-thumbnail, .media-thumbnail img');
+        // Chercher l'image dans différentes structures possibles
+        // L'image a la classe 'media-thumbnail' directement sur l'élément img
+        let imageElement = movieCard.querySelector('img.media-thumbnail');
+        if (!imageElement) {
+          imageElement = movieCard.querySelector('.media-thumbnail-container img');
+        }
+        if (!imageElement) {
+          imageElement = movieCard.querySelector('img');
+        }
+
         if (imageElement) {
           imageElement.src = updates.posterUrl;
           imageElement.alt = updates.title || imageElement.alt;
+          console.log('Image mise à jour:', updates.posterUrl);
+        } else {
+          console.warn('Élément image non trouvé dans la carte');
         }
       }
-      
+
       console.log(`✅ Carte mise à jour en temps réel pour le film ${movieId}`);
     } catch (error) {
       console.error('Erreur lors de la mise à jour de la carte:', error);
@@ -2208,7 +2043,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (downloadResult.success) {
             const filename = downloadResult.localPath.split(/[\\/]/).pop();
-            finalImageUrl = `../data/thumbnails/${filename}`;
+            finalImageUrl = `http://localhost:3001/tmdb-images/${filename}`;
             console.log(`✅ Image TMDB sauvegardée localement: ${downloadResult.filename}`);
           } else {
             console.warn(`⚠️ Échec du téléchargement de l'image TMDB: ${downloadResult.message}`);
@@ -2284,17 +2119,20 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mise à jour de l'image
       modalPoster.src = finalImageUrl;
       
-      // Tenter d'enregistrer les modifications via l'API Electron si disponible
-      if (window.electronAPI && window.electronAPI.updateMediaDetails) {
+      // Enregistrer les modifications via l'API Electron
+      if (window.electronAPI && window.electronAPI.updateMedia) {
         try {
-          const result = await window.electronAPI.updateMediaDetails(currentMovieId, movieUpdates);
+          const result = await window.electronAPI.updateMedia(currentMovieId, movieUpdates);
           if (result.success) {
-            console.log("Modifications enregistrées via electronAPI:", result);
+            console.log("✅ Modifications enregistrées dans la base de données:", result);
+          } else {
+            console.error("❌ Échec de l'enregistrement:", result.message);
           }
         } catch (apiError) {
-          console.error("Erreur avec l'API Electron:", apiError);
-          // Continuer même en cas d'erreur avec l'API
+          console.error("❌ Erreur avec l'API Electron:", apiError);
         }
+      } else {
+        console.error("❌ API updateMedia non disponible");
       }
       
       // Mettre à jour immédiatement la carte dans la bibliothèque
@@ -2543,7 +2381,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Fonction pour sauvegarder les tags dans la base de données
   async function saveTagsToDatabase() {
-    if (!currentMovieId || !window.electronAPI || !window.electronAPI.updateMediaDetails) {
+    if (!currentMovieId || !window.electronAPI || !window.electronAPI.updateMedia) {
       console.log('⚠️ Impossible de sauvegarder les tags - API non disponible');
       return;
     }
@@ -2558,11 +2396,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       console.log('💾 Sauvegarde automatique des tags:', tagUpdates);
 
-      const result = await window.electronAPI.updateMediaDetails(currentMovieId, tagUpdates);
+      const result = await window.electronAPI.updateMedia(currentMovieId, tagUpdates);
       if (result.success) {
         console.log('✅ Tags sauvegardés avec succès');
       } else {
-        console.error('❌ Erreur lors de la sauvegarde des tags:', result.error);
+        console.error('❌ Erreur lors de la sauvegarde des tags:', result.message);
       }
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde des tags:', error);
@@ -3065,448 +2903,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Fonction pour transformer le bouton "Regarder le film" en "Rechercher sur TMDB"
+  // Transformer le bouton "Regarder" en "Rechercher sur TMDB" en mode édition
   function transformWatchButtonToTMDB() {
     const watchBtn = document.getElementById('btn-watch-film');
     if (!watchBtn) return;
 
-    // Sauvegarder l'état original si pas déjà fait
+    // Sauvegarder l'état original
     if (!watchBtn.dataset.originalState) {
       const btnIcon = watchBtn.querySelector('i');
       const btnText = watchBtn.querySelector('span');
-
       watchBtn.dataset.originalState = JSON.stringify({
         iconClass: btnIcon ? btnIcon.className : '',
-        text: btnText ? btnText.textContent : '',
-        backgroundColor: watchBtn.style.background
+        text: btnText ? btnText.textContent : ''
       });
     }
 
-    // Transformer le bouton
+    // Transformer visuellement
     const btnIcon = watchBtn.querySelector('i');
     const btnText = watchBtn.querySelector('span');
+    if (btnIcon) btnIcon.className = 'fas fa-search';
+    if (btnText) btnText.textContent = 'Rechercher sur TMDB';
 
-    if (btnIcon) {
-      btnIcon.className = 'fas fa-search';
-    }
-    if (btnText) {
-      btnText.textContent = 'Rechercher sur TMDB';
-    }
-
-    // Retirer l'ancien event listener et ajouter le nouveau pour TMDB
-    const newWatchBtn = watchBtn.cloneNode(true);
-    watchBtn.parentNode.replaceChild(newWatchBtn, watchBtn);
-
-    newWatchBtn.addEventListener('click', async () => {
-      console.log('🔍 Recherche TMDB depuis le mode édition');
-      await searchOnTMDB();
-    });
+    // Cloner pour remplacer les event listeners
+    const newBtn = watchBtn.cloneNode(true);
+    watchBtn.parentNode.replaceChild(newBtn, watchBtn);
+    newBtn.addEventListener('click', () => openTMDBSearch());
   }
 
-  // Fonction pour restaurer le bouton en mode "Regarder le film"
+  // Restaurer le bouton "Regarder le film"
   function restoreTMDBButtonToWatch() {
     const watchBtn = document.getElementById('btn-watch-film');
     if (!watchBtn || !watchBtn.dataset.originalState) return;
 
-    // Restaurer l'état original
     const originalState = JSON.parse(watchBtn.dataset.originalState);
     const btnIcon = watchBtn.querySelector('i');
     const btnText = watchBtn.querySelector('span');
 
-    if (btnIcon) {
-      btnIcon.className = originalState.iconClass;
-    }
-    if (btnText) {
-      btnText.textContent = originalState.text;
-    }
+    if (btnIcon) btnIcon.className = originalState.iconClass;
+    if (btnText) btnText.textContent = originalState.text;
 
-    // Retirer l'event listener TMDB et restaurer celui pour regarder le film
-    const newWatchBtn = watchBtn.cloneNode(true);
-    watchBtn.parentNode.replaceChild(newWatchBtn, watchBtn);
-
-    newWatchBtn.addEventListener('click', async () => {
-      console.log('🎬 Lecture du film depuis le mode normal');
-      await window.api.invoke('play-video', currentMovie.file_path);
-    });
-
-    // Supprimer l'état sauvegardé
-    delete newWatchBtn.dataset.originalState;
-  }
-
-  // Fonction pour rechercher sur TMDB (appelée depuis le bouton en mode édition)
-  async function searchOnTMDB() {
-    const titleElement = document.querySelector('.edit-title-field') || document.getElementById('modal-title');
-    const searchQuery = titleElement ? (titleElement.value || titleElement.textContent || '').trim() : '';
-
-    // Ouvrir la page de recherche directement avec une recherche initiale si possible
-    console.log('🔍 Ouverture de la page de recherche TMDB avec:', searchQuery);
-
-    // Ouvrir la page de recherche vide, l'utilisateur pourra chercher dedans
-    showTMDBSearchPage(searchQuery);
-  }
-
-  // Fonction pour afficher la page de recherche TMDB
-  function showTMDBSearchPage(initialQuery = '') {
-    // Créer l'overlay de fond
-    const overlay = document.createElement('div');
-    overlay.className = 'tmdb-search-overlay';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(8px);
-      z-index: 10001;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: fadeIn 0.3s ease;
-    `;
-
-    // Créer la fenêtre modale
-    const searchModal = document.createElement('div');
-    searchModal.className = 'tmdb-search-modal';
-    searchModal.style.cssText = `
-      background: #0f0f0f;
-      border-radius: 16px;
-      width: 90vw;
-      max-width: 1400px;
-      height: 85vh;
-      max-height: 900px;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-      border: 1px solid #222;
-      overflow: hidden;
-      animation: modalSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    `;
-
-    searchModal.innerHTML = `
-      <!-- Header avec recherche -->
-      <div style="
-        background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
-        padding: 24px 32px;
-        border-bottom: 2px solid #222;
-        flex-shrink: 0;
-      ">
-        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
-          <button id="close-tmdb-search" style="
-            background: #d32f2f;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.2s;
-          ">
-            <i class="fas fa-times"></i>
-            Fermer
-          </button>
-          <h2 style="margin: 0; color: #fff; font-size: 28px; font-weight: 700;">Recherche TMDB</h2>
-        </div>
-
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <input
-            type="text"
-            id="tmdb-search-input"
-            placeholder="Rechercher un film..."
-            value="${initialQuery}"
-            style="
-              flex: 1;
-              background: #1a1a1a;
-              border: 2px solid #333;
-              border-radius: 8px;
-              padding: 16px 20px;
-              color: #fff;
-              font-size: 18px;
-              outline: none;
-              transition: border-color 0.2s;
-            "
-          />
-          <button id="tmdb-search-btn" style="
-            background: linear-gradient(135deg, #01d277, #00b568);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 16px 32px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.2s;
-          ">
-            <i class="fas fa-search"></i>
-            Rechercher
-          </button>
-        </div>
-      </div>
-
-      <!-- Résultats avec scroll -->
-      <div style="
-        flex: 1;
-        overflow-y: auto;
-        padding: 32px;
-        background: #0a0a0a;
-      ">
-        <div id="tmdb-results-container" style="
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 20px;
-        "></div>
-
-        <!-- Message de chargement -->
-        <div id="tmdb-loading" style="display: none; text-align: center; padding: 60px; color: #888;">
-          <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 20px;"></i>
-          <p style="font-size: 18px; margin: 0;">Recherche en cours...</p>
-        </div>
-
-        <!-- Message aucun résultat -->
-        <div id="tmdb-no-results" style="display: none; text-align: center; padding: 60px; color: #888;">
-          <i class="fas fa-film" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
-          <p style="font-size: 18px; margin: 0;">Aucun résultat trouvé</p>
-        </div>
-
-        <!-- Message initial -->
-        <div id="tmdb-initial-message" style="text-align: center; padding: 60px; color: #888;">
-          <i class="fas fa-search" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
-          <p style="font-size: 18px; margin: 0;">Entrez un titre pour commencer la recherche</p>
-        </div>
-      </div>
-    `;
-
-    overlay.appendChild(searchModal);
-    document.body.appendChild(overlay);
-
-    // Event listeners
-    const searchInput = document.getElementById('tmdb-search-input');
-    const searchBtn = document.getElementById('tmdb-search-btn');
-    const closeBtn = document.getElementById('close-tmdb-search');
-
-    // Focus sur l'input
-    searchInput.focus();
-    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
-
-    // Style focus pour l'input
-    searchInput.addEventListener('focus', function() {
-      this.style.borderColor = '#01d277';
-    });
-    searchInput.addEventListener('blur', function() {
-      this.style.borderColor = '#333';
-    });
-
-    // Recherche au clic
-    searchBtn.addEventListener('click', async () => {
-      await performTMDBSearch(searchInput.value.trim());
-    });
-
-    // Recherche avec Enter
-    searchInput.addEventListener('keypress', async (e) => {
-      if (e.key === 'Enter') {
-        await performTMDBSearch(searchInput.value.trim());
+    // Cloner pour remplacer les event listeners
+    const newBtn = watchBtn.cloneNode(true);
+    watchBtn.parentNode.replaceChild(newBtn, watchBtn);
+    newBtn.addEventListener('click', async () => {
+      if (currentMovieData && currentMovieData.file_path) {
+        await window.electronAPI.playVideo(currentMovieData.file_path);
       }
     });
 
-    // Fermer la modale
-    closeBtn.addEventListener('click', () => {
-      document.body.removeChild(overlay);
-    });
-
-    // Fermer en cliquant sur l'overlay
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        document.body.removeChild(overlay);
-      }
-    });
-
-    closeBtn.addEventListener('mouseenter', function() {
-      this.style.background = '#b71c1c';
-    });
-    closeBtn.addEventListener('mouseleave', function() {
-      this.style.background = '#d32f2f';
-    });
-
-    // Si on a une query initiale, lancer la recherche automatiquement
-    if (initialQuery && initialQuery.trim()) {
-      performTMDBSearch(initialQuery.trim());
-    }
-  }
-
-  // Fonction pour effectuer une recherche TMDB
-  async function performTMDBSearch(query) {
-    if (!query) {
-      alert('Veuillez entrer un titre pour effectuer la recherche');
-      return;
-    }
-
-    const loadingDiv = document.getElementById('tmdb-loading');
-    const resultsContainer = document.getElementById('tmdb-results-container');
-    const noResultsDiv = document.getElementById('tmdb-no-results');
-    const initialMessageDiv = document.getElementById('tmdb-initial-message');
-
-    // Afficher le chargement
-    loadingDiv.style.display = 'block';
-    resultsContainer.innerHTML = '';
-    noResultsDiv.style.display = 'none';
-    if (initialMessageDiv) initialMessageDiv.style.display = 'none';
-
-    try {
-      console.log('🔍 Recherche TMDB pour:', query);
-      const results = await searchTMDBMovie(query);
-
-      loadingDiv.style.display = 'none';
-
-      if (results && results.length > 0) {
-        displaySearchResults(results);
-      } else {
-        noResultsDiv.style.display = 'block';
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors de la recherche TMDB:', error);
-      loadingDiv.style.display = 'none';
-      alert('Erreur lors de la recherche sur TMDB');
-    }
-  }
-
-  // Fonction pour afficher les résultats de recherche
-  function displaySearchResults(results) {
-    const resultsContainer = document.getElementById('tmdb-results-container');
-    resultsContainer.innerHTML = '';
-
-    results.slice(0, 20).forEach((result) => {
-      const resultCard = document.createElement('div');
-      resultCard.className = 'tmdb-result-card';
-      resultCard.style.cssText = `
-        background: #1a1a1a;
-        border-radius: 12px;
-        overflow: hidden;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border: 2px solid transparent;
-      `;
-
-      const posterUrl = result.poster_path
-        ? `https://image.tmdb.org/t/p/w342${result.poster_path}`
-        : 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'342\' height=\'513\'%3E%3Crect width=\'342\' height=\'513\' fill=\'%23222\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' fill=\'%23555\' text-anchor=\'middle\' dy=\'.3em\' font-family=\'Arial\' font-size=\'24\'%3EAucune image%3C/text%3E%3C/svg%3E';
-
-      const year = result.release_date ? result.release_date.substring(0, 4) : 'Année inconnue';
-      const rating = result.vote_average ? result.vote_average.toFixed(1) : 'N/A';
-
-      resultCard.innerHTML = `
-        <div style="position: relative;">
-          <img src="${posterUrl}"
-               style="width: 100%; height: 420px; object-fit: cover;"
-               loading="lazy"
-          />
-          <div style="
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px);
-            padding: 6px 12px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          ">
-            <i class="fas fa-star" style="color: #ffd700; font-size: 12px;"></i>
-            <span style="color: #fff; font-size: 14px; font-weight: 600;">${rating}</span>
-          </div>
-        </div>
-        <div style="padding: 16px;">
-          <h4 style="
-            margin: 0 0 8px 0;
-            color: #fff;
-            font-size: 16px;
-            font-weight: 600;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          ">${result.title || result.name}</h4>
-          <p style="
-            margin: 0 0 12px 0;
-            color: #888;
-            font-size: 14px;
-          ">${year}</p>
-          <p style="
-            margin: 0;
-            color: #aaa;
-            font-size: 13px;
-            line-height: 1.4;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            min-height: 60px;
-          ">${result.overview || 'Aucune description disponible'}</p>
-        </div>
-      `;
-
-      // Hover effect
-      resultCard.addEventListener('mouseenter', function() {
-        this.style.transform = 'translateY(-8px)';
-        this.style.borderColor = '#01d277';
-        this.style.boxShadow = '0 8px 24px rgba(1, 210, 119, 0.3)';
-      });
-      resultCard.addEventListener('mouseleave', function() {
-        this.style.transform = 'translateY(0)';
-        this.style.borderColor = 'transparent';
-        this.style.boxShadow = 'none';
-      });
-
-      // Click to select
-      resultCard.addEventListener('click', () => {
-        applyTMDBData(result);
-        const searchOverlay = document.querySelector('.tmdb-search-overlay');
-        if (searchOverlay) {
-          document.body.removeChild(searchOverlay);
-        }
-      });
-
-      resultsContainer.appendChild(resultCard);
-    });
-  }
-
-  // Fonction pour appliquer les données TMDB au film
-  async function applyTMDBData(tmdbData) {
-    console.log('📝 Application des données TMDB:', tmdbData);
-
-    // Mettre à jour les champs éditables
-    const titleInput = document.querySelector('.edit-title-field');
-    if (titleInput && (tmdbData.title || tmdbData.name)) {
-      titleInput.value = tmdbData.title || tmdbData.name;
-    }
-
-    const yearSpan = document.getElementById('movie-year');
-    if (yearSpan && (tmdbData.release_date || tmdbData.first_air_date)) {
-      const year = (tmdbData.release_date || tmdbData.first_air_date).substring(0, 4);
-      yearSpan.textContent = year;
-    }
-
-    const synopsisTextarea = document.querySelector('.edit-synopsis-field');
-    if (synopsisTextarea && tmdbData.overview) {
-      synopsisTextarea.value = tmdbData.overview;
-    }
-
-    // Mettre à jour currentMovie pour la sauvegarde
-    if (currentMovie) {
-      currentMovie.title = tmdbData.title || tmdbData.name || currentMovie.title;
-      currentMovie.year = tmdbData.release_date || tmdbData.first_air_date ?
-        parseInt((tmdbData.release_date || tmdbData.first_air_date).substring(0, 4)) : currentMovie.year;
-      currentMovie.description = tmdbData.overview || currentMovie.description;
-      currentMovie.tmdb_id = tmdbData.id;
-
-      hasUnsavedChanges = true;
-      console.log('✅ Données TMDB appliquées avec succès');
-    }
+    delete newBtn.dataset.originalState;
   }
 
   // Nouvelle fonction pour créer une popup de confirmation avec 3 boutons

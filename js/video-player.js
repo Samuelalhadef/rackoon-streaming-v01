@@ -14,7 +14,7 @@ class VideoPlayer {
     this.isFullscreen = false;
     this.currentTime = 0;
     this.duration = 0;
-    this.volume = 0.5; // Volume par défaut à 60%
+    this.volume = 0.5; // Volume par défaut à 50%
     this.playbackRate = 1;
     this.controlsVisible = true;
     this.isClosing = false;
@@ -27,6 +27,12 @@ class VideoPlayer {
     this.originalMoviePath = null; // Chemin original du fichier vidéo
     this.selectedAudioTrack = null; // Piste audio sélectionnée
     this.detectedAudioTracks = null; // Pistes audio détectées via FFmpeg
+    this.detectedVideoTracks = null; // Pistes vidéo détectées via FFmpeg
+    this.needsVideoTranscode = false; // Flag si HEVC/H.265 nécessite transcodage
+    this.hasTriedTranscode = false; // Flag pour éviter les boucles de transcodage
+    this.isRetryingWithTranscode = false; // Flag pour ignorer onVideoError pendant retry
+    this.isShowingConversionDialog = false; // Flag pour éviter les dialogues multiples
+    this.selectedAudioTracksForConversion = [0]; // Pistes audio sélectionnées pour la conversion
 
     // Timers
     this.hideControlsTimer = null;
@@ -49,21 +55,21 @@ class VideoPlayer {
     this.modal = document.createElement('div');
     this.modal.className = 'video-player-modal';
     this.modal.innerHTML = `
+      <!-- Bouton fermer - EN DEHORS du container pour éviter overflow:hidden -->
+      <button class="close-btn" title="Fermer (Échap)">
+        <i class="fas fa-times"></i>
+      </button>
+
       <div class="video-player-container">
         <!-- Élément vidéo principal -->
-        <video class="video-player-element" controls="false" controlslist="nodownload nofullscreen noremoteplayback"></video>
-        
+        <video class="video-player-element" controls="false" controlslist="nodownload nofullscreen noremoteplayback" preload="auto"></video>
+
         <!-- Informations vidéo -->
         <div class="video-info">
           <div class="video-title"></div>
           <div class="video-details"></div>
         </div>
-        
-        <!-- Bouton fermer -->
-        <button class="close-btn" title="Fermer (Échap)">
-          <i class="fas fa-times"></i>
-        </button>
-        
+
         <!-- Indicateurs de chargement -->
         <div class="loading-indicator">
           <i class="fas fa-spinner fa-spin"></i>
@@ -343,7 +349,7 @@ class VideoPlayer {
         videoUrl = moviePath;
         console.log('📡 URL de streaming:', videoUrl);
       } else {
-        // Chemin local - détecter la piste VO AVANT de charger la vidéo
+        // Chemin local - construire l'URL immédiatement
         if (!moviePath) {
           throw new Error('Chemin de la vidéo non fourni');
         }
@@ -351,39 +357,12 @@ class VideoPlayer {
         // Stocker le chemin original pour référence
         this.originalMoviePath = moviePath;
 
-        // Détecter la piste VO via FFprobe si disponible
-        if (window.electronAPI && window.electronAPI.getVideoInfo) {
-          try {
-            console.log('🎵 Pré-détection de la piste VO via FFprobe...');
-            const videoInfo = await window.electronAPI.getVideoInfo(moviePath);
-            if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
-              // Stocker les pistes détectées
-              this.detectedAudioTracks = videoInfo.audioTracks;
-
-              // Chercher la première piste VO
-              const voLanguages = ['eng', 'jpn', 'kor'];
-              for (let i = 0; i < videoInfo.audioTracks.length; i++) {
-                const track = videoInfo.audioTracks[i];
-                if (track.language && voLanguages.includes(track.language.toLowerCase())) {
-                  defaultAudioTrack = i;
-                  console.log(`🎬 Piste VO pré-détectée: ${track.language} (index ${i})`);
-                  break;
-                }
-              }
-            }
-          } catch (error) {
-            console.warn('⚠️ Erreur lors de la pré-détection audio:', error);
-          }
-        }
-
-        // Construire l'URL avec la piste audio par défaut si détectée
-        videoUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(moviePath)}`;
-        if (defaultAudioTrack !== null) {
-          videoUrl += `&audioTrack=${defaultAudioTrack}`;
-          this.selectedAudioTrack = defaultAudioTrack;
-          console.log(`🎵 Chargement avec piste VO ${defaultAudioTrack}`);
-        }
+        // Construire l'URL avec piste audio 0 par défaut (chargement rapide)
+        videoUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(moviePath)}&audioTrack=0`;
         console.log('🎬 URL vidéo locale via serveur:', videoUrl);
+
+        // Détecter les pistes et vérifier l'audio en arrière-plan
+        this.detectAndFixAudioInBackground(moviePath);
       }
 
       this.video.src = videoUrl;
@@ -392,25 +371,8 @@ class VideoPlayer {
       this.video.volume = this.volume;
       this.video.muted = false;
 
-      // Attendre le chargement pour détecter les pistes
-      this.video.addEventListener('loadedmetadata', () => {
-        console.log('📹 Métadonnées chargées - Détection des pistes...');
-        this.detectAllTracks();
-      });
-      
-      // Obtenir les détails du film
-      const movieDetails = await window.electronAPI.getMediaDetails(movieId);
-      if (movieDetails.success && movieDetails.movie) {
-        const movie = movieDetails.movie;
-        const details = [];
-        if (movie.year) details.push(movie.year);
-        if (movie.duration) details.push(window.formatTime(movie.duration));
-        if (movie.genres && movie.genres.length > 0) {
-          const genres = Array.isArray(movie.genres) ? movie.genres : JSON.parse(movie.genres || '[]');
-          details.push(genres.join(', '));
-        }
-        this.elements.details.textContent = details.join(' • ');
-      }
+      // Charger les détails du film en parallèle (ne bloque pas)
+      this.loadMovieDetailsInBackground(movieId);
       
     } catch (error) {
       console.error('Erreur lors de l\'ouverture du lecteur:', error);
@@ -422,6 +384,12 @@ class VideoPlayer {
   
   close() {
     this.isClosing = true; // Marquer comme en cours de fermeture
+
+    // Nettoyer la Watch Party si active (détruit la session et ferme ngrok)
+    if (window.watchPartyUI && window.watchPartyUI.currentSession) {
+      console.log('🔌 Fermeture de la Watch Party depuis le lecteur');
+      window.watchPartyUI.cleanup();
+    }
 
     // Enregistrer les statistiques de visionnage avant de fermer
     if (this.currentMovie && this.currentMovie.id && this.watchStartTime) {
@@ -477,6 +445,15 @@ class VideoPlayer {
     this.currentTime = 0;
     this.duration = 0;
     this.playbackRate = 1;
+    this.hasTriedTranscode = false; // Réinitialiser le flag de transcodage
+    this.isRetryingWithTranscode = false; // Réinitialiser le flag de retry
+    this.needsVideoTranscode = false; // Réinitialiser le flag de transcodage vidéo
+    this.isShowingConversionDialog = false; // Réinitialiser le flag de dialogue
+    this.selectedAudioTracksForConversion = [0]; // Réinitialiser les pistes sélectionnées
+    this.detectedAudioTracks = null;
+    this.detectedVideoTracks = null;
+    this.detectedSubtitles = null;
+    this.originalMoviePath = null;
     this.updatePlayPauseButton();
     this.updateProgress();
     this.setPlaybackRate(1);
@@ -772,10 +749,10 @@ class VideoPlayer {
   
   async detectAllTracks() {
     console.log('🔍 Démarrage de la détection complète des pistes...');
-    
-    // Attendre un peu pour que les pistes soient disponibles
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+
+    // Attente minimale pour que les pistes soient disponibles
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     try {
       // Log des informations de base
       console.log('📊 Informations vidéo:', {
@@ -785,78 +762,909 @@ class VideoPlayer {
         audioTracks: this.video.audioTracks?.length || 0,
         textTracks: this.video.textTracks?.length || 0
       });
-      
-      // Forcer la détection des textTracks pour MKV
-      await this.forceDetectTextTracks();
-      
+
       // Log final après détection
-      console.log('📊 Pistes détectées après analyse:', {
+      console.log('📊 Pistes détectées:', {
         audioTracks: this.video.audioTracks?.length || 0,
         textTracks: this.video.textTracks?.length || 0
       });
-      
+
     } catch (error) {
       console.error('Erreur lors de la détection des pistes:', error);
     }
   }
-  
-  async forceDetectTextTracks() {
-    // Tenter plusieurs méthodes pour forcer la détection des sous-titres MKV
-    
-    // Méthode 1: Vérifier les textTracks après un délai
-    if (this.video.textTracks && this.video.textTracks.length > 0) {
-      console.log('📝 TextTracks natifs détectés:', this.video.textTracks.length);
-      for (let i = 0; i < this.video.textTracks.length; i++) {
-        const track = this.video.textTracks[i];
-        console.log(`📝 Piste ${i}:`, {
-          kind: track.kind,
-          label: track.label,
-          language: track.language,
-          mode: track.mode
-        });
-      }
-      return;
-    }
-    
-    // Méthode 2: Essayer de forcer l'activation des pistes
-    try {
-      // Parfois les pistes sont là mais en mode 'disabled'
-      const trackElements = this.video.querySelectorAll('track');
-      console.log('📝 Éléments track trouvés:', trackElements.length);
-      
-      trackElements.forEach((trackEl, index) => {
-        console.log(`📝 Track element ${index}:`, {
-          src: trackEl.src,
-          kind: trackEl.kind,
-          label: trackEl.label,
-          srclang: trackEl.srclang
-        });
-      });
-    } catch (error) {
-      console.log('📝 Pas d\'éléments track trouvés');
-    }
-    
-    // Méthode 3: Demander à FFmpeg via Electron (si disponible)
-    if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
+
+  async loadAudioTracksInBackground(moviePath) {
+    // Charger les pistes audio en arrière-plan sans bloquer
+    if (window.electronAPI && window.electronAPI.getVideoInfo) {
       try {
-        console.log('📝 Tentative FFmpeg pour fichier:', this.currentMovie.path);
-        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
-        if (videoInfo.success) {
-          console.log('📝 Informations FFmpeg:', videoInfo);
+        console.log('🎵 Chargement des pistes audio en arrière-plan...');
+        const videoInfo = await window.electronAPI.getVideoInfo(moviePath);
+        if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
+          this.detectedAudioTracks = videoInfo.audioTracks;
+          console.log(`✅ ${videoInfo.audioTracks.length} pistes audio détectées`);
+
+          // Détecter aussi les sous-titres
           if (videoInfo.subtitleTracks && videoInfo.subtitleTracks.length > 0) {
-            console.log('📝 Sous-titres détectés via FFmpeg:', videoInfo.subtitleTracks.length);
-            // Stocker les informations pour utilisation ultérieure
             this.detectedSubtitles = videoInfo.subtitleTracks;
+            console.log(`✅ ${videoInfo.subtitleTracks.length} sous-titres détectés`);
           }
         }
       } catch (error) {
-        console.log('📝 FFmpeg non disponible:', error.message);
+        console.warn('⚠️ Erreur lors du chargement des pistes en arrière-plan:', error);
       }
     }
-    
-    console.log('📝 Détection textTracks terminée');
   }
-  
+
+  /**
+   * Détecte les pistes audio/vidéo et vérifie si un transcodage est nécessaire
+   *
+   * Logique de compatibilité :
+   * - Audio AC3/DTS/EAC3/TrueHD → JAMAIS supporté nativement → conversion requise
+   * - Vidéo HEVC/H.265 → PEUT être supporté (dépend du système) → essayer d'abord
+   * - Vidéo H.264/VP9 + Audio AAC/MP3/Opus → Supporté → lecture directe
+   */
+  async detectAndFixAudioInBackground(moviePath) {
+    // Codecs audio supportés nativement par les navigateurs (Chromium/Electron)
+    const SUPPORTED_AUDIO_CODECS = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le', 'pcm_s24le', 'pcm_f32le'];
+
+    // Codecs audio qui ne sont JAMAIS supportés (Dolby/DTS - licences propriétaires)
+    const UNSUPPORTED_AUDIO_CODECS = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
+
+    // Codecs vidéo qui PEUVENT être supportés nativement (dépend du système)
+    // HEVC peut fonctionner si le codec système est installé
+    const MAYBE_SUPPORTED_VIDEO_CODECS = ['hevc', 'h265'];
+
+    try {
+      if (!window.electronAPI || !window.electronAPI.getVideoInfo) {
+        console.log('⚠️ API getVideoInfo non disponible');
+        return;
+      }
+
+      console.log('🔍 Analyse des codecs:', moviePath);
+      const videoInfo = await window.electronAPI.getVideoInfo(moviePath);
+
+      if (!videoInfo.success) {
+        console.log('⚠️ Impossible d\'analyser le fichier - tentative de lecture directe');
+        return;
+      }
+
+      // Stocker les pistes détectées
+      this.detectedAudioTracks = videoInfo.audioTracks || [];
+      this.detectedVideoTracks = videoInfo.videoTracks || [];
+
+      // Stocker les sous-titres si disponibles
+      if (videoInfo.subtitleTracks && videoInfo.subtitleTracks.length > 0) {
+        this.detectedSubtitles = videoInfo.subtitleTracks;
+        console.log(`📝 ${videoInfo.subtitleTracks.length} sous-titres détectés`);
+      }
+
+      // Analyser le codec vidéo
+      let videoCodecName = '';
+      let isHEVC = false;
+      if (this.detectedVideoTracks.length > 0) {
+        const videoTrack = this.detectedVideoTracks[0];
+        videoCodecName = (videoTrack.codec_name || '').toLowerCase();
+        console.log(`🎬 Codec vidéo: ${videoCodecName} (${videoTrack.width}x${videoTrack.height})`);
+        isHEVC = MAYBE_SUPPORTED_VIDEO_CODECS.some(codec => videoCodecName.includes(codec));
+      }
+
+      // Analyser le codec audio
+      let audioCodecName = '';
+      let needsAudioTranscode = false;
+      let isAudioSupported = true;
+      if (this.detectedAudioTracks.length > 0) {
+        const defaultTrack = this.detectedAudioTracks[0];
+        audioCodecName = (defaultTrack.codec_name || '').toLowerCase();
+        console.log(`🎵 Codec audio: ${audioCodecName} (${defaultTrack.channels || '?'} canaux)`);
+
+        // Vérifier si l'audio est définitivement non supporté
+        needsAudioTranscode = UNSUPPORTED_AUDIO_CODECS.some(codec => audioCodecName.includes(codec));
+        isAudioSupported = !needsAudioTranscode;
+      }
+
+      // === DÉCISION DE LECTURE ===
+
+      // CAS 1: Audio non supporté (AC3/DTS) → Conversion obligatoire
+      if (needsAudioTranscode) {
+        console.log(`⚠️ Audio ${audioCodecName.toUpperCase()} non supporté - vérification conversion existante...`);
+
+        // Vérifier si une conversion existe déjà
+        const existingConversion = await window.electronAPI.checkConvertedAudio(moviePath, false);
+
+        if (existingConversion.exists) {
+          console.log('✅ Conversion existante trouvée - lecture directe');
+          this.showAudioTranscodeNotification(audioCodecName.toUpperCase(), true);
+          this.playConvertedFile(existingConversion.path);
+        } else {
+          // Pas de conversion existante → afficher le menu
+          console.log('📋 Aucune conversion trouvée - affichage du menu');
+          this.showLanguageSelectionDialog(moviePath, audioCodecName.toUpperCase(), false);
+        }
+        return;
+      }
+
+      // CAS 2: HEVC vidéo avec audio supporté → Essayer lecture native
+      if (isHEVC && isAudioSupported) {
+        console.log(`🎬 HEVC détecté avec audio compatible - tentative de lecture native...`);
+        // On ne fait rien ici, la lecture va s'effectuer normalement
+        // Si ça échoue, onVideoError gérera l'erreur et proposera la conversion
+        this.needsVideoTranscode = true; // Marquer pour onVideoError
+        return;
+      }
+
+      // CAS 3: Formats entièrement supportés → Lecture directe
+      if (isAudioSupported) {
+        console.log(`✅ Format supporté nativement (vidéo: ${videoCodecName || 'inconnu'}, audio: ${audioCodecName || 'inconnu'})`);
+        // Lecture normale, pas besoin de faire quoi que ce soit
+        return;
+      }
+
+      // CAS 4: Format inconnu → Tenter la lecture directe
+      console.log(`⚠️ Format inconnu - tentative de lecture directe`);
+
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'analyse:', error);
+      // En cas d'erreur, on laisse la lecture se faire normalement
+    }
+  }
+
+  /**
+   * Joue un fichier converti
+   */
+  playConvertedFile(convertedPath) {
+    const videoUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(convertedPath)}&audioTrack=0`;
+    const currentTime = this.video.currentTime;
+    const wasPlaying = !this.video.paused;
+
+    this.video.src = videoUrl;
+    this.video.addEventListener('loadedmetadata', () => {
+      if (currentTime > 0) this.video.currentTime = currentTime;
+      if (wasPlaying) this.video.play().catch(err => console.warn('Reprise lecture:', err));
+    }, { once: true });
+  }
+
+  /**
+   * Affiche une notification temporaire pour informer l'utilisateur du transcodage
+   */
+  showAudioTranscodeNotification(codecName, fromCache = false) {
+    const notificationDiv = document.createElement('div');
+    notificationDiv.style.cssText = `
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${fromCache ? 'rgba(46, 204, 113, 0.9)' : 'rgba(255, 165, 0, 0.9)'};
+      color: ${fromCache ? 'white' : 'black'};
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 10001;
+      font-size: 14px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    `;
+
+    if (fromCache) {
+      notificationDiv.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span>Audio ${codecName.toUpperCase()} → AAC (conversion sauvegardée)</span>
+      `;
+    } else {
+      notificationDiv.innerHTML = `
+        <i class="fas fa-sync-alt" style="animation: spin 1s linear infinite;"></i>
+        <span>Conversion audio ${codecName.toUpperCase()} → AAC en cours...</span>
+      `;
+    }
+
+    this.container.appendChild(notificationDiv);
+
+    // Supprimer après 5 secondes
+    setTimeout(() => {
+      if (notificationDiv.parentNode) {
+        notificationDiv.style.transition = 'opacity 0.5s';
+        notificationDiv.style.opacity = '0';
+        setTimeout(() => notificationDiv.remove(), 500);
+      }
+    }, 5000);
+  }
+
+  /**
+   * Affiche une boîte de dialogue pour sélectionner les pistes audio à convertir
+   */
+  showLanguageSelectionDialog(moviePath, codecName, transcodeVideo = false) {
+    // Éviter les appels multiples
+    if (this.isShowingConversionDialog) {
+      console.log('⚠️ Dialogue de conversion déjà affiché');
+      return;
+    }
+    this.isShowingConversionDialog = true;
+
+    // Nettoyer complètement la vidéo pour éviter les erreurs en cascade
+    this.video.pause();
+    this.video.removeAttribute('src');
+    this.video.load();
+
+    // Supprimer les notifications de streaming existantes
+    const existingNotif = document.getElementById('streaming-conversion-notification');
+    if (existingNotif) existingNotif.remove();
+
+    // Réinitialiser les flags
+    this.hasTriedTranscode = false;
+    this.isRetryingWithTranscode = false;
+
+    // Si pas de pistes audio détectées, passer directement à la conversion
+    if (!this.detectedAudioTracks || this.detectedAudioTracks.length <= 1) {
+      console.log('📋 Une seule piste audio - passage direct à la conversion');
+      this.showAudioConversionChoice(moviePath, codecName, transcodeVideo, [0]);
+      return;
+    }
+
+    const dialogOverlay = document.createElement('div');
+    dialogOverlay.id = 'language-selection-dialog';
+    dialogOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100000;
+    `;
+
+    const dialogBox = document.createElement('div');
+    dialogBox.style.cssText = `
+      background: linear-gradient(145deg, #1e1e2f, #252540);
+      border-radius: 16px;
+      padding: 35px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    `;
+
+    // Générer la liste des pistes audio
+    const audioTracksHTML = this.detectedAudioTracks.map((track, index) => {
+      let label = '';
+      if (track.title) {
+        label = track.title;
+      } else if (track.language && track.language !== 'und') {
+        label = this.getLanguageName(track.language);
+      } else {
+        label = `Piste ${index + 1}`;
+      }
+
+      const codecInfo = track.codec_name ? ` (${track.codec_name.toUpperCase()})` : '';
+      const channelInfo = track.channels ? ` - ${track.channels}ch` : '';
+      const isDefault = index === 0;
+
+      return `
+        <label style="
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 15px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+          border: 2px solid transparent;
+        " class="audio-track-option" data-index="${index}">
+          <input type="checkbox" value="${index}" ${isDefault ? 'checked' : ''} style="
+            width: 20px;
+            height: 20px;
+            accent-color: #3498db;
+            cursor: pointer;
+          ">
+          <div style="flex: 1;">
+            <div style="color: white; font-weight: 500;">${label}${codecInfo}</div>
+            <div style="color: #888; font-size: 12px;">${channelInfo}${isDefault ? ' - Piste par défaut' : ''}</div>
+          </div>
+        </label>
+      `;
+    }).join('');
+
+    dialogBox.innerHTML = `
+      <div style="text-align: center; margin-bottom: 25px;">
+        <i class="fas fa-language" style="font-size: 48px; color: #3498db; margin-bottom: 15px;"></i>
+        <h2 style="color: white; margin: 0 0 10px 0; font-size: 20px;">Sélection des pistes audio</h2>
+        <p style="color: #aaa; margin: 0; font-size: 14px;">
+          Choisissez les langues à inclure dans la conversion
+        </p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
+        ${audioTracksHTML}
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <button id="btn-confirm-languages" style="
+          flex: 1;
+          background: linear-gradient(145deg, #3498db, #2980b9);
+          color: white;
+          border: none;
+          padding: 14px 20px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 15px;
+          font-weight: bold;
+          transition: transform 0.2s, box-shadow 0.2s;
+        ">
+          <i class="fas fa-check"></i> Continuer
+        </button>
+        <button id="btn-cancel-languages" style="
+          background: transparent;
+          color: #aaa;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 14px 20px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 15px;
+          transition: all 0.2s;
+        ">
+          <i class="fas fa-times"></i> Annuler
+        </button>
+      </div>
+    `;
+
+    dialogOverlay.appendChild(dialogBox);
+    document.body.appendChild(dialogOverlay);
+
+    // Effets hover sur les options
+    const options = dialogBox.querySelectorAll('.audio-track-option');
+    options.forEach(option => {
+      option.addEventListener('mouseenter', () => {
+        option.style.background = 'rgba(255, 255, 255, 0.1)';
+        option.style.borderColor = 'rgba(52, 152, 219, 0.5)';
+      });
+      option.addEventListener('mouseleave', () => {
+        const checkbox = option.querySelector('input');
+        if (!checkbox.checked) {
+          option.style.background = 'rgba(255, 255, 255, 0.05)';
+          option.style.borderColor = 'transparent';
+        }
+      });
+      option.querySelector('input').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          option.style.background = 'rgba(52, 152, 219, 0.2)';
+          option.style.borderColor = '#3498db';
+        } else {
+          option.style.background = 'rgba(255, 255, 255, 0.05)';
+          option.style.borderColor = 'transparent';
+        }
+      });
+      // Initialiser l'état visuel
+      const checkbox = option.querySelector('input');
+      if (checkbox.checked) {
+        option.style.background = 'rgba(52, 152, 219, 0.2)';
+        option.style.borderColor = '#3498db';
+      }
+    });
+
+    // Bouton Continuer
+    dialogBox.querySelector('#btn-confirm-languages').addEventListener('click', () => {
+      const selectedTracks = Array.from(dialogBox.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => parseInt(cb.value));
+
+      if (selectedTracks.length === 0) {
+        alert('Veuillez sélectionner au moins une piste audio.');
+        return;
+      }
+
+      console.log('🎵 Pistes audio sélectionnées:', selectedTracks);
+      dialogOverlay.remove();
+      this.isShowingConversionDialog = false;
+      this.showAudioConversionChoice(moviePath, codecName, transcodeVideo, selectedTracks);
+    });
+
+    // Bouton Annuler
+    dialogBox.querySelector('#btn-cancel-languages').addEventListener('click', () => {
+      dialogOverlay.remove();
+      this.isShowingConversionDialog = false;
+      this.close();
+    });
+  }
+
+  /**
+   * Affiche une boîte de dialogue pour choisir le mode de conversion
+   * @param {boolean} transcodeVideo - Si true, transcode aussi la vidéo (HEVC → H.264)
+   * @param {number[]} selectedTracks - Indices des pistes audio à convertir
+   */
+  showAudioConversionChoice(moviePath, codecName, transcodeVideo = false, selectedTracks = [0]) {
+    // Marquer qu'un dialogue est affiché
+    this.isShowingConversionDialog = true;
+
+    // Stocker les pistes sélectionnées
+    this.selectedAudioTracksForConversion = selectedTracks;
+
+    // Mettre la vidéo en pause et supprimer la source pendant le choix
+    this.video.pause();
+    this.video.removeAttribute('src');
+    this.video.load();
+
+    // Supprimer les notifications de streaming existantes
+    const existingNotif = document.getElementById('streaming-conversion-notification');
+    if (existingNotif) existingNotif.remove();
+
+    // Supprimer les flags de transcodage car l'utilisateur va choisir
+    this.hasTriedTranscode = false;
+    this.isRetryingWithTranscode = false;
+
+    const dialogOverlay = document.createElement('div');
+    dialogOverlay.id = 'audio-conversion-dialog';
+    dialogOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100000;
+    `;
+
+    const dialogBox = document.createElement('div');
+    dialogBox.style.cssText = `
+      background: linear-gradient(145deg, #1e1e2f, #252540);
+      border-radius: 16px;
+      padding: 35px;
+      max-width: 450px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    `;
+
+    // Adapter le message selon le type de conversion
+    const iconClass = transcodeVideo ? 'fa-film' : 'fa-volume-up';
+    const title = transcodeVideo ? 'Conversion vidéo requise' : 'Conversion audio requise';
+
+    // Extraire le nom du codec vidéo et audio pour un message plus clair
+    let description;
+    if (transcodeVideo) {
+      // Extraction du codec vidéo depuis codecName qui peut être "HEVC (vidéo) + AC3" ou juste "HEVC"
+      const videoCodecMatch = codecName.match(/^([^(]+)/);
+      const videoCodecOnly = videoCodecMatch ? videoCodecMatch[1].trim() : codecName;
+      description = `Le codec vidéo <strong style="color: #e74c3c;">${videoCodecOnly}</strong> n'est pas supporté par le navigateur.<br>Une conversion vers H.264/AAC est nécessaire pour la lecture.`;
+    } else {
+      description = `Le codec audio <strong style="color: #e74c3c;">${codecName.toUpperCase()}</strong> n'est pas supporté par le navigateur.<br>Une conversion vers AAC est nécessaire pour la lecture.`;
+    }
+    const timeWarning = transcodeVideo
+      ? '<p style="color: #e67e22; margin-top: 10px; font-size: 12px;">⚠️ La conversion vidéo peut prendre plusieurs minutes.</p>'
+      : '';
+
+    dialogBox.innerHTML = `
+      <div style="text-align: center; margin-bottom: 25px;">
+        <i class="fas ${iconClass}" style="font-size: 48px; color: #f39c12; margin-bottom: 15px;"></i>
+        <h2 style="color: white; margin: 0 0 10px 0; font-size: 20px;">${title}</h2>
+        <p style="color: #aaa; margin: 0; font-size: 14px;">
+          ${description}
+        </p>
+        ${timeWarning}
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="btn-wait-conversion" style="
+          background: linear-gradient(145deg, #3498db, #2980b9);
+          color: white;
+          border: none;
+          padding: 15px 20px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 15px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: transform 0.2s, box-shadow 0.2s;
+        ">
+          <i class="fas fa-hourglass-half" style="font-size: 20px;"></i>
+          <div style="text-align: left;">
+            <div style="font-weight: bold;">Attendre la conversion</div>
+            <div style="font-size: 12px; opacity: 0.8;">Convertir entièrement avant de regarder (recommandé)</div>
+          </div>
+        </button>
+
+        <button id="btn-stream-conversion" data-transcode-video="${transcodeVideo}" style="
+          background: linear-gradient(145deg, #27ae60, #1e8449);
+          color: white;
+          border: none;
+          padding: 15px 20px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 15px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          transition: transform 0.2s, box-shadow 0.2s;
+        ">
+          <i class="fas fa-play-circle" style="font-size: 20px;"></i>
+          <div style="text-align: left;">
+            <div style="font-weight: bold;">Regarder pendant la conversion</div>
+            <div style="font-size: 12px; opacity: 0.8;">${transcodeVideo ? 'Peut causer des saccades (conversion lente)' : 'Commencer la lecture immédiatement'}</div>
+          </div>
+        </button>
+
+        <button id="btn-cancel-conversion" style="
+          background: transparent;
+          color: #aaa;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 12px 20px;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 0.2s;
+          margin-top: 5px;
+        ">
+          <i class="fas fa-times"></i>
+          Annuler
+        </button>
+      </div>
+
+      <p style="color: #888; font-size: 11px; text-align: center; margin-top: 20px;">
+        <i class="fas fa-save"></i> La conversion sera sauvegardée pour les prochaines lectures.
+      </p>
+    `;
+
+    dialogOverlay.appendChild(dialogBox);
+    document.body.appendChild(dialogOverlay);
+
+    // Gestionnaires de clics
+    const btnWait = dialogBox.querySelector('#btn-wait-conversion');
+    const btnStream = dialogBox.querySelector('#btn-stream-conversion');
+    const btnCancel = dialogBox.querySelector('#btn-cancel-conversion');
+
+    // Effet hover
+    [btnWait, btnStream, btnCancel].filter(Boolean).forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        btn.style.transform = 'scale(1.02)';
+        if (btn === btnCancel) {
+          btn.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          btn.style.color = '#fff';
+        } else {
+          btn.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.3)';
+        }
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.transform = 'scale(1)';
+        if (btn === btnCancel) {
+          btn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          btn.style.color = '#aaa';
+        } else {
+          btn.style.boxShadow = 'none';
+        }
+      });
+    });
+
+    // Option 1: Attendre la conversion complète
+    btnWait.addEventListener('click', async () => {
+      dialogOverlay.remove();
+      this.isShowingConversionDialog = false;
+      await this.startPreConversion(moviePath, codecName, transcodeVideo);
+    });
+
+    // Option 2: Regarder pendant la conversion (streaming)
+    btnStream.addEventListener('click', () => {
+      const needsVideoTranscode = btnStream.dataset.transcodeVideo === 'true';
+      dialogOverlay.remove();
+      this.isShowingConversionDialog = false;
+      this.startStreamingConversion(moviePath, codecName, needsVideoTranscode);
+    });
+
+    // Option 3: Annuler - fermer la boîte de dialogue et le lecteur
+    btnCancel.addEventListener('click', () => {
+      dialogOverlay.remove();
+      this.isShowingConversionDialog = false;
+      this.close();
+    });
+  }
+
+  /**
+   * Démarre la pré-conversion complète avec affichage de progression
+   * @param {boolean} transcodeVideo - Si true, transcode aussi la vidéo (HEVC → H.264)
+   */
+  async startPreConversion(moviePath, codecName, transcodeVideo = false) {
+    // Réinitialiser les flags de transcodage car l'utilisateur a explicitement choisi la conversion
+    this.hasTriedTranscode = false;
+    this.isRetryingWithTranscode = false;
+
+    // Récupérer les pistes audio sélectionnées
+    const selectedTracks = this.selectedAudioTracksForConversion || [0];
+    const trackCount = selectedTracks.length;
+
+    // Afficher l'écran de progression
+    const progressOverlay = document.createElement('div');
+    progressOverlay.id = 'conversion-progress-overlay';
+    progressOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100001;
+    `;
+
+    const conversionType = transcodeVideo ? 'HEVC → H.264 + AAC' : `${codecName.toUpperCase()} → AAC`;
+    const trackInfo = trackCount > 1 ? `(${trackCount} pistes audio)` : '';
+    const conversionWarning = transcodeVideo
+      ? '<p style="color: #e67e22; font-size: 12px; margin-top: 10px;"><i class="fas fa-clock"></i> La conversion vidéo peut prendre plusieurs minutes</p>'
+      : '';
+
+    progressOverlay.innerHTML = `
+      <i class="fas fa-cog fa-spin" style="font-size: 60px; color: #3498db; margin-bottom: 20px;"></i>
+      <h2 style="color: white; margin: 0 0 10px 0;">Conversion en cours...</h2>
+      <p style="color: #aaa; margin: 0 0 25px 0;">
+        ${conversionType} ${trackInfo}
+      </p>
+      ${conversionWarning}
+      <div style="width: 300px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+        <div id="conversion-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); transition: width 0.3s;"></div>
+      </div>
+      <p id="conversion-progress-text" style="color: #888; margin-top: 15px; font-size: 14px;">0%</p>
+      <p style="color: #666; font-size: 12px; margin-top: 20px;">
+        <i class="fas fa-save"></i> La conversion sera sauvegardée pour les prochaines lectures
+      </p>
+    `;
+
+    this.container.appendChild(progressOverlay);
+
+    const progressBar = progressOverlay.querySelector('#conversion-progress-bar');
+    const progressText = progressOverlay.querySelector('#conversion-progress-text');
+
+    // Écouter les événements de progression
+    const removeProgressListener = window.electronAPI.onConversionProgress((data) => {
+      if (data.path === moviePath) {
+        progressBar.style.width = `${data.progress}%`;
+        progressText.textContent = `${data.progress}%`;
+
+        if (data.completed) {
+          progressText.textContent = 'Terminé !';
+        }
+      }
+    });
+
+    try {
+      // Lancer la pré-conversion (avec ou sans transcodage vidéo)
+      console.log('🎬 Lancement pré-conversion pour:', moviePath, 'transcodeVideo:', transcodeVideo, 'tracks:', selectedTracks);
+      const result = await window.electronAPI.preConvertAudio(moviePath, transcodeVideo, selectedTracks);
+      console.log('🎬 Résultat pré-conversion:', result);
+
+      // Nettoyer le listener
+      removeProgressListener();
+
+      if (result.success) {
+        progressOverlay.remove();
+
+        // Charger la vidéo convertie - utiliser directement le chemin du fichier converti
+        // au lieu de passer par le système de lookup qui peut échouer
+        const convertedFilePath = result.path;
+        const videoUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(convertedFilePath)}&audioTrack=0`;
+        console.log('🎬 Chargement vidéo convertie:', videoUrl);
+        console.log('📁 Fichier converti:', convertedFilePath);
+        this.video.src = videoUrl;
+
+        this.showAudioTranscodeNotification(codecName, true);
+
+        this.video.addEventListener('loadedmetadata', () => {
+          this.video.play().catch(err => console.warn('Lecture:', err));
+        }, { once: true });
+
+        // Gérer les erreurs de lecture du fichier converti
+        this.video.addEventListener('error', (e) => {
+          // Ignorer si fermeture ou dialogue en cours
+          if (this.isClosing || this.isShowingConversionDialog) {
+            console.log('Erreur fichier converti ignorée (fermeture ou dialogue en cours)');
+            return;
+          }
+          console.error('❌ Erreur lecture fichier converti:', e);
+          console.error('Fichier:', convertedFilePath);
+
+          // Vérifier si c'est un problème de codec vidéo
+          const videoCodec = this.detectedVideoTracks?.[0]?.codec_name || '';
+          const isHEVC = videoCodec.toLowerCase().includes('hevc') || videoCodec.toLowerCase().includes('h265');
+
+          if (isHEVC && !transcodeVideo) {
+            // Si c'est du HEVC et qu'on n'a transcodé que l'audio, proposer de transcoder aussi la vidéo
+            this.showErrorModal(
+              `Le fichier utilise le codec vidéo HEVC (H.265) qui n'est pas supporté.\n\n` +
+              `La conversion audio a réussi mais la vidéo doit aussi être convertie.\n\n` +
+              `Voulez-vous lancer une conversion complète (vidéo + audio) ?\n` +
+              `Cela peut prendre plusieurs minutes.`,
+              true // Afficher le bouton retry
+            );
+          } else {
+            this.showErrorModal(
+              'Le fichier converti ne peut pas être lu.\n\n' +
+              `Codec vidéo détecté: ${videoCodec || 'inconnu'}\n\n` +
+              'Utilisez VLC pour lire ce fichier.',
+              false
+            );
+          }
+        }, { once: true });
+      } else {
+        progressOverlay.remove();
+        console.error('❌ Pré-conversion échouée:', result.message);
+
+        // Afficher l'erreur sans fallback (évite les boucles)
+        this.showErrorModal(
+          `Impossible de convertir l'audio.\n\n` +
+          `${result.message || 'Erreur inconnue'}\n\n` +
+          `Le fichier utilise peut-être un codec vidéo (HEVC/H.265) non supporté.\n\n` +
+          `Utilisez VLC pour lire ce fichier.`,
+          false
+        );
+      }
+    } catch (error) {
+      removeProgressListener();
+      progressOverlay.remove();
+      console.error('❌ Exception pré-conversion:', error);
+
+      // Afficher l'erreur sans fallback
+      this.showErrorModal(
+        `Erreur lors de la conversion.\n\n` +
+        `${error.message || 'Erreur inconnue'}\n\n` +
+        `Utilisez VLC pour lire ce fichier.`,
+        false
+      );
+    }
+  }
+
+  /**
+   * Démarre la lecture avec conversion en streaming
+   * @param {boolean} transcodeVideo - Si true, transcode aussi la vidéo (HEVC → H.264)
+   */
+  startStreamingConversion(moviePath, codecName, transcodeVideo = false) {
+    // Afficher une notification de streaming progressif
+    const streamNotification = document.createElement('div');
+    streamNotification.id = 'streaming-conversion-notification';
+    streamNotification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(52, 152, 219, 0.95);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 100001;
+      font-size: 14px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    `;
+
+    const conversionType = transcodeVideo ? `${codecName} → H.264/AAC` : `${codecName.toUpperCase()} → AAC`;
+    streamNotification.innerHTML = `
+      <i class="fas fa-sync-alt" style="animation: spin 1s linear infinite;"></i>
+      <span>Conversion ${conversionType} en cours... La lecture démarrera sous peu.</span>
+    `;
+    document.body.appendChild(streamNotification);
+
+    const currentTime = this.video.currentTime;
+    const wasPlaying = !this.video.paused;
+
+    // Construire l'URL avec les paramètres appropriés
+    let transcodeUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(moviePath)}&audioTrack=0&transcode=true`;
+    if (transcodeVideo) {
+      transcodeUrl += '&transcodeVideo=true';
+    }
+
+    console.log(`🔄 Rechargement avec transcodage ${transcodeVideo ? 'vidéo+audio' : 'audio'} (streaming progressif)...`);
+    this.video.src = transcodeUrl;
+
+    // Indicateur de buffering pendant le streaming
+    let bufferingTimeout = null;
+    let playbackStarted = false;
+
+    const onWaiting = () => {
+      if (!playbackStarted) return;
+      console.log('⏳ Buffering pendant streaming...');
+      this.showBuffering();
+    };
+
+    const onPlaying = () => {
+      playbackStarted = true;
+      this.hideBuffering();
+      // Mettre à jour la notification
+      streamNotification.style.background = 'rgba(46, 204, 113, 0.95)';
+      streamNotification.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span>Lecture en cours - Conversion en arrière-plan</span>
+      `;
+      // Supprimer après 5 secondes
+      setTimeout(() => {
+        if (streamNotification.parentNode) {
+          streamNotification.style.transition = 'opacity 0.5s';
+          streamNotification.style.opacity = '0';
+          setTimeout(() => streamNotification.remove(), 500);
+        }
+      }, 5000);
+    };
+
+    const onCanPlay = () => {
+      console.log('✅ Streaming prêt pour lecture');
+      this.hideLoading();
+      if (wasPlaying || !playbackStarted) {
+        this.video.play().catch(err => console.warn('Reprise lecture:', err));
+      }
+    };
+
+    const onError = (e) => {
+      // Ignorer les erreurs si on est en train de fermer ou si un dialogue est affiché
+      if (this.isClosing || this.isShowingConversionDialog) {
+        console.log('Erreur streaming ignorée (fermeture ou dialogue en cours)');
+        return;
+      }
+      console.error('❌ Erreur streaming:', e);
+      if (streamNotification.parentNode) {
+        streamNotification.style.background = 'rgba(231, 76, 60, 0.95)';
+        streamNotification.innerHTML = `
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>Erreur de streaming - Essayez "Attendre la conversion"</span>
+        `;
+      }
+    };
+
+    this.video.addEventListener('waiting', onWaiting);
+    this.video.addEventListener('playing', onPlaying);
+    this.video.addEventListener('canplay', onCanPlay);
+    this.video.addEventListener('error', onError, { once: true });
+
+    this.video.addEventListener('loadedmetadata', () => {
+      console.log('📊 Métadonnées chargées - streaming');
+      if (currentTime > 0 && currentTime < this.video.duration) {
+        // Note: le seeking peut ne pas fonctionner pendant le streaming progressif
+        console.log('⚠️ Seeking désactivé pendant le streaming progressif');
+      }
+    }, { once: true });
+
+    // Nettoyer les listeners quand la vidéo change
+    const cleanup = () => {
+      this.video.removeEventListener('waiting', onWaiting);
+      this.video.removeEventListener('playing', onPlaying);
+      this.video.removeEventListener('canplay', onCanPlay);
+    };
+    this.video.addEventListener('emptied', cleanup, { once: true });
+  }
+
+  async loadMovieDetailsInBackground(movieId) {
+    // Charger les détails du film en arrière-plan
+    try {
+      const movieDetails = await window.electronAPI.getMediaDetails(movieId);
+      if (movieDetails.success && movieDetails.movie) {
+        const movie = movieDetails.movie;
+        const details = [];
+        if (movie.year) details.push(movie.year);
+        if (movie.duration) details.push(window.formatTime(movie.duration));
+        if (movie.genres && movie.genres.length > 0) {
+          const genres = Array.isArray(movie.genres) ? movie.genres : JSON.parse(movie.genres || '[]');
+          details.push(genres.join(', '));
+        }
+        this.elements.details.textContent = details.join(' • ');
+      }
+    } catch (error) {
+      console.warn('⚠️ Erreur lors du chargement des détails:', error);
+    }
+  }
   hasAudioTrack() {
     // Méthodes multiples pour détecter l'audio
     try {
@@ -1409,38 +2217,373 @@ class VideoPlayer {
     console.error('Erreur vidéo:', e);
     this.hideLoading();
     this.hideBuffering();
-    
+
     // Ne pas afficher d'alerte si le lecteur est en cours de fermeture
     if (this.isClosing) {
       console.log('Erreur vidéo ignorée (lecteur en cours de fermeture)');
       return;
     }
-    
+
     // Ne pas afficher d'alerte si la modal n'est pas active
     if (!this.modal.classList.contains('active')) {
       console.log('Erreur vidéo ignorée (modal inactive)');
       return;
     }
-    
+
+    // Ne pas traiter si on est en cours de retry avec transcodage
+    if (this.isRetryingWithTranscode) {
+      console.log('Erreur vidéo ignorée (retry transcodage en cours)');
+      return;
+    }
+
+    // Ne pas traiter si un dialogue de conversion est déjà affiché
+    if (this.isShowingConversionDialog) {
+      console.log('Erreur vidéo ignorée (dialogue de conversion affiché)');
+      return;
+    }
+
     let errorMessage = 'Erreur lors de la lecture de la vidéo';
+
     if (this.video.error) {
-      switch(this.video.error.code) {
+      const errorCode = this.video.error.code;
+      const errorMsg = this.video.error.message || '';
+
+      console.log(`Code erreur: ${errorCode}, Message: ${errorMsg}`);
+
+      switch(errorCode) {
         case 1:
           errorMessage = 'Lecture interrompue par l\'utilisateur';
-          break;
+          this.showErrorModal(errorMessage, false);
+          return;
+
         case 2:
-          errorMessage = 'Erreur réseau lors du chargement';
-          break;
+          errorMessage = 'Erreur réseau lors du chargement.\n\nVérifiez que le fichier existe toujours sur votre disque.';
+          this.showErrorModal(errorMessage, false);
+          return;
+
         case 3:
-          errorMessage = 'Erreur de décodage de la vidéo';
-          break;
         case 4:
-          errorMessage = 'Format vidéo non supporté';
-          break;
+          // Erreur de décodage ou format non supporté
+          // Au lieu de transcoder automatiquement, afficher le menu de conversion
+
+          // Éviter les boucles si on a déjà essayé
+          if (this.hasTriedTranscode) {
+            console.log('⚠️ Conversion déjà tentée, affichage erreur finale');
+            this.showErrorModal(
+              'Format non supporté.\n\nLe fichier utilise un codec incompatible.\n\nUtilisez VLC ou un lecteur externe.',
+              false
+            );
+            return;
+          }
+
+          // Identifier le codec problématique
+          const videoCodec = this.detectedVideoTracks?.[0]?.codec_name || '';
+          const audioCodec = this.detectedAudioTracks?.[0]?.codec_name || '';
+          const isHEVC = videoCodec.toLowerCase().includes('hevc') || videoCodec.toLowerCase().includes('h265');
+
+          console.log(`⚠️ Erreur lecture - Vidéo: ${videoCodec}, Audio: ${audioCodec}, HEVC: ${isHEVC}`);
+
+          // Si on a le chemin original, proposer la conversion
+          if (this.originalMoviePath) {
+            // Déterminer le type de conversion nécessaire
+            if (isHEVC) {
+              // HEVC a échoué → proposer conversion vidéo
+              console.log('📋 HEVC non supporté sur ce système - affichage menu conversion');
+              this.needsVideoTranscode = true;
+              this.showLanguageSelectionDialog(this.originalMoviePath, videoCodec.toUpperCase(), true);
+            } else if (audioCodec) {
+              // Problème audio probable
+              console.log('📋 Codec audio problématique - affichage menu conversion');
+              this.showLanguageSelectionDialog(this.originalMoviePath, audioCodec.toUpperCase(), false);
+            } else {
+              // Codec inconnu
+              this.showErrorModal(
+                'Format non supporté.\n\nLe fichier utilise un codec incompatible.',
+                false
+              );
+            }
+            return;
+          }
+
+          this.showErrorModal(
+            'Format vidéo non supporté.\n\nLe fichier utilise peut-être un codec incompatible.',
+            false
+          );
+          return;
+
+        default:
+          errorMessage = `Erreur de lecture (code ${errorCode}).\n\n${errorMsg || 'Veuillez réessayer.'}`;
       }
     }
-    
-    alert(errorMessage);
+
+    this.showErrorModal(errorMessage, false);
+  }
+
+  /**
+   * Affiche une modal d'erreur plus détaillée
+   */
+  showErrorModal(message, showRetry = false) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'video-error-modal';
+    errorDiv.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      color: white;
+      padding: 30px;
+      border-radius: 12px;
+      z-index: 10002;
+      max-width: 450px;
+      text-align: center;
+      border: 1px solid #ff6b6b;
+    `;
+
+    errorDiv.innerHTML = `
+      <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
+      <div style="font-size: 14px; line-height: 1.5; white-space: pre-line; margin-bottom: 20px; text-align: left;">${message}</div>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        ${showRetry ? `<button class="retry-btn" style="
+          background: #4CAF50;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        ">Réessayer avec transcodage</button>` : ''}
+        <button class="open-external-btn" style="
+          background: #FF9800;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        ">Ouvrir avec lecteur externe</button>
+        <button class="close-error-btn" style="
+          background: #666;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        ">Fermer</button>
+      </div>
+    `;
+
+    this.container.appendChild(errorDiv);
+
+    // Gestionnaire pour fermer
+    errorDiv.querySelector('.close-error-btn').addEventListener('click', () => {
+      errorDiv.remove();
+      this.close();
+    });
+
+    // Gestionnaire pour ouvrir avec lecteur externe
+    errorDiv.querySelector('.open-external-btn').addEventListener('click', async () => {
+      errorDiv.remove();
+      if (this.originalMoviePath && window.electronAPI && window.electronAPI.playMedia) {
+        try {
+          await window.electronAPI.playMedia(this.currentMovie?.id);
+          this.close();
+        } catch (err) {
+          console.error('Erreur ouverture externe:', err);
+          alert('Impossible d\'ouvrir le fichier avec le lecteur externe.');
+        }
+      } else if (this.originalMoviePath) {
+        // Fallback: copier le chemin
+        navigator.clipboard.writeText(this.originalMoviePath);
+        alert(`Chemin copié dans le presse-papier:\n${this.originalMoviePath}\n\nOuvrez ce fichier avec VLC.`);
+        this.close();
+      }
+    });
+
+    // Gestionnaire pour réessayer avec transcodage
+    if (showRetry) {
+      errorDiv.querySelector('.retry-btn').addEventListener('click', () => {
+        errorDiv.remove();
+        this.retryWithTranscode();
+      });
+    }
+  }
+
+  /**
+   * Réessaye la lecture avec transcodage audio activé
+   * Utilise la pré-conversion complète pour éviter les timeouts
+   */
+  async retryWithTranscode() {
+    if (!this.originalMoviePath) {
+      console.error('Pas de chemin original pour le transcodage');
+      return;
+    }
+
+    // Marquer le transcodage comme tenté pour éviter les boucles infinies
+    this.hasTriedTranscode = true;
+    this.isRetryingWithTranscode = true;
+
+    // Déterminer si on a besoin de transcoder la vidéo (HEVC)
+    const needsVideoTranscode = this.needsVideoTranscode || false;
+    const audioCodecName = this.detectedAudioTracks?.[0]?.codec_name || 'audio';
+    const videoCodecName = this.detectedVideoTracks?.[0]?.codec_name || '';
+
+    const codecInfo = needsVideoTranscode
+      ? `${videoCodecName.toUpperCase()} (vidéo) + ${audioCodecName.toUpperCase()}`
+      : audioCodecName.toUpperCase();
+
+    console.log('🔄 Nouvelle tentative avec transcodage:', needsVideoTranscode ? 'vidéo + audio' : 'audio seulement');
+
+    // Utiliser la pré-conversion complète au lieu du streaming
+    // Cela évite les timeouts et sauvegarde la conversion pour les prochaines lectures
+    await this.startPreConversion(this.originalMoviePath, codecInfo, needsVideoTranscode);
+
+    this.isRetryingWithTranscode = false;
+    return;
+
+    // --- Code de streaming commenté (gardé pour référence) ---
+    /*
+    this.showLoading();
+    const notification = this.showTranscodeProgress();
+
+    const transcodeUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(this.originalMoviePath)}&audioTrack=0&transcode=true`;
+    this.video.src = transcodeUrl;
+
+    const onSuccess = () => {
+      this.isRetryingWithTranscode = false;
+      this.hideLoading();
+      if (notification) notification.remove();
+      console.log('✅ Lecture après transcodage réussie');
+      this.play();
+    };
+    */
+  }
+
+  /**
+   * Ancienne méthode de retry avec streaming (gardée pour compatibilité)
+   */
+  async retryWithTranscodeStreaming() {
+    if (!this.originalMoviePath) {
+      console.error('Pas de chemin original pour le transcodage');
+      return;
+    }
+
+    this.hasTriedTranscode = true;
+    this.isRetryingWithTranscode = true;
+
+    console.log('🔄 Nouvelle tentative avec transcodage audio (streaming)...');
+
+    this.showLoading();
+    const notification = this.showTranscodeProgress();
+
+    const transcodeUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(this.originalMoviePath)}&audioTrack=0&transcode=true`;
+    this.video.src = transcodeUrl;
+
+    const onSuccess = () => {
+      this.isRetryingWithTranscode = false;
+      this.hideLoading();
+      if (notification) notification.remove();
+      console.log('✅ Lecture après transcodage réussie');
+      this.play();
+    };
+
+    const onError = async (e) => {
+      this.isRetryingWithTranscode = false;
+      this.hideLoading();
+      if (notification) notification.remove();
+
+      // Ignorer si fermeture ou dialogue en cours
+      if (this.isClosing || this.isShowingConversionDialog) {
+        console.log('Erreur après transcodage ignorée (fermeture ou dialogue en cours)');
+        return;
+      }
+      console.error('❌ Erreur après transcodage:', e);
+
+      // Essayer de récupérer plus d'infos sur l'erreur
+      let errorDetail = 'Erreur inconnue';
+
+      if (this.video.error) {
+        errorDetail = `Code ${this.video.error.code}: ${this.video.error.message || 'Pas de détail'}`;
+      }
+
+      // Vérifier si c'est un problème de codec vidéo
+      let videoCodecInfo = '';
+      if (window.electronAPI && window.electronAPI.getVideoInfo) {
+        try {
+          const info = await window.electronAPI.getVideoInfo(this.originalMoviePath);
+          if (info.success && info.videoTracks && info.videoTracks[0]) {
+            const vCodec = info.videoTracks[0].codec_name;
+            videoCodecInfo = `\nCodec vidéo: ${vCodec}`;
+
+            if (vCodec && (vCodec.includes('hevc') || vCodec.includes('h265') || vCodec.includes('265'))) {
+              errorDetail = 'Le codec vidéo HEVC (H.265) n\'est pas supporté par ce navigateur.';
+            }
+          }
+        } catch (err) {
+          console.warn('Impossible de récupérer info vidéo:', err);
+        }
+      }
+
+      this.showErrorModal(
+        `Échec de la lecture.\n\n${errorDetail}${videoCodecInfo}\n\n` +
+        'Solutions :\n' +
+        '• Utilisez VLC ou un autre lecteur externe\n' +
+        '• Convertissez le fichier en H.264/AAC',
+        false
+      );
+    };
+
+    this.video.addEventListener('loadedmetadata', onSuccess, { once: true });
+    this.video.addEventListener('canplay', onSuccess, { once: true });
+    this.video.addEventListener('error', onError, { once: true });
+
+    // Timeout de sécurité (5 minutes max pour le transcodage audio)
+    setTimeout(() => {
+      if (notification && notification.parentNode) {
+        notification.remove();
+        this.hideLoading();
+        this.showErrorModal(
+          'Le transcodage prend trop de temps.\n\n' +
+          'Le fichier est peut-etre trop volumineux ou corrompu.\n\n' +
+          'Utilisez VLC pour lire ce fichier.',
+          false
+        );
+      }
+    }, 300000);
+  }
+
+  /**
+   * Affiche un indicateur de progression du transcodage
+   */
+  showTranscodeProgress() {
+    const div = document.createElement('div');
+    div.className = 'transcode-progress';
+    div.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 30px;
+      border-radius: 12px;
+      z-index: 10003;
+      text-align: center;
+      min-width: 300px;
+    `;
+    div.innerHTML = `
+      <div style="font-size: 40px; margin-bottom: 15px;">
+        <i class="fas fa-cog fa-spin"></i>
+      </div>
+      <div style="font-size: 16px; margin-bottom: 10px;">Transcodage audio en cours...</div>
+      <div style="font-size: 12px; color: #aaa;">
+        Conversion AC3/DTS vers AAC<br>
+        Cela peut prendre quelques minutes
+      </div>
+    `;
+    this.container.appendChild(div);
+    return div;
   }
   
   // Utilitaires

@@ -159,13 +159,6 @@ async function setupImageThumbnailWithGeneration(img, mediaId, thumbnailName) {
   }
 }
 
-// Ancienne fonction pour compatibilité (deprecated)
-window.handleImageError = function(img, defaultSrc = window.DEFAULT_THUMBNAIL) {
-  img.onerror = () => {
-    img.src = defaultSrc;
-    img.onerror = null;
-  };
-};
 
 // Mise à jour de l'affichage des étoiles
 window.updateStarsDisplay = function(container, rating) {
@@ -243,156 +236,19 @@ window.addEventListener('DOMContentLoaded', () => {
   // Attacher l'événement au bouton
   const liveBtn = document.getElementById('rackoon-live-btn');
   if (liveBtn) {
-    liveBtn.addEventListener('click', toggleRackoonLive);
+    liveBtn.addEventListener('click', window.toggleRackoonLive);
   }
 });
 
 // Fonction pour basculer le mode Rackoon Live
-function toggleRackoonLive() {
+window.toggleRackoonLive = function() {
   const body = document.body;
   const isActive = body.classList.toggle('rackoon-live');
 
   // Sauvegarder la préférence
   localStorage.setItem('rackoonLiveMode', isActive);
 
-  // Animations GSAP fluides et modernes
-  if (typeof gsap !== 'undefined') {
-    // Animation de la page entière avec effet de morphing
-    gsap.to(body, {
-      duration: 0.8,
-      ease: 'power3.inOut',
-      onStart: () => {
-        body.style.transition = 'background 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
-      }
-    });
-
-    // Animer toutes les cartes de médias avec un effet de vague
-    const mediaCards = document.querySelectorAll('.media-card');
-    if (mediaCards.length > 0) {
-      gsap.from(mediaCards, {
-        duration: 0.6,
-        scale: 0.95,
-        opacity: 0.8,
-        y: 20,
-        stagger: {
-          amount: 0.4,
-          from: 'start',
-          ease: 'power2.out'
-        },
-        ease: 'back.out(1.2)',
-        clearProps: 'all'
-      });
-    }
-
-    // Animer les sections de catégories
-    const categorySections = document.querySelectorAll('.category-section');
-    if (categorySections.length > 0) {
-      gsap.from(categorySections, {
-        duration: 0.7,
-        opacity: 0,
-        y: 30,
-        stagger: 0.1,
-        ease: 'power3.out',
-        clearProps: 'all'
-      });
-    }
-
-    // Effet de brillance liquide sur le bouton
-    const liveBtn = document.getElementById('rackoon-live-btn');
-    if (liveBtn) {
-      gsap.to(liveBtn, {
-        duration: 0.4,
-        scale: 1.05,
-        ease: 'elastic.out(1, 0.5)',
-        yoyo: true,
-        repeat: 1
-      });
-
-      // Effet de glow pulsant si activé
-      if (isActive) {
-        gsap.to(liveBtn, {
-          duration: 2,
-          boxShadow: '0 0 20px rgba(74, 158, 255, 0.6), 0 0 40px rgba(74, 158, 255, 0.3)',
-          repeat: -1,
-          yoyo: true,
-          ease: 'sine.inOut'
-        });
-      } else {
-        gsap.killTweensOf(liveBtn);
-        gsap.to(liveBtn, { duration: 0.3, boxShadow: 'none' });
-      }
-    }
-
-    // Effet de particules liquides
-    createLiquidParticles(isActive);
-  }
-
   // Message de confirmation
   const message = isActive ? 'Mode Rackoon Live activé 🔴' : 'Mode normal activé ⚪';
   console.log(message);
-}
-
-// Créer un effet de particules liquides lors du changement de thème
-function createLiquidParticles(isActive) {
-  if (!isActive) return; // Particules uniquement lors de l'activation
-
-  const colors = ['#4A9EFF', '#64B5F6', '#90CAF9'];
-  const particlesContainer = document.createElement('div');
-  particlesContainer.className = 'liquid-particles';
-  particlesContainer.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    z-index: 9999;
-  `;
-  document.body.appendChild(particlesContainer);
-
-  // Créer 20 particules
-  for (let i = 0; i < 20; i++) {
-    const particle = document.createElement('div');
-    particle.style.cssText = `
-      position: absolute;
-      width: ${Math.random() * 6 + 2}px;
-      height: ${Math.random() * 6 + 2}px;
-      background: ${colors[Math.floor(Math.random() * colors.length)]};
-      border-radius: 50%;
-      filter: blur(2px);
-      opacity: 0;
-      box-shadow: 0 0 10px currentColor;
-    `;
-
-    const startX = Math.random() * window.innerWidth;
-    const startY = Math.random() * window.innerHeight;
-
-    particle.style.left = startX + 'px';
-    particle.style.top = startY + 'px';
-
-    particlesContainer.appendChild(particle);
-
-    // Animer chaque particule
-    gsap.to(particle, {
-      duration: Math.random() * 2 + 1,
-      x: (Math.random() - 0.5) * 200,
-      y: (Math.random() - 0.5) * 200,
-      opacity: 1,
-      scale: Math.random() * 2 + 1,
-      ease: 'power2.out',
-      onComplete: () => {
-        gsap.to(particle, {
-          duration: 0.5,
-          opacity: 0,
-          scale: 0,
-          ease: 'power2.in'
-        });
-      }
-    });
-  }
-
-  // Nettoyer après l'animation
-  setTimeout(() => {
-    particlesContainer.remove();
-  }, 3500);
-}
+};

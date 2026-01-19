@@ -287,23 +287,35 @@
   opacity: 0.8;
 }
 
-/* Bouton de fermeture */
-.close-btn {
-  position: absolute;
+/* Bouton de fermeture - positionné dans le modal (pas le container) */
+.video-player-modal > .close-btn {
+  position: fixed;
   top: 20px;
   right: 20px;
-  background: rgba(0, 0, 0, 0.6);
-  border: none;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   color: white;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 20px;
-  transition: background 0.2s ease, transform 0.1s ease;
+  font-size: 24px;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 10001;
+  pointer-events: auto;
+}
+
+.video-player-modal > .close-btn:hover {
+  background: rgba(231, 76, 60, 0.9);
+  border-color: rgba(231, 76, 60, 1);
+  transform: scale(1.1);
+}
+
+.video-player-modal > .close-btn:active {
+  transform: scale(0.95);
 }
 
 .close-btn:hover {

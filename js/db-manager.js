@@ -450,7 +450,7 @@ class JSONDatabase {
     return { success: true, media };
   }
 
-  // Mettre à jour un média existant
+  // Mettre à jour un média existant (par path)
   async updateMedia(mediaData) {
     if (!this.data.config) await this.load();
 
@@ -492,6 +492,53 @@ class JSONDatabase {
       await this.saveUniqueMediasImmediate();
     }
 
+    return { success: true, media: targetArray[existingIndex] };
+  }
+
+  // Mettre à jour un média par son ID
+  async updateMediaById(mediaId, updates) {
+    if (!this.data.config) await this.load();
+
+    // Chercher dans les médias uniques
+    let existingIndex = this.data.uniqueMedias.findIndex(m => m.id === mediaId);
+    let isEpisode = false;
+
+    if (existingIndex === -1) {
+      // Chercher dans les épisodes
+      existingIndex = this.data.seriesEpisodes.findIndex(m => m.id === mediaId);
+      isEpisode = true;
+
+      if (existingIndex === -1) {
+        return { success: false, message: 'Média non trouvé pour mise à jour' };
+      }
+    }
+
+    // Déterminer le tableau cible
+    const targetArray = isEpisode ? this.data.seriesEpisodes : this.data.uniqueMedias;
+    const existingMedia = targetArray[existingIndex];
+
+    // Mettre à jour le média en conservant l'ID, le path et la date d'ajout
+    targetArray[existingIndex] = {
+      ...existingMedia,
+      ...updates,
+      id: existingMedia.id,
+      path: existingMedia.path,
+      dateAdded: existingMedia.dateAdded
+    };
+
+    // Sauvegarder le fichier approprié immédiatement
+    if (isEpisode) {
+      await this.saveSeriesEpisodesImmediate();
+
+      // Si l'épisode a un seriesId, mettre à jour la saison par défaut
+      if (updates.seriesId) {
+        await this.addEpisodeToDefaultSeason(updates.seriesId);
+      }
+    } else {
+      await this.saveUniqueMediasImmediate();
+    }
+
+    console.log(`✅ Média mis à jour par ID: ${targetArray[existingIndex].title}`);
     return { success: true, media: targetArray[existingIndex] };
   }
 

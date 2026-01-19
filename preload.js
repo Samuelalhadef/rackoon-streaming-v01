@@ -30,6 +30,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVideoInfo: (filePath) => ipcRenderer.invoke('video:getInfo', filePath),
   extractSubtitle: (videoPath, trackIndex) => ipcRenderer.invoke('video:extractSubtitle', videoPath, trackIndex),
   readSubtitleFile: (subtitlePath) => ipcRenderer.invoke('video:readSubtitleFile', subtitlePath),
+  checkConvertedAudio: (videoPath, transcodeVideo) => ipcRenderer.invoke('video:checkConvertedAudio', videoPath, transcodeVideo),
+  preConvertAudio: (videoPath, transcodeVideo, audioTracks) => ipcRenderer.invoke('video:preConvertAudio', videoPath, transcodeVideo, audioTracks),
+  onConversionProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('video:conversionProgress', handler);
+    return () => ipcRenderer.removeListener('video:conversionProgress', handler);
+  },
   
   // APIs temporaires pour éviter les erreurs
   getAllCategories: () => Promise.resolve({ success: true, categories: [] }),
@@ -67,6 +74,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   joinWatchParty: (code) => ipcRenderer.invoke('watchparty:join', code),
   leaveWatchParty: (sessionId) => ipcRenderer.invoke('watchparty:leave', sessionId),
   getWatchPartyInfo: (sessionId) => ipcRenderer.invoke('watchparty:getSessionInfo', sessionId),
+
+  // APIs Ngrok (partage en ligne)
+  startNgrok: () => ipcRenderer.invoke('ngrok:start'),
+  stopNgrok: () => ipcRenderer.invoke('ngrok:stop'),
+  getNgrokUrl: () => ipcRenderer.invoke('ngrok:getUrl'),
+  getShareLink: (sessionCode) => ipcRenderer.invoke('ngrok:getShareLink', sessionCode),
 
   // Événements
   onScanStatus: (callback) => {

@@ -2,6 +2,13 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
+
+// Activer le support H.265/HEVC natif via Windows Media Foundation
+// Permet de lire les fichiers H.265 sans transcodage
+app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport,VaapiVideoDecodeLinuxGL,VaapiVideoEncoder');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
 const { glob } = require('glob');
 const { execSync, exec, spawn } = require('child_process');
 const os = require('os');
@@ -10,6 +17,7 @@ const https = require('https');
 const http = require('http');
 const { Server } = require('socket.io');
 const WatchPartyManager = require('./js/watch-party-manager');
+const ngrok = require('@ngrok/ngrok');
 
 // Gestionnaires d'erreurs globaux pour détecter les crashs silencieux
 process.on('uncaughtException', (error) => {
@@ -104,10 +112,166 @@ let db;
 let httpServer;
 let io;
 let watchPartyManager;
+let ngrokUrl = null; // URL publique ngrok pour le partage
 let DATA_DIR; // Dossier data dans userData
 let localVideoServer; // Serveur HTTP local pour les vidéos locales
 const LOCAL_VIDEO_PORT = 3002; // Port pour le serveur local
 const remuxCache = new Map(); // Cache des fichiers remuxés (path+track -> tempFilePath)
+
+// Système de pré-transcodage en arrière-plan
+const preparedMediaCache = new Map(); // Cache: chemin original -> chemin MP4 préparé
+const transcodeQueue = []; // File d'attente des fichiers à transcoder
+let isTranscoding = false; // Flag pour éviter les transcodages simultanés
+
+// Codecs audio non supportés par les navigateurs
+const UNSUPPORTED_AUDIO = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
+
+// Vérifie si un fichier a besoin d'être pré-transcodé
+async function checkNeedsTranscode(filePath) {
+  if (!FFPROBE_PATH) return { needs: false };
+
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== '.mkv') return { needs: false };
+
+  return new Promise((resolve) => {
+    const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -select_streams a:0 "${filePath}"`;
+    exec(command, { encoding: 'utf8' }, (error, stdout) => {
+      if (error) return resolve({ needs: false });
+      try {
+        const data = JSON.parse(stdout);
+        const audioStream = data.streams?.[0];
+        if (audioStream) {
+          const codec = (audioStream.codec_name || '').toLowerCase();
+          const needs = UNSUPPORTED_AUDIO.some(c => codec.includes(c));
+          resolve({ needs, codec });
+        } else {
+          resolve({ needs: false });
+        }
+      } catch (e) {
+        resolve({ needs: false });
+      }
+    });
+  });
+}
+
+// Ajoute un fichier à la file d'attente de pré-transcodage
+function queueForTranscode(filePath) {
+  // Vérifier si déjà en cache ou en file d'attente
+  if (preparedMediaCache.has(filePath)) return;
+  if (transcodeQueue.includes(filePath)) return;
+
+  transcodeQueue.push(filePath);
+  console.log(`📋 Ajouté à la file de transcodage: ${path.basename(filePath)} (${transcodeQueue.length} en attente)`);
+
+  // Démarrer le traitement si pas déjà en cours
+  processTranscodeQueue();
+}
+
+// Traite la file d'attente de transcodage
+async function processTranscodeQueue() {
+  if (isTranscoding || transcodeQueue.length === 0) return;
+
+  isTranscoding = true;
+  const filePath = transcodeQueue.shift();
+
+  try {
+    // Vérifier si vraiment besoin de transcoder
+    const check = await checkNeedsTranscode(filePath);
+    if (!check.needs) {
+      console.log(`⏭️ Pas besoin de transcoder: ${path.basename(filePath)}`);
+      isTranscoding = false;
+      processTranscodeQueue();
+      return;
+    }
+
+    console.log(`🔄 Pré-transcodage en cours: ${path.basename(filePath)} (audio: ${check.codec})`);
+
+    // Notifier le front-end
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('transcode:progress', {
+        file: path.basename(filePath),
+        status: 'processing',
+        remaining: transcodeQueue.length
+      });
+    }
+
+    // Créer le fichier MP4
+    const tempDir = path.join(app.getPath('temp'), 'rackoon-prepared');
+    fs.ensureDirSync(tempDir);
+    const mp4Path = path.join(tempDir, `${path.basename(filePath, path.extname(filePath))}_prepared.mp4`);
+
+    // Si le fichier existe déjà, l'utiliser
+    if (fs.existsSync(mp4Path)) {
+      console.log(`✅ Fichier préparé existant trouvé: ${path.basename(mp4Path)}`);
+      preparedMediaCache.set(filePath, mp4Path);
+      isTranscoding = false;
+      processTranscodeQueue();
+      return;
+    }
+
+    // Lancer FFmpeg pour remux + transcode audio
+    const ffmpegArgs = [
+      '-y',
+      '-i', filePath,
+      '-map', '0:v:0',
+      '-map', '0:a:0',
+      '-c:v', 'copy',         // Copier vidéo (pas de réencodage)
+      '-c:a', 'aac',          // Transcoder audio en AAC
+      '-b:a', '192k',
+      '-ac', '2',
+      '-movflags', '+faststart',
+      mp4Path
+    ];
+
+    const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
+
+    ffmpeg.stderr.on('data', (data) => {
+      const line = data.toString();
+      // Extraire la progression
+      const timeMatch = line.match(/time=(\d+:\d+:\d+)/);
+      if (timeMatch && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('transcode:progress', {
+          file: path.basename(filePath),
+          status: 'processing',
+          time: timeMatch[1],
+          remaining: transcodeQueue.length
+        });
+      }
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0 && fs.existsSync(mp4Path)) {
+        const size = Math.round(fs.statSync(mp4Path).size / 1024 / 1024);
+        console.log(`✅ Pré-transcodage terminé: ${path.basename(mp4Path)} (${size}MB)`);
+        preparedMediaCache.set(filePath, mp4Path);
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('transcode:progress', {
+            file: path.basename(filePath),
+            status: 'done',
+            remaining: transcodeQueue.length
+          });
+        }
+      } else {
+        console.error(`❌ Erreur pré-transcodage: ${path.basename(filePath)}`);
+      }
+
+      isTranscoding = false;
+      processTranscodeQueue(); // Traiter le suivant
+    });
+
+    ffmpeg.on('error', (err) => {
+      console.error('❌ Erreur FFmpeg:', err);
+      isTranscoding = false;
+      processTranscodeQueue();
+    });
+
+  } catch (err) {
+    console.error('Erreur processTranscodeQueue:', err);
+    isTranscoding = false;
+    processTranscodeQueue();
+  }
+}
 
 // Créer la fenêtre principale
 function createWindow() {
@@ -344,7 +508,7 @@ function startHTTPServer() {
     httpServer = http.createServer((req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
 
-      // Route pour streamer la vidéo (Watch Party)
+      // Route pour streamer la vidéo (Watch Party) avec transcodage pour compatibilité mobile
       if (url.pathname.startsWith('/video/')) {
         const sessionCode = url.pathname.split('/')[2];
 
@@ -370,40 +534,60 @@ function startHTTPServer() {
           return;
         }
 
-        const stat = fs.statSync(videoPath);
-        const fileSize = stat.size;
-        const range = req.headers.range;
+        console.log('📺 Streaming Watch Party avec transcodage:', path.basename(videoPath));
 
-        // Support des range requests pour le seeking
-        if (range) {
-          const parts = range.replace(/bytes=/, "").split("-");
-          const start = parseInt(parts[0], 10);
-          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-          const chunksize = (end - start) + 1;
-          const file = fs.createReadStream(videoPath, { start, end });
+        // Transcodage en temps réel avec FFmpeg pour compatibilité navigateur/mobile
+        // H.264 (video) + AAC (audio) = compatible partout
+        const ffmpegArgs = [
+          '-i', videoPath,
+          '-c:v', 'libx264',        // Codec vidéo H.264 (universel)
+          '-preset', 'ultrafast',   // Encodage rapide pour streaming temps réel
+          '-tune', 'zerolatency',   // Latence minimale
+          '-crf', '23',             // Qualité (18-28, plus bas = meilleure qualité)
+          '-c:a', 'aac',            // Codec audio AAC (universel)
+          '-b:a', '192k',           // Bitrate audio
+          '-ac', '2',               // Stéréo (compatible mobile)
+          '-movflags', 'frag_keyframe+empty_moov+faststart', // Streaming progressif
+          '-f', 'mp4',              // Format MP4
+          '-'                       // Sortie vers stdout
+        ];
 
-          const head = {
-            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-            'Accept-Ranges': 'bytes',
-            'Content-Length': chunksize,
-            'Content-Type': 'video/mp4',
-            'Access-Control-Allow-Origin': '*'
-          };
+        const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
 
-          res.writeHead(206, head);
-          file.pipe(res);
-        } else {
-          // Streaming complet
-          const head = {
-            'Content-Length': fileSize,
-            'Content-Type': 'video/mp4',
-            'Accept-Ranges': 'bytes',
-            'Access-Control-Allow-Origin': '*'
-          };
+        res.writeHead(200, {
+          'Content-Type': 'video/mp4',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        });
 
-          res.writeHead(200, head);
-          fs.createReadStream(videoPath).pipe(res);
-        }
+        ffmpeg.stdout.pipe(res);
+
+        ffmpeg.stderr.on('data', (data) => {
+          // Log FFmpeg progress (optionnel, peut être commenté)
+          // console.log('FFmpeg:', data.toString());
+        });
+
+        ffmpeg.on('error', (err) => {
+          console.error('❌ Erreur FFmpeg streaming:', err.message);
+          if (!res.headersSent) {
+            res.writeHead(500);
+            res.end('Erreur de transcodage');
+          }
+        });
+
+        ffmpeg.on('close', (code) => {
+          if (code !== 0 && code !== 255) {
+            console.log(`⚠️ FFmpeg terminé avec code: ${code}`);
+          }
+        });
+
+        // Arrêter FFmpeg si le client se déconnecte
+        req.on('close', () => {
+          ffmpeg.kill('SIGKILL');
+        });
+
+        return;
       }
       // Route pour servir les thumbnails
       else if (url.pathname.startsWith('/thumbnails/')) {
@@ -428,6 +612,60 @@ function startHTTPServer() {
           'Access-Control-Allow-Origin': '*'
         });
         res.end(img);
+      }
+      // Route pour servir les images TMDB
+      else if (url.pathname.startsWith('/tmdb-images/')) {
+        const imageName = url.pathname.split('/tmdb-images/')[1];
+        const imagePath = path.join(DATA_DIR, 'tmdb-images', imageName);
+
+        // Vérifier que le fichier existe
+        if (!fs.existsSync(imagePath)) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('TMDB image not found');
+          return;
+        }
+
+        // Servir l'image
+        const stat = fs.statSync(imagePath);
+        const img = fs.readFileSync(imagePath);
+
+        // Déterminer le type MIME
+        const ext = path.extname(imagePath).toLowerCase();
+        const mimeTypes = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.webp': 'image/webp'
+        };
+        const contentType = mimeTypes[ext] || 'image/jpeg';
+
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': stat.size,
+          'Cache-Control': 'public, max-age=86400', // Cache 24h
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(img);
+      }
+      // Route pour la page Watch Party (lecteur web)
+      else if (url.pathname.startsWith('/watch/')) {
+        const sessionCode = url.pathname.split('/')[2];
+
+        // Lire et servir la page HTML
+        const watchHtmlPath = path.join(__dirname, 'views', 'watch.html');
+
+        if (!fs.existsSync(watchHtmlPath)) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Page Watch Party non trouvée');
+          return;
+        }
+
+        const html = fs.readFileSync(watchHtmlPath, 'utf-8');
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(html);
       }
       else {
         // Route par défaut
@@ -483,6 +721,66 @@ function startWatchPartyServer() {
     console.log('✅ Watch Party initialisé');
     resolve(true);
   });
+}
+
+// Variable pour stocker le listener ngrok
+let ngrokListener = null;
+
+// Fonction pour démarrer ngrok et créer un tunnel public
+async function startNgrokTunnel() {
+  try {
+    // Arrêter un tunnel existant
+    if (ngrokListener) {
+      try {
+        await ngrokListener.close();
+      } catch (e) {
+        // Ignorer les erreurs de fermeture
+      }
+      ngrokListener = null;
+      ngrokUrl = null;
+    }
+
+    console.log('🌐 Démarrage du tunnel ngrok sur le port 3001...');
+
+    // Démarrer le tunnel ngrok avec le nouveau package @ngrok/ngrok
+    ngrokListener = await ngrok.forward({
+      addr: 3001,
+      authtoken_from_env: false,
+      authtoken: '34W5DZF9aEoPLb1T43dJkLEF0dK_3Ut4CCBA81YCc8dbnenDe'
+    });
+
+    ngrokUrl = ngrokListener.url();
+    console.log('✅ Tunnel ngrok actif:', ngrokUrl);
+    return { success: true, url: ngrokUrl };
+  } catch (error) {
+    console.error('❌ Erreur ngrok:', error.message);
+
+    // Message d'erreur plus explicite
+    let errorMessage = error.message;
+    if (error.message.includes('authtoken')) {
+      errorMessage = 'Ngrok nécessite une authentification. Veuillez configurer votre authtoken ngrok.';
+    } else if (error.message.includes('connect')) {
+      errorMessage = 'Impossible de se connecter à ngrok. Vérifiez votre connexion internet.';
+    }
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Fonction pour arrêter ngrok
+async function stopNgrokTunnel() {
+  try {
+    if (ngrokListener) {
+      await ngrokListener.close();
+      ngrokListener = null;
+      ngrokUrl = null;
+      console.log('🔌 Tunnel ngrok fermé');
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erreur arrêt ngrok:', error.message);
+    return { success: false, error: error.message };
+  }
 }
 
 // Configuration des gestionnaires de messages IPC avec stockage JSON
@@ -671,6 +969,11 @@ function setupIPCHandlers() {
           if (result.success) {
             addedCount++;
             console.log(`✅ Ajouté: ${fileName}`);
+
+            // Pré-transcoder si c'est un MKV
+            if (fileExtension === '.mkv') {
+              queueForTranscode(filePath);
+            }
           }
           
           // Mettre à jour le statut
@@ -754,10 +1057,10 @@ function setupIPCHandlers() {
     }
   });
 
-  // Mettre à jour un film
+  // Mettre à jour un film par ID
   ipcMain.handle('medias:update', async (event, mediaId, updates) => {
     try {
-      const result = await db.updateMedia(mediaId, updates);
+      const result = await db.updateMediaById(mediaId, updates);
       if (result.success) {
         console.log(`✅ Film mis à jour: ${result.media.title}`);
         return result;
@@ -1046,6 +1349,12 @@ function setupIPCHandlers() {
 
         if (result.success) {
           console.log(`💾 Nouveau média créé: ${mediaData.title} (catégorie: ${mediaData.category})`);
+
+          // Pré-transcoder si c'est un MKV avec audio non compatible
+          if (path.extname(fileData.filePath).toLowerCase() === '.mkv') {
+            queueForTranscode(fileData.filePath);
+          }
+
           return { ...result, movieId: mediaData.id };
         }
 
@@ -1673,6 +1982,374 @@ function setupIPCHandlers() {
     }
   });
 
+  // Fonction pour vérifier si un fichier MP4 est valide avec FFprobe
+  // Retourne { valid: boolean, videoCodec: string, audioCodec: string }
+  async function isValidMP4(filePath) {
+    if (!FFPROBE_PATH || !fs.existsSync(filePath)) return { valid: false };
+
+    return new Promise((resolve) => {
+      const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams "${filePath}"`;
+      exec(command, { timeout: 10000 }, (error, stdout) => {
+        if (error) {
+          console.log('⚠️ FFprobe erreur pour:', path.basename(filePath));
+          resolve({ valid: false });
+          return;
+        }
+        try {
+          const data = JSON.parse(stdout);
+          const videoStream = data.streams && data.streams.find(s => s.codec_type === 'video');
+          const audioStream = data.streams && data.streams.find(s => s.codec_type === 'audio');
+
+          const videoCodec = videoStream ? videoStream.codec_name : null;
+          const audioCodec = audioStream ? audioStream.codec_name : null;
+
+          console.log(`📊 Fichier converti - Vidéo: ${videoCodec || 'non détecté'}, Audio: ${audioCodec || 'non détecté'}`);
+
+          // Codecs vidéo compatibles avec les navigateurs (H.264/AVC)
+          const validVideoCodecs = ['h264', 'avc1', 'avc', 'mpeg4'];
+          // Codecs vidéo qui nécessitent absolument un transcodage
+          const unsupportedVideoCodecs = ['hevc', 'h265', 'vp9', 'av1'];
+          // Codecs audio compatibles avec les navigateurs
+          const validAudioCodecs = ['aac', 'mp3', 'opus', 'vorbis', 'flac'];
+          // Codecs audio qui nécessitent un transcodage
+          const unsupportedAudioCodecs = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
+
+          // Vérifier le codec vidéo
+          let isVideoValid = true; // Par défaut, on accepte si pas de vidéo détectée
+          let needsVideoTranscode = false;
+          if (videoCodec) {
+            const vcLower = videoCodec.toLowerCase();
+            // Vérifier si le codec vidéo est dans la liste des non supportés
+            needsVideoTranscode = unsupportedVideoCodecs.some(c => vcLower.includes(c));
+            // Le codec est valide s'il est dans la liste des supportés ou s'il n'est pas dans les non supportés
+            isVideoValid = validVideoCodecs.some(c => vcLower.includes(c)) || !needsVideoTranscode;
+
+            if (needsVideoTranscode) {
+              console.log(`⚠️ Codec vidéo non compatible: ${videoCodec} (nécessite transcodage vers H.264)`);
+            } else {
+              console.log(`✅ Codec vidéo compatible: ${videoCodec}`);
+            }
+          }
+
+          // Vérifier le codec audio - être plus permissif
+          let isAudioValid = true; // Par défaut, on accepte si pas d'audio détecté
+          let needsAudioTranscode = false;
+          if (audioCodec) {
+            const acLower = audioCodec.toLowerCase();
+            // Vérifier si le codec audio nécessite un transcodage
+            needsAudioTranscode = unsupportedAudioCodecs.some(c => acLower.includes(c));
+            // L'audio est valide si c'est un codec supporté ou si ce n'est pas un codec non supporté connu
+            isAudioValid = validAudioCodecs.some(c => acLower.includes(c)) || !needsAudioTranscode;
+
+            if (needsAudioTranscode) {
+              console.log(`⚠️ Codec audio non compatible: ${audioCodec} (nécessite transcodage vers AAC)`);
+            } else {
+              console.log(`✅ Codec audio compatible: ${audioCodec}`);
+            }
+          }
+
+          // Le fichier est valide si le vidéo et l'audio sont compatibles
+          // On est permissif: si on ne détecte pas de problème connu, on considère comme valide
+          const isValid = isVideoValid && isAudioValid;
+
+          resolve({
+            valid: isValid,
+            videoCodec,
+            audioCodec,
+            needsVideoTranscode,
+            needsAudioTranscode
+          });
+        } catch (e) {
+          console.error('Erreur parsing FFprobe:', e);
+          // En cas d'erreur de parsing, on essaie quand même de lire le fichier
+          resolve({ valid: true, parseError: true });
+        }
+      });
+    });
+  }
+
+  // Vérifier si une conversion audio (ou vidéo+audio) existe déjà
+  ipcMain.handle('video:checkConvertedAudio', async (event, videoPath, transcodeVideo = false) => {
+    try {
+      const convertedDir = path.join(DATA_DIR, 'converted-audio');
+      let basename = path.basename(videoPath, path.extname(videoPath));
+      basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+
+      console.log('🔍 Recherche conversion pour:', basename);
+
+      // Vérifier d'abord la version demandée
+      const requestedSuffix = transcodeVideo ? '_h264_aac' : '_aac';
+      const requestedPath = path.join(convertedDir, `${basename}${requestedSuffix}.mp4`);
+
+      if (fs.existsSync(requestedPath)) {
+        const stat = fs.statSync(requestedPath);
+        // Vérifier que le fichier a une taille raisonnable (au moins 1MB)
+        if (stat.size < 1024 * 1024) {
+          console.log('⚠️ Fichier converti trop petit, probablement corrompu:', requestedPath, `(${stat.size} bytes)`);
+          try { fs.unlinkSync(requestedPath); } catch (e) {}
+          return { exists: false, wasCorrupted: true };
+        }
+
+        // Vérifier que le fichier est valide avec FFprobe
+        const validation = await isValidMP4(requestedPath);
+        if (!validation.valid) {
+          console.log('⚠️ Fichier converti invalide (FFprobe):', requestedPath);
+          // Si le codec vidéo nécessite un transcodage (HEVC, etc.)
+          if (validation.needsVideoTranscode) {
+            console.log(`🔄 Le fichier a un codec vidéo non compatible: ${validation.videoCodec}`);
+            try { fs.unlinkSync(requestedPath); } catch (e) {}
+            return { exists: false, wasCorrupted: true, needsVideoTranscode: true, videoCodec: validation.videoCodec };
+          }
+          // Si le codec audio nécessite un transcodage
+          if (validation.needsAudioTranscode) {
+            console.log(`🔄 Le fichier a un codec audio non compatible: ${validation.audioCodec}`);
+            try { fs.unlinkSync(requestedPath); } catch (e) {}
+            return { exists: false, wasCorrupted: true, needsAudioTranscode: true, audioCodec: validation.audioCodec };
+          }
+          // Autre erreur - supprimer et refaire la conversion
+          try { fs.unlinkSync(requestedPath); } catch (e) {}
+          return { exists: false, wasCorrupted: true };
+        }
+
+        console.log('✅ Conversion valide trouvée:', requestedPath, `(${Math.round(stat.size / 1024 / 1024)}MB)`);
+        return {
+          exists: true,
+          path: requestedPath,
+          size: stat.size,
+          transcodeVideo: transcodeVideo
+        };
+      }
+
+      // Si on demande audio seulement mais qu'une version vidéo+audio existe, l'utiliser
+      if (!transcodeVideo) {
+        const videoTranscodePath = path.join(convertedDir, `${basename}_h264_aac.mp4`);
+        if (fs.existsSync(videoTranscodePath)) {
+          const stat = fs.statSync(videoTranscodePath);
+          console.log('✅ Version vidéo+audio trouvée:', videoTranscodePath);
+          return {
+            exists: true,
+            path: videoTranscodePath,
+            size: stat.size,
+            transcodeVideo: true
+          };
+        }
+      }
+
+      console.log('❌ Aucune conversion trouvée pour:', basename);
+      return { exists: false };
+    } catch (error) {
+      console.error('❌ Erreur vérification conversion:', error);
+      return { exists: false, error: error.message };
+    }
+  });
+
+  // Pré-convertir l'audio d'une vidéo (conversion complète avant lecture)
+  // Supporte aussi le transcodage vidéo si transcodeVideo est true
+  // audioTracks est un tableau d'indices des pistes audio à inclure (ex: [0, 2])
+  ipcMain.handle('video:preConvertAudio', async (event, videoPath, transcodeVideo = false, audioTracks = [0]) => {
+    try {
+      console.log('🎬 Demande de pré-conversion pour:', videoPath);
+      console.log('🎵 Pistes audio à convertir:', audioTracks);
+
+      if (!FFMPEG_PATH) {
+        console.error('❌ FFMPEG_PATH non défini');
+        return { success: false, message: 'FFmpeg non configuré' };
+      }
+
+      if (!checkFfmpegInstalled()) {
+        console.error('❌ FFmpeg non accessible:', FFMPEG_PATH);
+        return { success: false, message: 'FFmpeg non disponible' };
+      }
+
+      if (!fs.existsSync(videoPath)) {
+        console.error('❌ Fichier introuvable:', videoPath);
+        return { success: false, message: 'Fichier vidéo introuvable' };
+      }
+
+      // Créer le dossier de conversions permanentes
+      const convertedDir = path.join(DATA_DIR, 'converted-audio');
+      console.log('📁 Dossier de conversion:', convertedDir);
+      fs.ensureDirSync(convertedDir);
+
+      // Nettoyer le basename pour éviter les caractères spéciaux
+      let basename = path.basename(videoPath, path.extname(videoPath));
+      // Remplacer les caractères problématiques
+      basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+      // Suffixe différent si on transcode aussi la vidéo ou si plusieurs pistes audio
+      const trackSuffix = audioTracks.length > 1 ? `_${audioTracks.length}audio` : '';
+      const suffix = transcodeVideo ? `_h264_aac${trackSuffix}` : `_aac${trackSuffix}`;
+      const convertedPath = path.join(convertedDir, `${basename}${suffix}.mp4`);
+      console.log('📁 Fichier de sortie:', convertedPath);
+
+      // Vérifier si déjà converti
+      if (fs.existsSync(convertedPath)) {
+        console.log(`✅ Conversion existante trouvée: ${convertedPath}`);
+        return {
+          success: true,
+          path: convertedPath,
+          cached: true
+        };
+      }
+
+      console.log(`🎵 Démarrage pré-conversion: ${path.basename(videoPath)} (${audioTracks.length} piste(s) audio)`);
+
+      // Obtenir la durée totale pour calculer la progression
+      const durationCommand = `"${FFPROBE_PATH}" -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`;
+
+      let totalDuration = 0;
+      try {
+        const durationResult = await new Promise((resolve, reject) => {
+          exec(durationCommand, (error, stdout) => {
+            if (error) reject(error);
+            else resolve(parseFloat(stdout.trim()) || 0);
+          });
+        });
+        totalDuration = durationResult;
+      } catch (e) {
+        console.warn('Impossible de déterminer la durée:', e.message);
+      }
+
+      return new Promise((resolve) => {
+        // Construire les arguments de mapping audio pour chaque piste sélectionnée
+        const audioMappings = [];
+        audioTracks.forEach(trackIndex => {
+          audioMappings.push('-map', `0:a:${trackIndex}`);
+        });
+
+        // Arguments FFmpeg selon le type de conversion nécessaire
+        let ffmpegArgs;
+
+        if (transcodeVideo) {
+          // Transcodage complet: HEVC → H.264 + audio → AAC
+          console.log('🎬 Mode transcodage vidéo + audio (HEVC → H.264)');
+          ffmpegArgs = [
+            '-y',
+            '-i', videoPath,
+            '-map', '0:v:0',
+            ...audioMappings,         // Mapper toutes les pistes audio sélectionnées
+            '-c:v', 'libx264',        // Transcoder vidéo en H.264
+            '-preset', 'fast',        // Preset rapide pour équilibre vitesse/qualité
+            '-crf', '23',             // Qualité visuelle (18-28, plus bas = meilleur)
+            '-c:a', 'aac',            // Convertir toutes les pistes audio en AAC
+            '-b:a', '192k',
+            '-movflags', '+faststart',
+            convertedPath
+          ];
+        } else {
+          // Transcodage audio seulement: copie vidéo + audio → AAC
+          console.log('🎵 Mode transcodage audio seulement');
+          ffmpegArgs = [
+            '-y',
+            '-i', videoPath,
+            '-map', '0:v:0',
+            ...audioMappings,         // Mapper toutes les pistes audio sélectionnées
+            '-c:v', 'copy',           // Copier vidéo sans transcodage
+            '-c:a', 'aac',            // Convertir toutes les pistes audio en AAC
+            '-b:a', '192k',
+            '-movflags', '+faststart',
+            convertedPath
+          ];
+        }
+
+        console.log(`🔧 FFmpeg commande: "${FFMPEG_PATH}" ${ffmpegArgs.map(a => `"${a}"`).join(' ')}`);
+
+        const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
+        let lastProgress = 0;
+        let ffmpegStderr = ''; // Capturer toutes les erreurs
+
+        ffmpeg.stderr.on('data', (data) => {
+          const line = data.toString();
+          ffmpegStderr += line; // Accumuler stderr
+
+          // Logger les erreurs importantes
+          if (line.includes('Error') || line.includes('error') || line.includes('Invalid')) {
+            console.error('FFmpeg stderr:', line.trim());
+          }
+
+          // Extraire le temps actuel pour calculer la progression
+          const timeMatch = line.match(/time=(\d+):(\d+):(\d+)\.(\d+)/);
+          if (timeMatch && totalDuration > 0) {
+            const hours = parseInt(timeMatch[1]);
+            const minutes = parseInt(timeMatch[2]);
+            const seconds = parseInt(timeMatch[3]);
+            const currentTime = hours * 3600 + minutes * 60 + seconds;
+            const progress = Math.min(99, Math.round((currentTime / totalDuration) * 100));
+
+            if (progress > lastProgress) {
+              lastProgress = progress;
+              // Envoyer la progression au renderer
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('video:conversionProgress', {
+                  path: videoPath,
+                  progress: progress,
+                  currentTime: currentTime,
+                  totalDuration: totalDuration
+                });
+              }
+            }
+          }
+        });
+
+        ffmpeg.on('close', (code) => {
+          console.log(`FFmpeg terminé avec code: ${code}`);
+
+          if (code === 0 && fs.existsSync(convertedPath)) {
+            const stat = fs.statSync(convertedPath);
+            console.log(`✅ Pré-conversion terminée: ${convertedPath} (${Math.round(stat.size / 1024 / 1024)}MB)`);
+
+            // Envoyer 100% de progression
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('video:conversionProgress', {
+                path: videoPath,
+                progress: 100,
+                completed: true
+              });
+            }
+
+            // Ajouter au cache pour le serveur de streaming
+            const cacheKey = `${videoPath}|transcode`;
+            remuxCache.set(cacheKey, convertedPath);
+
+            resolve({
+              success: true,
+              path: convertedPath,
+              size: stat.size
+            });
+          } else {
+            console.error(`❌ Erreur pré-conversion (code: ${code})`);
+            console.error('FFmpeg stderr complet:', ffmpegStderr.slice(-1000));
+            // Supprimer le fichier incomplet
+            if (fs.existsSync(convertedPath)) {
+              try { fs.unlinkSync(convertedPath); } catch (e) {}
+            }
+
+            // Extraire le message d'erreur
+            const errorMatch = ffmpegStderr.match(/Error[^\n]*/i) || ffmpegStderr.match(/Invalid[^\n]*/i);
+            const errorDetail = errorMatch ? errorMatch[0] : `Code de sortie: ${code}`;
+
+            resolve({
+              success: false,
+              message: `Erreur FFmpeg: ${errorDetail}`
+            });
+          }
+        });
+
+        ffmpeg.on('error', (err) => {
+          console.error('❌ Erreur spawn FFmpeg:', err);
+          console.error('Chemin FFmpeg:', FFMPEG_PATH);
+          resolve({
+            success: false,
+            message: `Impossible de lancer FFmpeg: ${err.message}`
+          });
+        });
+      });
+
+    } catch (error) {
+      console.error('❌ Erreur pré-conversion:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
   // Handlers pour la gestion des séries
 
   // Créer une nouvelle série
@@ -1944,6 +2621,90 @@ function setupIPCHandlers() {
       return { success: false, message: error.message };
     }
   });
+
+  // ========================================
+  // NGROK IPC HANDLERS
+  // ========================================
+
+  // Démarrer le tunnel ngrok
+  ipcMain.handle('ngrok:start', async () => {
+    try {
+      // S'assurer que le serveur HTTP est démarré
+      await startHTTPServer();
+      await startWatchPartyServer();
+
+      const result = await startNgrokTunnel();
+      return result;
+    } catch (error) {
+      console.error('❌ Erreur démarrage ngrok:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Arrêter le tunnel ngrok
+  ipcMain.handle('ngrok:stop', async () => {
+    return await stopNgrokTunnel();
+  });
+
+  // Obtenir l'URL ngrok actuelle
+  ipcMain.handle('ngrok:getUrl', async () => {
+    return { success: true, url: ngrokUrl };
+  });
+
+  // Générer le lien de partage complet
+  ipcMain.handle('ngrok:getShareLink', async (event, sessionCode) => {
+    if (!ngrokUrl) {
+      return { success: false, error: 'Tunnel ngrok non actif' };
+    }
+    const shareLink = `${ngrokUrl}/watch/${sessionCode}`;
+    return { success: true, url: shareLink };
+  });
+}
+
+// Fonction pour obtenir le Content-Type correct selon l'extension du fichier
+function getVideoContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.mp4': 'video/mp4',
+    '.m4v': 'video/mp4',
+    '.mkv': 'video/x-matroska',
+    '.webm': 'video/webm',
+    '.avi': 'video/x-msvideo',
+    '.mov': 'video/quicktime',
+    '.wmv': 'video/x-ms-wmv',
+    '.flv': 'video/x-flv',
+    '.mpg': 'video/mpeg',
+    '.mpeg': 'video/mpeg',
+    '.3gp': 'video/3gpp',
+    '.ts': 'video/mp2t'
+  };
+  return mimeTypes[ext] || 'video/mp4';
+}
+
+// Fonction pour vérifier si un fichier vidéo a un codec audio non supporté
+async function checkAudioCodec(videoPath) {
+  return new Promise((resolve) => {
+    const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -select_streams a:0 "${videoPath}"`;
+    exec(command, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        resolve({ needsTranscode: false, codec: 'unknown' });
+        return;
+      }
+      try {
+        const data = JSON.parse(stdout);
+        const audioStream = data.streams?.[0];
+        if (audioStream) {
+          const codec = (audioStream.codec_name || '').toLowerCase();
+          const needsTranscode = UNSUPPORTED_AUDIO.some(c => codec.includes(c));
+          resolve({ needsTranscode, codec, channels: audioStream.channels });
+        } else {
+          resolve({ needsTranscode: false, codec: 'none' });
+        }
+      } catch (e) {
+        resolve({ needsTranscode: false, codec: 'unknown' });
+      }
+    });
+  });
 }
 
 // Fonction pour démarrer le serveur vidéo local (pour changement de piste audio)
@@ -1959,16 +2720,346 @@ function startLocalVideoServer() {
     if (url.pathname === '/local-video') {
       const videoPath = url.searchParams.get('path');
       const audioTrack = url.searchParams.get('audioTrack');
+      const transcode = url.searchParams.get('transcode') === 'true';
+      const transcodeVideo = url.searchParams.get('transcodeVideo') === 'true';
 
-      if (!videoPath || !fs.existsSync(videoPath)) {
+      console.log(`📥 Requête vidéo: ${path.basename(videoPath || 'undefined')}`);
+      console.log(`   - Chemin complet: ${videoPath}`);
+      console.log(`   - Transcode audio: ${transcode}, Transcode vidéo: ${transcodeVideo}, AudioTrack: ${audioTrack}`);
+
+      if (!videoPath) {
+        console.error('❌ Chemin vidéo manquant');
+        res.writeHead(400);
+        res.end('Chemin vidéo manquant');
+        return;
+      }
+
+      if (!fs.existsSync(videoPath)) {
+        console.error('❌ Fichier introuvable:', videoPath);
         res.writeHead(404);
-        res.end('Vidéo introuvable');
+        res.end('Vidéo introuvable: ' + videoPath);
         return;
       }
 
       const stat = fs.statSync(videoPath);
       const fileSize = stat.size;
       const range = req.headers.range;
+      const ext = path.extname(videoPath).toLowerCase();
+
+      // Si c'est un fichier MKV avec fichier pré-transcodé disponible
+      if (ext === '.mkv' && preparedMediaCache.has(videoPath)) {
+        const mp4Path = preparedMediaCache.get(videoPath);
+        if (fs.existsSync(mp4Path)) {
+          console.log(`✅ Utilisation du fichier pré-transcodé: ${path.basename(mp4Path)}`);
+
+          const mp4Stat = fs.statSync(mp4Path);
+          const mp4Size = mp4Stat.size;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : mp4Size - 1;
+            const chunksize = (end - start) + 1;
+            const file = fs.createReadStream(mp4Path, { start, end });
+
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${mp4Size}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunksize,
+              'Content-Type': 'video/mp4',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            file.pipe(res);
+          } else {
+            res.writeHead(200, {
+              'Content-Length': mp4Size,
+              'Content-Type': 'video/mp4',
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            fs.createReadStream(mp4Path).pipe(res);
+          }
+          return;
+        }
+      }
+
+      // Si transcodage audio demandé (codec non supporté comme AC3, DTS)
+      if (transcode && FFMPEG_PATH) {
+        const cacheKey = `${videoPath}|transcode`;
+        let basename = path.basename(videoPath, path.extname(videoPath));
+        basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+
+        // D'abord vérifier si une conversion permanente existe
+        const convertedDir = path.join(DATA_DIR, 'converted-audio');
+
+        // Vérifier d'abord la version avec vidéo transcodée (HEVC → H.264), puis audio seulement
+        const videoTranscodePath = path.join(convertedDir, `${basename}_h264_aac.mp4`);
+        const audioTranscodePath = path.join(convertedDir, `${basename}_aac.mp4`);
+        const permanentPath = fs.existsSync(videoTranscodePath) ? videoTranscodePath : audioTranscodePath;
+
+        if (fs.existsSync(permanentPath)) {
+          console.log(`🎵 Utilisation de la conversion permanente: ${path.basename(permanentPath)}`);
+          remuxCache.set(cacheKey, permanentPath); // Mettre en cache mémoire aussi
+
+          const permStat = fs.statSync(permanentPath);
+          const permSize = permStat.size;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : permSize - 1;
+            const chunksize = (end - start) + 1;
+            const file = fs.createReadStream(permanentPath, { start, end });
+
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${permSize}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunksize,
+              'Content-Type': 'video/mp4',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            file.pipe(res);
+          } else {
+            res.writeHead(200, {
+              'Content-Length': permSize,
+              'Content-Type': 'video/mp4',
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            fs.createReadStream(permanentPath).pipe(res);
+          }
+          return;
+        }
+
+        // Vérifier si le fichier transcodé existe déjà en cache mémoire
+        if (remuxCache.has(cacheKey) && fs.existsSync(remuxCache.get(cacheKey))) {
+          const tempPath = remuxCache.get(cacheKey);
+          console.log(`🎵 Utilisation du cache transcodé: ${path.basename(videoPath)}`);
+
+          // Servir le fichier transcodé avec support du seeking
+          const tempStat = fs.statSync(tempPath);
+          const tempSize = tempStat.size;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : tempSize - 1;
+            const chunksize = (end - start) + 1;
+            const file = fs.createReadStream(tempPath, { start, end });
+
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${tempSize}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunksize,
+              'Content-Type': 'video/mp4',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            file.pipe(res);
+          } else {
+            res.writeHead(200, {
+              'Content-Length': tempSize,
+              'Content-Type': 'video/mp4',
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*'
+            });
+
+            fs.createReadStream(tempPath).pipe(res);
+          }
+          return;
+        }
+
+        // Créer le dossier de conversions permanentes
+        fs.ensureDirSync(convertedDir);
+
+        // Utiliser le dossier permanent pour sauvegarder la conversion
+        const tempPath = transcodeVideo ? videoTranscodePath : audioTranscodePath;
+
+        const conversionType = transcodeVideo ? 'HEVC → H.264 + AAC' : 'audio → AAC';
+        console.log(`🎵 Transcodage ${conversionType} (streaming progressif): ${path.basename(videoPath)}`);
+        console.log(`📁 Fichier source: ${videoPath}`);
+        console.log(`📁 Fichier destination: ${tempPath}`);
+
+        // Pour le streaming progressif, on utilise un fichier temporaire différent
+        // car -movflags +faststart ne fonctionne qu'à la fin
+        const streamTempPath = tempPath + '.streaming.mp4';
+
+        // Construire les arguments FFmpeg selon le type de conversion
+        let ffmpegArgs;
+        if (transcodeVideo) {
+          // Transcodage vidéo + audio (HEVC → H.264)
+          ffmpegArgs = [
+            '-y',
+            '-i', videoPath,
+            '-map', '0:v:0',
+            '-map', '0:a:0',
+            '-c:v', 'libx264',
+            '-preset', 'fast',  // Preset rapide pour le streaming
+            '-crf', '23',
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-ac', '2',
+            '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+            streamTempPath
+          ];
+        } else {
+          // Transcodage audio seulement
+          ffmpegArgs = [
+            '-y',
+            '-i', videoPath,
+            '-map', '0:v:0',
+            '-map', '0:a:0',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-ac', '2',
+            '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+            streamTempPath
+          ];
+        }
+
+        console.log(`🔧 FFmpeg (streaming): ${ffmpegArgs.join(' ')}`);
+
+        const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
+        let ffmpegError = '';
+        let conversionStarted = false;
+        let streamingStarted = false;
+        let headerSent = false;
+
+        ffmpeg.stderr.on('data', (data) => {
+          ffmpegError += data.toString();
+          const line = data.toString();
+          if (line.includes('time=') || line.includes('Error')) {
+            console.log('FFmpeg:', line.trim());
+          }
+
+          // Dès que FFmpeg commence à écrire, on peut commencer à streamer
+          if (!streamingStarted && fs.existsSync(streamTempPath)) {
+            const currentSize = fs.statSync(streamTempPath).size;
+            // Seuil de données pour commencer le streaming
+            // Plus grand pour le transcodage vidéo car plus lent
+            const minBufferSize = transcodeVideo ? 5 * 1024 * 1024 : 1024 * 1024; // 5MB pour vidéo, 1MB pour audio
+            if (currentSize > minBufferSize) {
+              streamingStarted = true;
+              console.log(`🎬 Début du streaming progressif (${Math.round(currentSize / 1024 / 1024)}MB disponibles)`);
+
+              // Pour le streaming progressif, on stream le fichier au fur et à mesure
+              if (!headerSent) {
+                headerSent = true;
+                res.writeHead(200, {
+                  'Content-Type': 'video/mp4',
+                  'Accept-Ranges': 'none', // Pas de seeking pendant le streaming
+                  'Access-Control-Allow-Origin': '*',
+                  'Transfer-Encoding': 'chunked'
+                });
+
+                // Stream le fichier au fur et à mesure qu'il est écrit
+                let lastPosition = 0;
+                const streamInterval = setInterval(() => {
+                  if (!fs.existsSync(streamTempPath)) {
+                    clearInterval(streamInterval);
+                    return;
+                  }
+
+                  try {
+                    const currentStat = fs.statSync(streamTempPath);
+                    if (currentStat.size > lastPosition) {
+                      const chunk = Buffer.alloc(currentStat.size - lastPosition);
+                      const fd = fs.openSync(streamTempPath, 'r');
+                      fs.readSync(fd, chunk, 0, chunk.length, lastPosition);
+                      fs.closeSync(fd);
+                      res.write(chunk);
+                      lastPosition = currentStat.size;
+                    }
+                  } catch (e) {
+                    // Fichier peut être en cours d'écriture
+                  }
+                }, 500);
+
+                // Stocker l'interval pour le nettoyer plus tard
+                ffmpeg.streamInterval = streamInterval;
+              }
+            }
+          }
+        });
+
+        ffmpeg.on('close', (code) => {
+          // Nettoyer l'interval de streaming
+          if (ffmpeg.streamInterval) {
+            clearInterval(ffmpeg.streamInterval);
+          }
+
+          if (code === 0 && fs.existsSync(streamTempPath)) {
+            console.log(`✅ Transcodage streaming terminé`);
+
+            // Envoyer les dernières données et terminer
+            if (headerSent) {
+              try {
+                const finalStat = fs.statSync(streamTempPath);
+                const lastChunk = fs.readFileSync(streamTempPath);
+                // Les données ont déjà été envoyées progressivement
+                res.end();
+              } catch (e) {
+                res.end();
+              }
+
+              // Créer une version optimisée pour les prochaines lectures
+              const finalArgs = [
+                '-y',
+                '-i', streamTempPath,
+                '-c', 'copy',
+                '-movflags', '+faststart',
+                tempPath
+              ];
+
+              const finalFFmpeg = spawn(FFMPEG_PATH, finalArgs);
+              finalFFmpeg.on('close', (finalCode) => {
+                if (finalCode === 0) {
+                  console.log(`✅ Fichier optimisé créé: ${tempPath}`);
+                  remuxCache.set(cacheKey, tempPath);
+                  // Supprimer le fichier de streaming temporaire
+                  try { fs.unlinkSync(streamTempPath); } catch (e) {}
+                }
+              });
+            } else {
+              // Si le streaming n'avait pas encore commencé, servir le fichier normalement
+              const tempStat = fs.statSync(streamTempPath);
+              const tempSize = tempStat.size;
+
+              res.writeHead(200, {
+                'Content-Length': tempSize,
+                'Content-Type': 'video/mp4',
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*'
+              });
+
+              fs.createReadStream(streamTempPath).pipe(res);
+              remuxCache.set(cacheKey, streamTempPath);
+            }
+          } else {
+            console.error(`❌ Erreur transcodage (code: ${code})`);
+            console.error('FFmpeg stderr:', ffmpegError.slice(-500));
+
+            const errorMatch = ffmpegError.match(/Error[^\n]*/i);
+            const errorDetail = errorMatch ? errorMatch[0] : 'Erreur inconnue';
+
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end(`Erreur transcodage: ${errorDetail}`);
+          }
+        });
+
+        ffmpeg.on('error', (err) => {
+          console.error('❌ Erreur FFmpeg:', err);
+          res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end(`Erreur FFmpeg: ${err.message}`);
+        });
+
+        return;
+      }
 
       // Si une piste audio spécifique est demandée et FFmpeg est disponible
       // audioTrack doit être une chaîne non vide et différente de "0" (piste par défaut)
@@ -2085,6 +3176,8 @@ function startLocalVideoServer() {
         }
       } else {
         // Streaming normal sans changement de piste
+        const contentType = getVideoContentType(videoPath);
+
         if (range) {
           const parts = range.replace(/bytes=/, "").split("-");
           const start = parseInt(parts[0], 10);
@@ -2096,7 +3189,7 @@ function startLocalVideoServer() {
             'Content-Range': `bytes ${start}-${end}/${fileSize}`,
             'Accept-Ranges': 'bytes',
             'Content-Length': chunksize,
-            'Content-Type': 'video/mp4',
+            'Content-Type': contentType,
             'Access-Control-Allow-Origin': '*'
           });
 
@@ -2104,7 +3197,7 @@ function startLocalVideoServer() {
         } else {
           res.writeHead(200, {
             'Content-Length': fileSize,
-            'Content-Type': 'video/mp4',
+            'Content-Type': contentType,
             'Accept-Ranges': 'bytes',
             'Access-Control-Allow-Origin': '*'
           });
@@ -2181,6 +3274,7 @@ app.whenReady().then(async () => {
   try {
     fs.ensureDirSync(DATA_DIR);
     fs.ensureDirSync(path.join(DATA_DIR, 'thumbnails'));
+    fs.ensureDirSync(path.join(DATA_DIR, 'tmdb-images'));
   } catch (error) {
     console.error('❌ Erreur création dossiers data:', error);
   }

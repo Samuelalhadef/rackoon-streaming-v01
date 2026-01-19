@@ -69,7 +69,13 @@
       "Bash(if [ -f \"C:\\\\Users\\\\jamet\\\\OneDrive\\\\Documents\\\\GitHub\\\\rackoon-streaming-v01\\\\views\\\\dashboard.html.backup\" ])",
       "Bash(then sed -n '1195,1205p' \"C:\\\\Users\\\\jamet\\\\OneDrive\\\\Documents\\\\GitHub\\\\rackoon-streaming-v01\\\\views\\\\dashboard.html.backup\")",
       "Bash(else echo \"No backup file found\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "WebSearch",
+      "Bash(npx ngrok:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(npm show:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

@@ -33,7 +33,7 @@ class DashboardCategories {
     try {
       const result = await window.electronAPI.getAllMedias();
       if (result.success) {
-        this.allMovies = result.movies || [];
+        this.allMovies = result.medias || [];
         console.log('Films chargés:', this.allMovies.length);
       } else {
         this.allMovies = [];

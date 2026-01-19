@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rackoon Watch Party</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 15px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #333;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #4CAF50;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .session-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .session-code {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4CAF50;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    .main-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .video-title {
+      font-size: 1.3rem;
+      margin-bottom: 15px;
+      color: #fff;
+    }
+
+    .player-wrapper {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 */
+    }
+
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.9));
+      padding: 40px 20px 15px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .player-wrapper:hover .controls {
+      opacity: 1;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 5px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+
+    .progress-bar:hover {
+      height: 8px;
+    }
+
+    .progress-filled {
+      height: 100%;
+      background: #4CAF50;
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.1s;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .controls-left, .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .control-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .control-btn:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .play-btn {
+      font-size: 1.5rem;
+    }
+
+    .time-display {
+      color: #ccc;
+      font-size: 0.9rem;
+      font-family: monospace;
+    }
+
+    .volume-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .volume-slider {
+      width: 80px;
+      height: 4px;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.3);
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: #4CAF50;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    /* Chat */
+    .chat-container {
+      margin-top: 20px;
+      background: #1a1a1a;
+      border-radius: 12px;
+      overflow: hidden;
+      max-height: 300px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-header {
+      background: #252525;
+      padding: 12px 20px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      min-height: 150px;
+      max-height: 200px;
+    }
+
+    .chat-message {
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: #252525;
+      border-radius: 8px;
+    }
+
+    .chat-message.own {
+      background: rgba(76, 175, 80, 0.2);
+      margin-left: 20%;
+    }
+
+    .chat-message .sender {
+      color: #4CAF50;
+      font-size: 0.8rem;
+      margin-bottom: 3px;
+    }
+
+    .chat-message .text {
+      color: #fff;
+    }
+
+    .chat-message .time {
+      color: #666;
+      font-size: 0.7rem;
+      margin-top: 3px;
+    }
+
+    .chat-input-container {
+      display: flex;
+      padding: 10px;
+      gap: 10px;
+      background: #252525;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: #333;
+      border: none;
+      padding: 12px 15px;
+      border-radius: 25px;
+      color: #fff;
+      font-size: 0.95rem;
+    }
+
+    .chat-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+    }
+
+    .chat-send-btn {
+      background: #4CAF50;
+      border: none;
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: background 0.2s;
+    }
+
+    .chat-send-btn:hover {
+      background: #45a049;
+    }
+
+    /* Loading */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #333;
+      border-top-color: #4CAF50;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 15px;
+      color: #888;
+    }
+
+    /* Error */
+    .error-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+    }
+
+    .error-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
+
+    .error-title {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+
+    .error-message {
+      color: #888;
+      max-width: 400px;
+    }
+
+    /* Sync indicator */
+    .sync-indicator {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background: rgba(76, 175, 80, 0.9);
+      color: #fff;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      display: none;
+      animation: fadeInOut 2s forwards;
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateY(-10px); }
+      10% { opacity: 1; transform: translateY(0); }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Fullscreen */
+    .player-wrapper:fullscreen {
+      border-radius: 0;
+    }
+
+    .player-wrapper:fullscreen .video-container {
+      padding-top: 0;
+      height: 100vh;
+    }
+
+    .player-wrapper:fullscreen video {
+      position: static;
+      height: 100%;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header {
+        padding: 10px 15px;
+      }
+
+      .logo {
+        font-size: 1.2rem;
+      }
+
+      .main-container {
+        padding: 10px;
+      }
+
+      .video-title {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">R</div>
+      <span>Rackoon Watch Party</span>
+    </div>
+    <div class="session-info">
+      <span>Session:</span>
+      <span class="session-code" id="session-code">------</span>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <h1 class="video-title" id="video-title">Chargement...</h1>
+
+    <div class="player-wrapper" id="player-wrapper">
+      <div class="video-container">
+        <video id="video" playsinline>
+          Votre navigateur ne supporte pas la lecture vidéo.
+        </video>
+
+        <div class="loading-overlay" id="loading">
+          <div class="spinner"></div>
+          <div class="loading-text">Connexion à la Watch Party...</div>
+        </div>
+
+        <div class="controls" id="controls">
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-filled" id="progress-filled"></div>
+          </div>
+
+          <div class="controls-row">
+            <div class="controls-left">
+              <button class="control-btn play-btn" id="play-btn">▶</button>
+              <div class="volume-container">
+                <button class="control-btn" id="mute-btn">🔊</button>
+                <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.1" value="1">
+              </div>
+              <span class="time-display" id="time-display">0:00 / 0:00</span>
+            </div>
+
+            <div class="controls-right">
+              <button class="control-btn" id="fullscreen-btn">⛶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-container" id="error-container">
+      <div class="error-icon">😕</div>
+      <h2 class="error-title">Session introuvable</h2>
+      <p class="error-message" id="error-message">Cette Watch Party n'existe pas ou a expiré.</p>
+    </div>
+
+    <div class="chat-container" id="chat-container">
+      <div class="chat-header">
+        💬 Chat
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <!-- Messages will be added here -->
+      </div>
+      <div class="chat-input-container">
+        <input type="text" class="chat-input" id="chat-input" placeholder="Écrivez un message...">
+        <button class="chat-send-btn" id="chat-send-btn">➤</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="sync-indicator" id="sync-indicator">Synchronisé</div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // Get session code from URL
+    const pathParts = window.location.pathname.split('/');
+    const sessionCode = pathParts[pathParts.length - 1];
+
+    // Elements
+    const video = document.getElementById('video');
+    const playBtn = document.getElementById('play-btn');
+    const muteBtn = document.getElementById('mute-btn');
+    const volumeSlider = document.getElementById('volume-slider');
+    const progressBar = document.getElementById('progress-bar');
+    const progressFilled = document.getElementById('progress-filled');
+    const timeDisplay = document.getElementById('time-display');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const playerWrapper = document.getElementById('player-wrapper');
+    const loading = document.getElementById('loading');
+    const errorContainer = document.getElementById('error-container');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    const syncIndicator = document.getElementById('sync-indicator');
+    const videoTitle = document.getElementById('video-title');
+    const sessionCodeDisplay = document.getElementById('session-code');
+
+    // State
+    let socket = null;
+    let isRemoteAction = false;
+    let lastSyncTime = 0;
+
+    // Initialize
+    sessionCodeDisplay.textContent = sessionCode;
+
+    // Connect to Socket.io
+    function connect() {
+      const serverUrl = window.location.origin;
+      console.log('Connecting to:', serverUrl);
+
+      socket = io(serverUrl, {
+        timeout: 10000,
+        reconnection: true
+      });
+
+      socket.on('connect', () => {
+        console.log('Connected to server');
+        socket.emit('join-room', { code: sessionCode, role: 'guest' });
+      });
+
+      socket.on('joined-as-guest', (data) => {
+        console.log('Joined as guest:', data);
+        loading.style.display = 'none';
+
+        if (data.session && data.session.video) {
+          videoTitle.textContent = data.session.video.title || 'Watch Party';
+
+          // Set video source
+          const videoUrl = `${window.location.origin}/video/${sessionCode}`;
+          video.src = videoUrl;
+          video.load();
+        }
+      });
+
+      socket.on('room-error', (err) => {
+        console.error('Room error:', err);
+        loading.style.display = 'none';
+        playerWrapper.style.display = 'none';
+        document.getElementById('chat-container').style.display = 'none';
+        errorContainer.style.display = 'flex';
+        document.getElementById('error-message').textContent = err.message || 'Session introuvable';
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('Connection error:', err);
+        loading.querySelector('.loading-text').textContent = 'Erreur de connexion...';
+      });
+
+      // Playback sync events
+      socket.on('playback:play', (data) => {
+        console.log('Remote play:', data);
+        isRemoteAction = true;
+        if (Math.abs(video.currentTime - data.currentTime) > 1) {
+          video.currentTime = data.currentTime;
+        }
+        video.play();
+        showSyncIndicator('▶ Lecture');
+        setTimeout(() => isRemoteAction = false, 500);
+      });
+
+      socket.on('playback:pause', (data) => {
+        console.log('Remote pause:', data);
+        isRemoteAction = true;
+        video.pause();
+        video.currentTime = data.currentTime;
+        showSyncIndicator('⏸ Pause');
+        setTimeout(() => isRemoteAction = false, 500);
+      });
+
+      socket.on('playback:seek', (data) => {
+        console.log('Remote seek:', data);
+        isRemoteAction = true;
+        video.currentTime = data.currentTime;
+        showSyncIndicator('⏩ ' + formatTime(data.currentTime));
+        setTimeout(() => isRemoteAction = false, 500);
+      });
+
+      // Chat
+      socket.on('chat:message', (data) => {
+        addChatMessage(data.sender === 'host' ? 'Host' : 'Guest', data.message, data.timestamp, false);
+      });
+
+      socket.on('guest-joined', () => {
+        addSystemMessage('Un autre spectateur a rejoint');
+      });
+
+      socket.on('peer-disconnected', () => {
+        addSystemMessage('Le host s\'est déconnecté');
+      });
+    }
+
+    // Video controls
+    playBtn.addEventListener('click', togglePlay);
+    video.addEventListener('click', togglePlay);
+
+    function togglePlay() {
+      if (video.paused) {
+        video.play();
+      } else {
+        video.pause();
+      }
+    }
+
+    video.addEventListener('play', () => {
+      playBtn.textContent = '⏸';
+      if (!isRemoteAction && socket) {
+        socket.emit('playback:play', { currentTime: video.currentTime, timestamp: Date.now() });
+      }
+    });
+
+    video.addEventListener('pause', () => {
+      playBtn.textContent = '▶';
+      if (!isRemoteAction && socket) {
+        socket.emit('playback:pause', { currentTime: video.currentTime, timestamp: Date.now() });
+      }
+    });
+
+    video.addEventListener('seeked', () => {
+      if (!isRemoteAction && socket && Date.now() - lastSyncTime > 500) {
+        socket.emit('playback:seek', { currentTime: video.currentTime, timestamp: Date.now() });
+        lastSyncTime = Date.now();
+      }
+    });
+
+    video.addEventListener('timeupdate', () => {
+      const percent = (video.currentTime / video.duration) * 100;
+      progressFilled.style.width = percent + '%';
+      timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+    });
+
+    progressBar.addEventListener('click', (e) => {
+      const rect = progressBar.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      video.currentTime = percent * video.duration;
+    });
+
+    // Volume
+    muteBtn.addEventListener('click', () => {
+      video.muted = !video.muted;
+      muteBtn.textContent = video.muted ? '🔇' : '🔊';
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+      video.volume = e.target.value;
+      video.muted = false;
+      muteBtn.textContent = video.volume === 0 ? '🔇' : '🔊';
+    });
+
+    // Fullscreen
+    fullscreenBtn.addEventListener('click', () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        playerWrapper.requestFullscreen();
+      }
+    });
+
+    // Chat functions
+    chatSendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    function sendMessage() {
+      const message = chatInput.value.trim();
+      if (!message || !socket) return;
+
+      socket.emit('chat:message', {
+        sender: 'guest',
+        message: message,
+        timestamp: Date.now()
+      });
+
+      addChatMessage('Vous', message, Date.now(), true);
+      chatInput.value = '';
+    }
+
+    function addChatMessage(sender, message, timestamp, isOwn) {
+      const div = document.createElement('div');
+      div.className = 'chat-message' + (isOwn ? ' own' : '');
+
+      const time = new Date(timestamp).toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      div.innerHTML = `
+        <div class="sender">${escapeHtml(sender)}</div>
+        <div class="text">${escapeHtml(message)}</div>
+        <div class="time">${time}</div>
+      `;
+
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+      const div = document.createElement('div');
+      div.className = 'chat-message';
+      div.style.background = 'rgba(255,255,255,0.05)';
+      div.style.textAlign = 'center';
+      div.style.color = '#888';
+      div.style.fontSize = '0.85rem';
+      div.textContent = text;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Helpers
+    function formatTime(seconds) {
+      if (isNaN(seconds)) return '0:00';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      if (h > 0) {
+        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showSyncIndicator(text) {
+      syncIndicator.textContent = text;
+      syncIndicator.style.display = 'block';
+      syncIndicator.style.animation = 'none';
+      syncIndicator.offsetHeight; // Trigger reflow
+      syncIndicator.style.animation = 'fadeInOut 2s forwards';
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target === chatInput) return;
+
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          video.currentTime += 10;
+          break;
+        case 'ArrowLeft':
+          video.currentTime -= 10;
+          break;
+        case 'f':
+          fullscreenBtn.click();
+          break;
+        case 'm':
+          muteBtn.click();
+          break;
+      }
+    });
+
+    // Start connection
+    connect();
+  </script>
+</body>
+</html>

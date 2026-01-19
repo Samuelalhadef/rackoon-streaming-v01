@@ -30,30 +30,53 @@ class WatchPartyUI {
             <p style="margin-bottom: 15px;">Partagez ces informations avec votre ami :</p>
 
             <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-              <div style="margin-bottom: 10px;">
-                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">Code de session :</label>
-                <div class="watchparty-code-display">
-                  <span id="watchparty-code-text">------</span>
-                  <button class="copy-code-btn" id="copy-code-btn" title="Copier le code">
-                    <i class="fas fa-copy"></i>
-                  </button>
+              <!-- Section Lien de partage (prioritaire) -->
+              <div id="share-link-section" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <label style="display: block; font-size: 12px; color: #4CAF50; margin-bottom: 8px; font-weight: bold;">
+                  <i class="fas fa-link"></i> Lien de partage (Internet)
+                </label>
+                <div id="share-link-container" style="display: none;">
+                  <div class="watchparty-code-display" style="background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3);">
+                    <span id="watchparty-share-link" style="font-size: 12px; word-break: break-all;">---</span>
+                    <button class="copy-code-btn" id="copy-share-link-btn" title="Copier le lien">
+                      <i class="fas fa-copy"></i>
+                    </button>
+                  </div>
+                  <p style="font-size: 11px; color: #4CAF50; margin-top: 8px;">
+                    <i class="fas fa-check-circle"></i> Votre ami peut ouvrir ce lien dans son navigateur !
+                  </p>
                 </div>
+                <button id="generate-share-link-btn" class="watchparty-join-btn" style="width: 100%; margin-top: 5px;">
+                  <i class="fas fa-globe"></i> Générer un lien de partage
+                </button>
+                <div id="share-link-status" style="font-size: 11px; color: #888; margin-top: 8px; display: none;"></div>
               </div>
 
-              <div style="margin-bottom: 10px;">
-                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 5px;">IP Réseau Local (LAN) :</label>
-                <div class="watchparty-code-display">
-                  <span id="watchparty-ip-local" style="font-size: 14px;">---</span>
-                  <button class="copy-code-btn" id="copy-ip-local-btn" title="Copier l'IP locale">
-                    <i class="fas fa-copy"></i>
-                  </button>
+              <!-- Section LAN (alternative) -->
+              <div style="opacity: 0.7;">
+                <label style="display: block; font-size: 11px; color: #888; margin-bottom: 8px;">
+                  Alternative - Réseau local (LAN) :
+                </label>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                  <div style="flex: 1;">
+                    <div class="watchparty-code-display" style="font-size: 12px;">
+                      <span id="watchparty-code-text">------</span>
+                      <button class="copy-code-btn" id="copy-code-btn" title="Copier le code">
+                        <i class="fas fa-copy"></i>
+                      </button>
+                    </div>
+                    <span style="font-size: 10px; color: #666;">Code</span>
+                  </div>
+                  <div style="flex: 1;">
+                    <div class="watchparty-code-display" style="font-size: 12px;">
+                      <span id="watchparty-ip-local">---</span>
+                      <button class="copy-code-btn" id="copy-ip-local-btn" title="Copier l'IP">
+                        <i class="fas fa-copy"></i>
+                      </button>
+                    </div>
+                    <span style="font-size: 10px; color: #666;">IP locale</span>
+                  </div>
                 </div>
-              </div>
-
-              <div style="font-size: 11px; color: #666; margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">
-                <strong>Pour connexion Internet :</strong><br>
-                Configurez le port forwarding (port 3001) sur votre routeur puis partagez votre IP publique.
-                <a href="#" id="show-port-forwarding-help" style="color: #4CAF50; text-decoration: none;"> Aide →</a>
               </div>
             </div>
 
@@ -171,22 +194,41 @@ class WatchPartyUI {
     document.getElementById('copy-ip-local-btn')
       .addEventListener('click', () => this.copyIPLocal());
 
+    // Bouton générer lien de partage
+    document.getElementById('generate-share-link-btn')
+      .addEventListener('click', () => this.generateShareLink());
+
+    // Bouton copier lien de partage
+    document.getElementById('copy-share-link-btn')
+      .addEventListener('click', () => this.copyShareLink());
+
     // Mode de connexion
     document.getElementById('watchparty-connection-mode')
       .addEventListener('change', (e) => this.handleConnectionModeChange(e.target.value));
-
-    // Lien aide port forwarding
-    document.getElementById('show-port-forwarding-help')
-      .addEventListener('click', (e) => {
-        e.preventDefault();
-        this.showPortForwardingHelp();
-      });
   }
 
   async showCreateModal(videoInfo) {
     const modal = document.getElementById('watchparty-create-modal');
     const statusDiv = modal.querySelector('.watchparty-status');
     modal.classList.add('active');
+
+    // Nettoyer une session précédente si elle existe
+    if (this.currentSession) {
+      console.log('🧹 Nettoyage de la session précédente...');
+      await this.cleanup();
+    }
+
+    // Réinitialiser l'UI du lien de partage
+    const shareLinkBtn = document.getElementById('generate-share-link-btn');
+    const shareLinkContainer = document.getElementById('share-link-container');
+    const shareLinkStatus = document.getElementById('share-link-status');
+    if (shareLinkBtn) {
+      shareLinkBtn.style.display = 'block';
+      shareLinkBtn.disabled = false;
+      shareLinkBtn.innerHTML = '<i class="fas fa-globe"></i> Générer un lien de partage';
+    }
+    if (shareLinkContainer) shareLinkContainer.style.display = 'none';
+    if (shareLinkStatus) shareLinkStatus.style.display = 'none';
 
     statusDiv.innerHTML = `
       <i class="fas fa-spinner fa-spin"></i>
@@ -493,6 +535,71 @@ class WatchPartyUI {
     });
   }
 
+  async generateShareLink() {
+    const btn = document.getElementById('generate-share-link-btn');
+    const statusDiv = document.getElementById('share-link-status');
+    const linkContainer = document.getElementById('share-link-container');
+
+    // Afficher l'état de chargement
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion en cours...';
+    statusDiv.style.display = 'block';
+    statusDiv.style.color = '#888';
+    statusDiv.textContent = 'Démarrage du tunnel ngrok...';
+
+    try {
+      // Démarrer ngrok
+      const ngrokResult = await window.electronAPI.startNgrok();
+
+      if (!ngrokResult.success) {
+        throw new Error(ngrokResult.error || 'Échec du démarrage ngrok');
+      }
+
+      statusDiv.textContent = 'Génération du lien...';
+
+      // Obtenir le lien de partage
+      const code = this.currentSession?.code;
+      if (!code) {
+        throw new Error('Code de session non disponible');
+      }
+
+      const linkResult = await window.electronAPI.getShareLink(code);
+
+      if (!linkResult.success) {
+        throw new Error(linkResult.error || 'Échec de génération du lien');
+      }
+
+      // Afficher le lien
+      document.getElementById('watchparty-share-link').textContent = linkResult.url;
+      linkContainer.style.display = 'block';
+      btn.style.display = 'none';
+      statusDiv.style.display = 'none';
+
+      // Sauvegarder l'URL dans la session
+      this.currentSession.shareLink = linkResult.url;
+
+      console.log('✅ Lien de partage généré:', linkResult.url);
+
+    } catch (error) {
+      console.error('❌ Erreur génération lien:', error);
+      statusDiv.style.color = '#f44336';
+      statusDiv.textContent = error.message;
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-globe"></i> Réessayer';
+    }
+  }
+
+  copyShareLink() {
+    const link = document.getElementById('watchparty-share-link').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+      const btn = document.getElementById('copy-share-link-btn');
+      btn.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="fas fa-copy"></i>';
+      }, 2000);
+    });
+  }
+
   handleConnectionModeChange(mode) {
     console.log('🔄 Mode de connexion changé:', mode);
     const ipContainer = document.getElementById('ip-input-container');
@@ -510,58 +617,42 @@ class WatchPartyUI {
     }
   }
 
-  showPortForwardingHelp() {
-    const helpText = `
-═══════════════════════════════════════════════════════
-   CONFIGURATION PORT FORWARDING (Connexion Internet)
-═══════════════════════════════════════════════════════
-
-Pour permettre à votre ami de se connecter via Internet :
-
-1️⃣  PARE-FEU WINDOWS (Ordinateur Host)
-   • Ouvrez le Panneau de configuration
-   • Recherchez "Pare-feu Windows"
-   • Cliquez sur "Paramètres avancés"
-   • Règles de trafic entrant → Nouvelle règle
-   • Type : Port → TCP → Port 3001
-   • Action : Autoriser la connexion
-   • Nom : "Rackoon Watch Party"
-
-2️⃣  PORT FORWARDING (Routeur/Box)
-   • Connectez-vous à votre routeur (souvent 192.168.1.1)
-   • Trouvez la section "Port Forwarding" ou "NAT"
-   • Créez une nouvelle règle :
-     - Port externe : 3001
-     - Port interne : 3001
-     - IP locale : ${this.currentSession?.localIP || 'Votre IP locale'}
-     - Protocole : TCP
-
-3️⃣  TROUVER VOTRE IP PUBLIQUE
-   • Visitez : https://www.monip.org
-   • Ou tapez "quelle est mon ip" sur Google
-   • Partagez cette IP avec votre ami
-
-4️⃣  VOTRE AMI DOIT ENTRER
-   • Mode : Internet (IP publique)
-   • IP Host : Votre IP publique
-   • Code : ${this.currentSession?.code || 'Code de session'}
-
-⚠️  SÉCURITÉ
-   • N'oubliez pas de désactiver le port forwarding après usage
-   • Ne partagez votre IP qu'avec des personnes de confiance
-
-═══════════════════════════════════════════════════════
-    `;
-
-    alert(helpText);
-  }
-
-  cleanup() {
+  async cleanup() {
     if (this.currentSession) {
-      window.electronAPI.leaveWatchParty(this.currentSession.sessionId);
+      console.log('🧹 Nettoyage Watch Party:', this.currentSession.code);
+
+      // Quitter la session
+      try {
+        await window.electronAPI.leaveWatchParty(this.currentSession.sessionId);
+      } catch (e) {
+        console.warn('Erreur leaveWatchParty:', e);
+      }
+
+      // Déconnecter Socket.io
       watchPartyClient.disconnect();
+
+      // Toujours arrêter ngrok (un nouveau sera créé pour la prochaine session)
+      try {
+        await window.electronAPI.stopNgrok();
+        console.log('🔌 Ngrok arrêté');
+      } catch (e) {
+        console.warn('Erreur stopNgrok:', e);
+      }
+
       this.currentSession = null;
     }
+
+    // Réinitialiser l'UI du lien de partage
+    const btn = document.getElementById('generate-share-link-btn');
+    const linkContainer = document.getElementById('share-link-container');
+    const statusDiv = document.getElementById('share-link-status');
+    if (btn) {
+      btn.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-globe"></i> Générer un lien de partage';
+    }
+    if (linkContainer) linkContainer.style.display = 'none';
+    if (statusDiv) statusDiv.style.display = 'none';
 
     // Retirer l'interface de chat
     const chatDiv = document.getElementById('watchparty-chat');

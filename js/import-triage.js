@@ -161,7 +161,7 @@ class ImportTriageSystem {
     try {
       const result = await window.electronAPI.getAllMedias();
       if (result.success) {
-        existingMovies = result.movies || [];
+        existingMovies = result.medias || [];
         console.log(`📚 ${existingMovies.length} médias existants trouvés dans la base`);
 
         // Debug détaillé : afficher les catégories des médias existants
