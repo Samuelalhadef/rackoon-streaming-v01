@@ -1,6 +1,12 @@
 /**
  * Gestionnaire de la modale série - Version améliorée similaire aux médias uniques
  */
+
+// Configuration TMDB (mêmes clés que movie-modal.js)
+const SERIES_TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjMjIwYTRiMzAyMTZlMzkwYzE1MmE1MjhlNGVmYjc5YyIsIm5iZiI6MTczMzkzMjAyOS40Nywic3ViIjoiNjc1OWIzZmQ1MDZiNDIzOTRkMjE2MDM3Iiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.RFQAh_1LTZWemAFFIHJUimpU7BEHJxxrua0ys5rruos';
+const SERIES_TMDB_API_BASE_URL = 'https://api.themoviedb.org/3';
+const SERIES_TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+
 class SeriesModal {
   constructor() {
     this.modal = document.getElementById('series-modal-overlay');
@@ -9,6 +15,9 @@ class SeriesModal {
     this.currentSeriesId = null;
     this.USER_PREFS_KEY = 'userPrefs_global';
     this.isOpening = false; // Protection contre les ouvertures multiples
+    this.isEditMode = false;
+    this.originalValues = null; // Sauvegarde des valeurs avant édition
+    this.pendingPosterUrl = null; // URL du poster TMDB en attente
     this.attachEventListeners();
   }
 
@@ -54,19 +63,40 @@ class SeriesModal {
       });
     }
 
-    // Bouton de lecture
+    // Bouton de lecture (ou TMDB en mode édition)
     const playBtn = document.getElementById('btn-play-series');
     if (playBtn) {
-      playBtn.addEventListener('click', () => this.playFirstEpisode());
+      playBtn.addEventListener('click', () => {
+        if (this.isEditMode) {
+          this.openTMDBSearch();
+        } else {
+          this.playFirstEpisode();
+        }
+      });
     }
 
-    // Bouton édition (à implémenter plus tard)
+    // Bouton édition
     const editBtn = document.getElementById('series-edit-button');
     if (editBtn) {
       editBtn.addEventListener('click', () => {
-        console.log('✏️ Mode édition série (à implémenter)');
-        alert('Mode édition des séries à venir!');
+        if (this.isEditMode) {
+          // En mode édition, le bouton principal ne fait rien (on utilise save/cancel)
+          return;
+        }
+        this.activateEditMode();
       });
+    }
+
+    // Bouton annuler édition
+    const cancelBtn = document.getElementById('series-edit-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => this.cancelEditMode());
+    }
+
+    // Bouton sauvegarder édition
+    const saveBtn = document.getElementById('series-edit-save-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => this.saveSeriesChanges());
     }
 
     // Bouton Watch Toggle
@@ -287,6 +317,10 @@ class SeriesModal {
 
   hide() {
     try {
+      // Désactiver le mode édition si actif
+      if (this.isEditMode) {
+        this.deactivateEditMode();
+      }
       if (this.modal) {
         this.modal.classList.remove('active');
         setTimeout(() => {
@@ -407,33 +441,22 @@ class SeriesModal {
     }
 
     if (posterElement) {
-      const defaultSeriesPoster = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+';
-      let posterSrc = defaultSeriesPoster;
-
-      // Priorité 1: POSTER officiel de la série (si disponible)
-      if (series.posterUrl) {
-        posterSrc = series.posterUrl;
-        console.log('📸 Utilisation du poster officiel:', posterSrc);
-      }
-      // Priorité 2: THUMBNAIL du premier épisode
-      else if (series.seasons && series.seasons[0] && series.seasons[0].episodes && series.seasons[0].episodes[0]) {
+      // Récupérer le thumbnail du premier épisode pour le fallback
+      let firstEpisodeId = null;
+      let firstEpisodeThumbnail = null;
+      if (series.seasons && series.seasons[0] && series.seasons[0].episodes && series.seasons[0].episodes[0]) {
         const firstEpisode = series.seasons[0].episodes[0];
-        if (firstEpisode.thumbnail) {
-          const thumbnailName = firstEpisode.thumbnail.split('\\').pop().split('/').pop();
-          posterSrc = `data/thumbnails/${thumbnailName}`;
-          console.log('📸 Chargement du poster série depuis thumbnail:', posterSrc);
-        }
+        firstEpisodeId = firstEpisode.id || null;
+        firstEpisodeThumbnail = firstEpisode.thumbnail || null;
       }
-      // Priorité 3: Image par défaut (déjà définie ci-dessus)
 
-      // IMPORTANT: Définir l'handler d'erreur AVANT de charger l'image
-      posterElement.onerror = () => {
-        console.log('❌ Erreur de chargement du poster, utilisation du placeholder');
-        posterElement.src = defaultSeriesPoster;
-        posterElement.onerror = null;
-      };
-      posterElement.src = posterSrc;
-      posterElement.alt = series.name;
+      window.setupImageWithFallback(
+        posterElement,
+        firstEpisodeId,
+        series.posterUrl,
+        firstEpisodeThumbnail,
+        series.name
+      );
     }
 
     // Afficher les tags
@@ -491,32 +514,62 @@ class SeriesModal {
     // Créateur
     const directorSection = document.getElementById('series-director-section');
     const directorName = document.getElementById('series-director-name');
-    if (series.creator && series.creator.trim()) {
-      directorName.textContent = series.creator;
-      directorSection.style.display = 'flex';
-    } else {
-      directorSection.style.display = 'none';
+    if (directorSection && directorName) {
+      if (series.creator && series.creator.trim()) {
+        directorName.textContent = series.creator;
+        directorSection.style.display = 'flex';
+      } else {
+        directorSection.style.display = 'none';
+      }
     }
 
     // Acteurs principaux
     const actorsSection = document.getElementById('series-actors-section');
     const actorsList = document.getElementById('series-actors-list');
-    if (series.actors && series.actors.length > 0) {
-      const actorsText = series.actors.slice(0, 3).join(', ');
-      actorsList.textContent = actorsText;
-      actorsSection.style.display = 'flex';
-    } else {
-      actorsSection.style.display = 'none';
+    if (actorsSection && actorsList) {
+      if (series.actors && series.actors.length > 0) {
+        const actorsText = series.actors.slice(0, 3).join(', ');
+        actorsList.textContent = actorsText;
+        actorsSection.style.display = 'flex';
+      } else {
+        actorsSection.style.display = 'none';
+      }
     }
 
     // Plateforme
     const platformSection = document.getElementById('series-platform-section');
     const platformName = document.getElementById('series-platform-name');
-    if (series.platform && series.platform.trim()) {
-      platformName.textContent = series.platform;
-      platformSection.style.display = 'flex';
-    } else {
-      platformSection.style.display = 'none';
+    if (platformSection && platformName) {
+      if (series.platform && series.platform.trim()) {
+        platformName.textContent = series.platform;
+        platformSection.style.display = 'flex';
+      } else {
+        platformSection.style.display = 'none';
+      }
+    }
+
+    // Statut
+    const statusSection = document.getElementById('series-status-section');
+    const statusName = document.getElementById('series-status-name');
+    if (statusSection && statusName) {
+      if (series.status && series.status.trim()) {
+        statusName.textContent = series.status;
+        statusSection.style.display = 'flex';
+      } else {
+        statusSection.style.display = 'none';
+      }
+    }
+
+    // Pays
+    const countrySection = document.getElementById('series-country-section');
+    const countryName = document.getElementById('series-country-name');
+    if (countrySection && countryName) {
+      if (series.country && series.country.trim()) {
+        countryName.textContent = series.country;
+        countrySection.style.display = 'flex';
+      } else {
+        countrySection.style.display = 'none';
+      }
     }
   }
 
@@ -638,7 +691,7 @@ class SeriesModal {
     if (thumbnail) {
       if (episode.thumbnail) {
         const thumbnailName = episode.thumbnail.split('\\').pop().split('/').pop();
-        thumbnail.src = `data/thumbnails/${thumbnailName}`;
+        thumbnail.src = `http://localhost:3001/thumbnails/${thumbnailName}`;
       } else {
         thumbnail.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDI4MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjI4MCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMyMjIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0cHgiPlRIVU1CTkFJTDwvdGV4dD48L3N2Zz4=';
       }
@@ -689,6 +742,28 @@ class SeriesModal {
     }
   }
 
+  getSortedEpisodes() {
+    if (!this.currentSeries || !this.currentSeries.seasons) return [];
+
+    const sortedEpisodes = [];
+    for (const season of this.currentSeries.seasons) {
+      if (season.episodes && season.episodes.length > 0) {
+        for (const episode of season.episodes) {
+          if (episode.episode_number !== null && episode.episode_number !== undefined) {
+            sortedEpisodes.push({ ...episode, seasonNumber: season.number });
+          }
+        }
+      }
+    }
+
+    sortedEpisodes.sort((a, b) => {
+      if (a.seasonNumber !== b.seasonNumber) return a.seasonNumber - b.seasonNumber;
+      return a.episode_number - b.episode_number;
+    });
+
+    return sortedEpisodes;
+  }
+
   playEpisode(episode) {
     console.log('🎬 Lecture de l\'épisode:', episode.title);
 
@@ -698,15 +773,23 @@ class SeriesModal {
       return;
     }
 
+    const title = episode.title || 'Épisode sans titre';
+
+    // Construire le contexte série AVANT de fermer la modale (hide() efface currentSeries)
+    let seriesContext = null;
+    const sortedEpisodes = this.getSortedEpisodes();
+    if (sortedEpisodes.length > 0) {
+      const currentIndex = sortedEpisodes.findIndex(ep => ep.id === episode.id);
+      if (currentIndex !== -1) {
+        seriesContext = { episodes: sortedEpisodes, currentIndex };
+      }
+    }
+
     // Fermer la modale et lancer la lecture
     this.hide();
 
-    const title = episode.title || 'Épisode sans titre';
-
-    // Utiliser le système de lecture existant
-    // Les paramètres sont : (episodeId, title, path)
     if (window.openVideoPlayer) {
-      window.openVideoPlayer(episode.id, title, episode.path);
+      window.openVideoPlayer(episode.id, title, episode.path, seriesContext);
     } else {
       console.error('❌ Fonction de lecture vidéo non trouvée');
       alert('Impossible de lire l\'épisode : lecteur vidéo non disponible');
@@ -714,43 +797,795 @@ class SeriesModal {
   }
 
   playFirstEpisode() {
-    if (!this.currentSeries || !this.currentSeries.seasons) return;
+    const sortedEpisodes = this.getSortedEpisodes();
 
-    // Collecter tous les épisodes triés (qui ont un episode_number)
-    const sortedEpisodes = [];
-
-    for (const season of this.currentSeries.seasons) {
-      if (season.episodes && season.episodes.length > 0) {
-        for (const episode of season.episodes) {
-          if (episode.episode_number !== null && episode.episode_number !== undefined) {
-            sortedEpisodes.push({
-              ...episode,
-              seasonNumber: season.number
-            });
-          }
-        }
-      }
-    }
-
-    // Vérifier s'il y a des épisodes triés
     if (sortedEpisodes.length === 0) {
       alert('Aucun épisode trié trouvé.\n\nVeuillez d\'abord trier les épisodes de cette série avant de pouvoir la lire.');
-      console.warn('⚠️ Aucun épisode trié disponible pour la série:', this.currentSeries.name);
+      console.warn('⚠️ Aucun épisode trié disponible pour la série:', this.currentSeries?.name);
       return;
     }
 
-    // Trier les épisodes par saison puis par numéro d'épisode
-    sortedEpisodes.sort((a, b) => {
-      if (a.seasonNumber !== b.seasonNumber) {
-        return a.seasonNumber - b.seasonNumber;
-      }
-      return a.episode_number - b.episode_number;
-    });
-
-    // Lire le premier épisode trié
     const firstEpisode = sortedEpisodes[0];
     console.log('▶️ Lecture du premier épisode trié:', firstEpisode.title);
     this.playEpisode(firstEpisode);
+  }
+
+  // ============================================
+  // MODE ÉDITION (cohérent avec movie-modal.js)
+  // ============================================
+
+  activateEditMode() {
+    if (!this.currentSeries) return;
+    this.isEditMode = true;
+    this.hasUnsavedChanges = false;
+    this.pendingPosterUrl = null;
+
+    // Sauvegarder les valeurs originales
+    this.originalValues = {
+      name: this.currentSeries.name || '',
+      description: this.currentSeries.description || '',
+      genres: this.currentSeries.genres ? [...this.currentSeries.genres] : [],
+      year: this.currentSeries.year || '',
+      creator: this.currentSeries.creator || '',
+      actors: this.currentSeries.actors ? [...this.currentSeries.actors] : [],
+      country: this.currentSeries.country || '',
+      status: this.currentSeries.status || '',
+      platform: this.currentSeries.platform || ''
+    };
+
+    // Ajouter la classe visuelle (même classe que movie-modal)
+    if (this.modal) this.modal.classList.add('edit-mode-active');
+
+    // Afficher les boutons annuler/sauvegarder avec animation
+    const cancelBtn = document.getElementById('series-edit-cancel-btn');
+    const saveBtn = document.getElementById('series-edit-save-btn');
+    const editBtn = document.getElementById('series-edit-button');
+    const btnGroup = document.getElementById('series-edit-button-group');
+    if (cancelBtn) cancelBtn.style.display = 'flex';
+    if (saveBtn) saveBtn.style.display = 'flex';
+    if (btnGroup) btnGroup.classList.add('extended');
+    // Animation décalée comme movie-modal
+    setTimeout(() => {
+      if (cancelBtn) cancelBtn.classList.add('show');
+      if (saveBtn) saveBtn.classList.add('show');
+    }, 100);
+    if (editBtn) {
+      const icon = editBtn.querySelector('i');
+      if (icon) icon.className = 'fas fa-edit';
+    }
+
+    // Transformer les champs en mode éditable
+    this.transformToEditableFields();
+
+    // Transformer le bouton play en bouton TMDB
+    this.transformPlayButtonToTMDB();
+
+    // Verrouiller la sidebar
+    this.lockSidebarElements();
+
+    // Overlay poster
+    this.setupPosterEditOverlay();
+
+    // Détection des changements
+    this.setupChangeDetection();
+
+    console.log('✏️ Mode édition série activé');
+  }
+
+  deactivateEditMode() {
+    this.isEditMode = false;
+    this.hasUnsavedChanges = false;
+    this.pendingPosterUrl = null;
+
+    // Retirer la classe visuelle
+    if (this.modal) this.modal.classList.remove('edit-mode-active');
+
+    // Masquer les boutons annuler/sauvegarder
+    const cancelBtn = document.getElementById('series-edit-cancel-btn');
+    const saveBtn = document.getElementById('series-edit-save-btn');
+    const editBtn = document.getElementById('series-edit-button');
+    const btnGroup = document.getElementById('series-edit-button-group');
+    if (cancelBtn) { cancelBtn.classList.remove('show'); cancelBtn.style.display = 'none'; }
+    if (saveBtn) { saveBtn.classList.remove('show'); saveBtn.style.display = 'none'; }
+    if (btnGroup) btnGroup.classList.remove('extended');
+    if (editBtn) {
+      const icon = editBtn.querySelector('i');
+      if (icon) icon.className = 'fas fa-pencil-alt';
+    }
+
+    // Restaurer le bouton play
+    this.restorePlayButton();
+
+    // Déverrouiller la sidebar
+    this.unlockSidebarElements();
+
+    // Retirer l'overlay poster
+    const posterOverlay = document.querySelector('.series-poster-edit-overlay');
+    if (posterOverlay) posterOverlay.remove();
+
+    // Restaurer les champs en mode lecture
+    this.restoreReadOnlyFields();
+
+    console.log('✏️ Mode édition série désactivé');
+  }
+
+  cancelEditMode() {
+    if (this.originalValues && this.currentSeries) {
+      Object.assign(this.currentSeries, this.originalValues);
+    }
+    this.deactivateEditMode();
+    console.log('↩️ Modifications annulées');
+  }
+
+  // ---- Transformation des champs ----
+
+  transformToEditableFields() {
+    const series = this.currentSeries;
+    if (!series) return;
+
+    // Titre → input (on garde l'id series-title)
+    const titleEl = document.getElementById('series-title');
+    if (titleEl) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-title-field';
+      input.id = 'series-title';
+      input.value = series.name || '';
+      titleEl.replaceWith(input);
+    }
+
+    // Année → input number (on garde l'id series-year)
+    const yearEl = document.getElementById('series-year');
+    if (yearEl) {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'edit-year-field';
+      input.id = 'series-year';
+      input.value = series.year || new Date().getFullYear();
+      input.min = 1900;
+      input.max = 2100;
+      yearEl.replaceWith(input);
+    }
+
+    // Synopsis → textarea (on garde l'id series-synopsis-content)
+    const synopsisEl = document.getElementById('series-synopsis-content');
+    if (synopsisEl) {
+      const textarea = document.createElement('textarea');
+      textarea.className = 'edit-synopsis-field';
+      textarea.id = 'series-synopsis-content';
+      textarea.value = series.description || '';
+      textarea.rows = 4;
+      synopsisEl.replaceWith(textarea);
+    }
+
+    // Genres → chips éditables avec ✕ et bouton +
+    this.displayEditableTagCategory('series-genres', series.genres || [], 'genre');
+    this.displayEditableTagCategory('series-mood', series.mood || [], 'mood');
+    this.displayEditableTagCategory('series-technical', series.technical || [], 'technical');
+    this.displayEditableTagCategory('series-personal', series.personalTags || [], 'personal');
+
+    // Créateur → input (on garde l'id series-director-name)
+    const directorSection = document.getElementById('series-director-section');
+    const directorName = document.getElementById('series-director-name');
+    if (directorSection && directorName) {
+      directorSection.style.display = 'flex';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-credit-field';
+      input.id = 'series-director-name';
+      input.value = series.creator || '';
+      input.placeholder = 'Créateur';
+      directorName.replaceWith(input);
+    }
+
+    // Acteurs → input (on garde l'id series-actors-list)
+    const actorsSection = document.getElementById('series-actors-section');
+    const actorsList = document.getElementById('series-actors-list');
+    if (actorsSection && actorsList) {
+      actorsSection.style.display = 'flex';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-credit-field';
+      input.id = 'series-actors-list';
+      input.value = (series.actors || []).join(', ');
+      input.placeholder = 'Acteurs (séparés par des virgules)';
+      actorsList.replaceWith(input);
+    }
+
+    // Plateforme → input (on garde l'id series-platform-name)
+    const platformSection = document.getElementById('series-platform-section');
+    const platformName = document.getElementById('series-platform-name');
+    if (platformSection && platformName) {
+      platformSection.style.display = 'flex';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-credit-field';
+      input.id = 'series-platform-name';
+      input.value = series.platform || '';
+      input.placeholder = 'Plateforme';
+      platformName.replaceWith(input);
+    }
+
+    // Statut → select (on garde l'id series-status-name)
+    const statusSection = document.getElementById('series-status-section');
+    const statusName = document.getElementById('series-status-name');
+    if (statusSection && statusName) {
+      statusSection.style.display = 'flex';
+      const select = document.createElement('select');
+      select.className = 'edit-credit-field';
+      select.id = 'series-status-name';
+      const statusOptions = ['', 'En cours', 'Terminée', 'Annulée'];
+      statusOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt || '-- Choisir --';
+        if (opt === (series.status || '')) option.selected = true;
+        select.appendChild(option);
+      });
+      statusName.replaceWith(select);
+    }
+
+    // Pays → input (on garde l'id series-country-name)
+    const countrySection = document.getElementById('series-country-section');
+    const countryName = document.getElementById('series-country-name');
+    if (countrySection && countryName) {
+      countrySection.style.display = 'flex';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-credit-field';
+      input.id = 'series-country-name';
+      input.value = series.country || '';
+      input.placeholder = 'Pays';
+      countryName.replaceWith(input);
+    }
+  }
+
+  restoreReadOnlyFields() {
+    if (!this.currentSeries) return;
+
+    // Titre → h2
+    const titleInput = document.getElementById('series-title');
+    if (titleInput && titleInput.tagName === 'INPUT') {
+      const h2 = document.createElement('h2');
+      h2.className = 'modal-title';
+      h2.id = 'series-title';
+      h2.textContent = this.currentSeries.name || '';
+      titleInput.replaceWith(h2);
+    }
+
+    // Année → span
+    const yearInput = document.getElementById('series-year');
+    if (yearInput && yearInput.tagName === 'INPUT') {
+      const span = document.createElement('span');
+      span.className = 'movie-year';
+      span.id = 'series-year';
+      span.textContent = this.currentSeries.year || new Date().getFullYear();
+      yearInput.replaceWith(span);
+    }
+
+    // Synopsis → div
+    const synopsisInput = document.getElementById('series-synopsis-content');
+    if (synopsisInput && synopsisInput.tagName === 'TEXTAREA') {
+      const div = document.createElement('div');
+      div.className = 'synopsis-content';
+      div.id = 'series-synopsis-content';
+      div.textContent = this.currentSeries.description || 'Aucune description disponible.';
+      synopsisInput.replaceWith(div);
+    }
+
+    // Tags → mode lecture
+    this.displayTags(this.currentSeries);
+
+    // Créateur → span
+    const creatorInput = document.getElementById('series-director-name');
+    if (creatorInput && creatorInput.tagName === 'INPUT') {
+      const span = document.createElement('span');
+      span.className = 'director-name';
+      span.id = 'series-director-name';
+      creatorInput.replaceWith(span);
+    }
+
+    // Acteurs → span
+    const actorsInput = document.getElementById('series-actors-list');
+    if (actorsInput && actorsInput.tagName === 'INPUT') {
+      const span = document.createElement('span');
+      span.className = 'actors-list';
+      span.id = 'series-actors-list';
+      actorsInput.replaceWith(span);
+    }
+
+    // Plateforme → span
+    const platformInput = document.getElementById('series-platform-name');
+    if (platformInput && platformInput.tagName === 'INPUT') {
+      const span = document.createElement('span');
+      span.className = 'platform-name';
+      span.id = 'series-platform-name';
+      platformInput.replaceWith(span);
+    }
+
+    // Statut → span
+    const statusSelect = document.getElementById('series-status-name');
+    if (statusSelect && statusSelect.tagName === 'SELECT') {
+      const span = document.createElement('span');
+      span.className = 'status-value';
+      span.id = 'series-status-name';
+      statusSelect.replaceWith(span);
+    }
+
+    // Pays → span
+    const countryInput = document.getElementById('series-country-name');
+    if (countryInput && countryInput.tagName === 'INPUT') {
+      const span = document.createElement('span');
+      span.className = 'country-value';
+      span.id = 'series-country-name';
+      countryInput.replaceWith(span);
+    }
+
+    // Restaurer la visibilité et les contenus
+    this.displayCredits(this.currentSeries);
+  }
+
+  // ---- Tags éditables (chips avec ✕ et +) ----
+
+  displayEditableTagCategory(categoryId, tags, chipClass) {
+    const categoryElement = document.getElementById(`${categoryId}-category`);
+    const containerElement = document.getElementById(`${categoryId}-container`);
+    if (!categoryElement || !containerElement) return;
+
+    // Toujours afficher en mode édition pour pouvoir ajouter des tags
+    categoryElement.style.display = 'block';
+    containerElement.innerHTML = '';
+
+    // Afficher les tags existants avec bouton ✕
+    if (tags && tags.length > 0) {
+      tags.forEach(tag => {
+        if (tag && tag.trim()) {
+          const chip = document.createElement('span');
+          chip.className = `tag-chip ${chipClass} editable`;
+          chip.innerHTML = `
+            <span class="tag-text">${tag}</span>
+            <button class="tag-remove-btn" data-tag="${tag}" data-category="${chipClass}" title="Supprimer">
+              <i class="fas fa-times"></i>
+            </button>
+          `;
+          // Listener suppression
+          chip.querySelector('.tag-remove-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeTag(tag, chipClass, categoryId);
+          });
+          containerElement.appendChild(chip);
+        }
+      });
+    }
+
+    // Bouton + pour ajouter un tag
+    const addBtn = document.createElement('button');
+    addBtn.className = 'tag-add-btn';
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    addBtn.title = 'Ajouter un tag';
+    addBtn.addEventListener('click', () => this.promptAddTag(chipClass, categoryId));
+    containerElement.appendChild(addBtn);
+  }
+
+  removeTag(tagText, chipClass, categoryId) {
+    const series = this.currentSeries;
+    if (!series) return;
+
+    const fieldMap = { genre: 'genres', mood: 'mood', technical: 'technical', personal: 'personalTags' };
+    const field = fieldMap[chipClass];
+    if (field && series[field]) {
+      series[field] = series[field].filter(t => t !== tagText);
+      this.displayEditableTagCategory(categoryId, series[field], chipClass);
+      this.hasUnsavedChanges = true;
+    }
+  }
+
+  promptAddTag(chipClass, categoryId) {
+    const tagText = prompt('Nouveau tag :');
+    if (!tagText || !tagText.trim()) return;
+
+    const series = this.currentSeries;
+    if (!series) return;
+
+    const fieldMap = { genre: 'genres', mood: 'mood', technical: 'technical', personal: 'personalTags' };
+    const field = fieldMap[chipClass];
+    if (field) {
+      if (!series[field]) series[field] = [];
+      if (!series[field].includes(tagText.trim())) {
+        series[field].push(tagText.trim());
+        this.displayEditableTagCategory(categoryId, series[field], chipClass);
+        this.hasUnsavedChanges = true;
+      }
+    }
+  }
+
+  // ---- Bouton play ↔ TMDB ----
+
+  transformPlayButtonToTMDB() {
+    const playBtn = document.getElementById('btn-play-series');
+    if (!playBtn) return;
+
+    // Sauvegarder l'état original
+    playBtn.dataset.originalHtml = playBtn.innerHTML;
+    playBtn.dataset.originalMode = 'play';
+
+    // Transformer en bouton TMDB
+    playBtn.innerHTML = '<i class="fas fa-search"></i><span>Rechercher sur TMDB</span>';
+    playBtn.classList.add('series-tmdb-btn');
+  }
+
+  restorePlayButton() {
+    const playBtn = document.getElementById('btn-play-series');
+    if (!playBtn || !playBtn.dataset.originalHtml) return;
+
+    playBtn.innerHTML = playBtn.dataset.originalHtml;
+    playBtn.classList.remove('series-tmdb-btn');
+    delete playBtn.dataset.originalHtml;
+    delete playBtn.dataset.originalMode;
+  }
+
+  // ---- Verrouillage sidebar ----
+
+  lockSidebarElements() {
+    // Watch toggle
+    const watchToggle = document.getElementById('btn-watch-toggle-series');
+    if (watchToggle) {
+      watchToggle.style.pointerEvents = 'none';
+      watchToggle.style.opacity = '0.5';
+      watchToggle.classList.add('locked');
+    }
+
+    // Étoiles
+    const starsOverlay = document.getElementById('series-stars-overlay');
+    if (starsOverlay) {
+      starsOverlay.style.pointerEvents = 'none';
+      starsOverlay.style.opacity = '0.5';
+    }
+
+    // Review
+    const reviewInput = document.getElementById('series-review-input');
+    const reviewSaveBtn = document.getElementById('series-review-save-btn');
+    if (reviewInput) { reviewInput.disabled = true; reviewInput.style.opacity = '0.5'; }
+    if (reviewSaveBtn) { reviewSaveBtn.disabled = true; reviewSaveBtn.style.opacity = '0.5'; }
+  }
+
+  unlockSidebarElements() {
+    const watchToggle = document.getElementById('btn-watch-toggle-series');
+    if (watchToggle) {
+      watchToggle.style.pointerEvents = '';
+      watchToggle.style.opacity = '';
+      watchToggle.classList.remove('locked');
+    }
+
+    const starsOverlay = document.getElementById('series-stars-overlay');
+    if (starsOverlay) {
+      starsOverlay.style.pointerEvents = '';
+      starsOverlay.style.opacity = '';
+    }
+
+    const reviewInput = document.getElementById('series-review-input');
+    const reviewSaveBtn = document.getElementById('series-review-save-btn');
+    if (reviewInput) { reviewInput.disabled = false; reviewInput.style.opacity = ''; }
+    if (reviewSaveBtn) { reviewSaveBtn.disabled = false; reviewSaveBtn.style.opacity = ''; }
+  }
+
+  // ---- Détection des changements ----
+
+  setupChangeDetection() {
+    const fields = document.querySelectorAll(
+      '.series-modal .edit-title-field, .series-modal .edit-year-field, ' +
+      '.series-modal .edit-synopsis-field, .series-modal .edit-credit-field'
+    );
+    fields.forEach(field => {
+      field.addEventListener('input', () => {
+        this.hasUnsavedChanges = true;
+      });
+    });
+  }
+
+  // ---- Sauvegarde ----
+
+  async saveSeriesChanges() {
+    if (!this.currentSeriesId || !this.currentSeries) return;
+
+    const updates = {};
+
+    const titleInput = document.getElementById('series-title');
+    if (titleInput && titleInput.tagName === 'INPUT') updates.name = titleInput.value.trim();
+
+    const yearInput = document.getElementById('series-year');
+    if (yearInput && yearInput.tagName === 'INPUT') updates.year = parseInt(yearInput.value) || null;
+
+    const synopsisInput = document.getElementById('series-synopsis-content');
+    if (synopsisInput && synopsisInput.tagName === 'TEXTAREA') updates.description = synopsisInput.value.trim();
+
+    // Tags sont déjà mis à jour dans currentSeries via removeTag/promptAddTag
+    updates.genres = this.currentSeries.genres || [];
+    updates.mood = this.currentSeries.mood || [];
+    updates.technical = this.currentSeries.technical || [];
+    updates.personalTags = this.currentSeries.personalTags || [];
+
+    const creatorInput = document.getElementById('series-director-name');
+    if (creatorInput && creatorInput.tagName === 'INPUT') updates.creator = creatorInput.value.trim();
+
+    const actorsInput = document.getElementById('series-actors-list');
+    if (actorsInput && actorsInput.tagName === 'INPUT') {
+      updates.actors = actorsInput.value.split(',').map(a => a.trim()).filter(a => a);
+    }
+
+    const platformInput = document.getElementById('series-platform-name');
+    if (platformInput && platformInput.tagName === 'INPUT') updates.platform = platformInput.value.trim();
+
+    const statusSelect = document.getElementById('series-status-name');
+    if (statusSelect && statusSelect.tagName === 'SELECT') updates.status = statusSelect.value;
+
+    const countryInput = document.getElementById('series-country-name');
+    if (countryInput && countryInput.tagName === 'INPUT') updates.country = countryInput.value.trim();
+
+    if (this.pendingPosterUrl) {
+      updates.posterUrl = this.pendingPosterUrl;
+    }
+
+    try {
+      console.log('💾 Sauvegarde des modifications série:', updates);
+      const result = await window.electronAPI.updateSeries(this.currentSeriesId, updates);
+
+      if (result.success) {
+        Object.assign(this.currentSeries, updates);
+        this.deactivateEditMode();
+        console.log('✅ Série mise à jour avec succès');
+      } else {
+        console.error('❌ Erreur lors de la mise à jour:', result.message);
+        alert('Erreur lors de la sauvegarde : ' + (result.message || 'Erreur inconnue'));
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde:', error);
+      alert('Erreur lors de la sauvegarde : ' + error.message);
+    }
+  }
+
+  // ============================================
+  // RECHERCHE TMDB
+  // ============================================
+
+  openTMDBSearch() {
+    const existing = document.getElementById('series-tmdb-search-modal');
+    if (existing) existing.remove();
+
+    // Récupérer le titre actuel (input en mode edit ou currentSeries)
+    const titleEl = document.getElementById('series-title');
+    const initialQuery = (titleEl && titleEl.tagName === 'INPUT')
+      ? titleEl.value.trim()
+      : (this.currentSeries?.name || '');
+
+    const modal = document.createElement('div');
+    modal.id = 'series-tmdb-search-modal';
+    modal.className = 'tmdb-modal-overlay';
+    modal.innerHTML = `
+      <div class="tmdb-modal-container">
+        <div class="tmdb-modal-header">
+          <h2><i class="fas fa-tv"></i> Recherche TMDB - Séries</h2>
+          <button class="tmdb-close-btn" id="series-tmdb-close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="tmdb-search-bar">
+          <input type="text" id="series-tmdb-search-field" placeholder="Rechercher une série..." value="${initialQuery.replace(/"/g, '&quot;')}">
+          <button id="series-tmdb-search-action" class="tmdb-search-btn">
+            <i class="fas fa-search"></i> Rechercher
+          </button>
+        </div>
+
+        <div class="tmdb-results-area">
+          <div id="series-tmdb-status" class="tmdb-status">
+            <i class="fas fa-info-circle"></i>
+            <span>Entrez un titre et cliquez sur Rechercher</span>
+          </div>
+          <div id="series-tmdb-results-grid" class="tmdb-results-grid"></div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const searchField = document.getElementById('series-tmdb-search-field');
+    const searchBtn = document.getElementById('series-tmdb-search-action');
+    const closeBtn = document.getElementById('series-tmdb-close-btn');
+    const statusDiv = document.getElementById('series-tmdb-status');
+    const resultsGrid = document.getElementById('series-tmdb-results-grid');
+
+    setTimeout(() => searchField.focus(), 100);
+
+    const closeModal = () => modal.remove();
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    const doSearch = async () => {
+      const query = searchField.value.trim();
+      if (!query) {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Veuillez entrer un titre</span>';
+        statusDiv.style.display = 'flex';
+        return;
+      }
+
+      statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Recherche en cours...</span>';
+      statusDiv.style.display = 'flex';
+      resultsGrid.innerHTML = '';
+
+      try {
+        const results = await this.searchTMDBSeries(query);
+        if (results.length === 0) {
+          statusDiv.innerHTML = '<i class="fas fa-search"></i><span>Aucun résultat trouvé</span>';
+          return;
+        }
+        statusDiv.style.display = 'none';
+        this.displayTMDBResults(results, resultsGrid, closeModal);
+      } catch (error) {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Erreur de connexion à TMDB</span>';
+      }
+    };
+
+    searchBtn.addEventListener('click', doSearch);
+    searchField.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    if (initialQuery) {
+      setTimeout(doSearch, 300);
+    }
+  }
+
+  async searchTMDBSeries(query) {
+    const url = `${SERIES_TMDB_API_BASE_URL}/search/tv?query=${encodeURIComponent(query)}&language=fr-FR&include_adult=false&page=1`;
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${SERIES_TMDB_TOKEN}` }
+    });
+    if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
+    const data = await response.json();
+    return data.results || [];
+  }
+
+  async getTMDBSeriesDetails(tmdbId) {
+    const url = `${SERIES_TMDB_API_BASE_URL}/tv/${tmdbId}?language=fr-FR&append_to_response=credits`;
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${SERIES_TMDB_TOKEN}` }
+    });
+    if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
+    return await response.json();
+  }
+
+  displayTMDBResults(results, container, closeModal) {
+    container.innerHTML = '';
+    const fallbackImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450"%3E%3Crect fill="%23222" width="300" height="450"/%3E%3Ctext x="150" y="225" fill="%23555" text-anchor="middle" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
+
+    results.slice(0, 20).forEach(series => {
+      const card = document.createElement('div');
+      card.className = 'tmdb-result-card';
+
+      const posterUrl = series.poster_path
+        ? `${SERIES_TMDB_IMAGE_BASE_URL}${series.poster_path}`
+        : fallbackImage;
+
+      const year = series.first_air_date ? series.first_air_date.substring(0, 4) : '----';
+      const rating = series.vote_average ? series.vote_average.toFixed(1) : 'N/A';
+      const safeTitle = (series.name || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      card.innerHTML = `
+        <div class="tmdb-card-poster">
+          <img src="${posterUrl}" alt="${safeTitle}" loading="lazy" referrerpolicy="no-referrer">
+          <div class="tmdb-card-rating">
+            <i class="fas fa-star"></i> ${rating}
+          </div>
+        </div>
+        <div class="tmdb-card-info">
+          <h4>${safeTitle}</h4>
+          <span class="tmdb-card-year">${year}</span>
+        </div>
+      `;
+
+      const img = card.querySelector('img');
+      if (img) {
+        img.onerror = function() { this.src = fallbackImage; this.onerror = null; };
+      }
+
+      card.addEventListener('click', () => this.selectTMDBSeries(series.id, closeModal));
+      container.appendChild(card);
+    });
+  }
+
+  async selectTMDBSeries(tmdbId, closeModal) {
+    try {
+      const statusDiv = document.getElementById('series-tmdb-status');
+      if (statusDiv) {
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Chargement des détails...</span>';
+        statusDiv.style.display = 'flex';
+      }
+
+      const details = await this.getTMDBSeriesDetails(tmdbId);
+      console.log('📺 Détails TMDB série récupérés:', details);
+
+      // Remplir les champs éditables
+      const titleInput = document.getElementById('series-title');
+      if (titleInput && titleInput.tagName === 'INPUT') titleInput.value = details.name || '';
+
+      const yearInput = document.getElementById('series-year');
+      if (yearInput && yearInput.tagName === 'INPUT' && details.first_air_date) {
+        yearInput.value = details.first_air_date.substring(0, 4);
+      }
+
+      const synopsisInput = document.getElementById('series-synopsis-content');
+      if (synopsisInput && synopsisInput.tagName === 'TEXTAREA') synopsisInput.value = details.overview || '';
+
+      // Genres → mettre à jour currentSeries et rafraîchir les chips
+      if (details.genres) {
+        this.currentSeries.genres = details.genres.map(g => g.name);
+        this.displayEditableTagCategory('series-genres', this.currentSeries.genres, 'genre');
+      }
+
+      const creatorInput = document.getElementById('series-director-name');
+      if (creatorInput && creatorInput.tagName === 'INPUT' && details.created_by) {
+        creatorInput.value = details.created_by.map(c => c.name).join(', ');
+      }
+
+      const actorsInput = document.getElementById('series-actors-list');
+      if (actorsInput && actorsInput.tagName === 'INPUT' && details.credits?.cast) {
+        actorsInput.value = details.credits.cast.slice(0, 10).map(a => a.name).join(', ');
+      }
+
+      const countryInput = document.getElementById('series-country-name');
+      if (countryInput && countryInput.tagName === 'INPUT' && details.origin_country) {
+        countryInput.value = details.origin_country.join(', ');
+      }
+
+      const statusSelect = document.getElementById('series-status-name');
+      if (statusSelect && statusSelect.tagName === 'SELECT' && details.status) {
+        const statusMap = {
+          'Returning Series': 'En cours', 'Ended': 'Terminée',
+          'Canceled': 'Annulée', 'In Production': 'En cours'
+        };
+        statusSelect.value = statusMap[details.status] || '';
+      }
+
+      // Poster
+      if (details.poster_path) {
+        const posterUrl = `${SERIES_TMDB_IMAGE_BASE_URL}${details.poster_path}`;
+        try {
+          const downloadResult = await window.electronAPI.downloadTMDBImage(posterUrl, details.name || 'serie');
+          if (downloadResult.success) {
+            const filename = downloadResult.localPath.split(/[\\/]/).pop();
+            this.pendingPosterUrl = `http://localhost:3001/tmdb-images/${filename}`;
+            const posterEl = document.getElementById('series-poster');
+            if (posterEl) posterEl.src = this.pendingPosterUrl;
+          }
+        } catch (err) {
+          console.warn('⚠️ Erreur téléchargement poster série:', err);
+        }
+      }
+
+      this.hasUnsavedChanges = true;
+      console.log('✅ Données TMDB appliquées');
+      if (closeModal) closeModal();
+
+    } catch (error) {
+      console.error('❌ Erreur sélection TMDB série:', error);
+      alert('Erreur lors du chargement des données TMDB');
+    }
+  }
+
+  // ---- Overlay poster ----
+
+  setupPosterEditOverlay() {
+    const posterContainer = document.querySelector('.series-modal .modal-poster');
+    if (!posterContainer || posterContainer.querySelector('.series-poster-edit-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'series-poster-edit-overlay';
+    overlay.innerHTML = '<i class="fas fa-camera"></i><span>Changer le poster</span>';
+    overlay.addEventListener('click', () => this.openTMDBSearch());
+    posterContainer.appendChild(overlay);
   }
 }
 

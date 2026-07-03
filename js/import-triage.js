@@ -54,7 +54,7 @@ class ImportTriageSystem {
     // Bouton nouvelle série dans la section groupée
     const newSeriesBatchBtn = document.getElementById('new-series-batch-btn');
     if (newSeriesBatchBtn) {
-      newSeriesBatchBtn.addEventListener('click', () => this.showNewSeriesModal());
+      newSeriesBatchBtn.addEventListener('click', () => this.showBatchNewSeriesModal());
     }
 
     // Empêcher la fermeture automatique en cliquant à l'extérieur
@@ -127,7 +127,7 @@ class ImportTriageSystem {
           return;
         }
       } else {
-        alert('Aucun fichier trouvé.');
+        window.showNotification('Aucun fichier', 'Aucun fichier vidéo trouvé dans ce dossier.', 'info');
         return;
       }
     }
@@ -137,15 +137,27 @@ class ImportTriageSystem {
 
     this.skippedFilesCount = files.length - filesToProcess.length;
 
-    this.currentFiles = filesToProcess.map((file, index) => ({
-      ...file,
-      originalIndex: index,
-      triageType: 'unsorted', // Type par défaut
-      action: 'classify' // 'classify' ou 'skip'
-    }));
+    this.currentFiles = filesToProcess.map((file, index) => {
+      const parsed = this.parseFilename(file.name || file.title || '');
+      return {
+        ...file,
+        originalIndex: index,
+        triageType: parsed.detectedType || 'unsorted',
+        action: 'classify',
+        // Métadonnées détectées automatiquement
+        title: parsed.cleanTitle || file.title || file.name,
+        seriesName: parsed.seriesName || file.seriesName || null,
+        seasonNumber: parsed.seasonNumber || null,
+        episodeNumber: parsed.episodeNumber || null,
+        year: parsed.year || file.year || null,
+        _autoDetected: parsed.detectedType !== null,
+        _detectedSeriesName: parsed.seriesName,
+      };
+    });
 
     // Remplir la modale de tri (elle est déjà affichée)
     this.populateTriageModal();
+    this.attachSearchFilter();
     this.hideLoadingState();
   }
 
@@ -264,42 +276,71 @@ class ImportTriageSystem {
       // Configurer les attributs de la ligne
       row.dataset.fileIndex = index;
       
-      // Image de prévisualisation (miniature par défaut)
+      // Image de prévisualisation avec miniature réelle si disponible
       const thumbnail = row.querySelector('.thumbnail-preview');
-      thumbnail.src = window.DEFAULT_THUMBNAIL;
       thumbnail.alt = file.title || file.name;
+      window.setupImageWithFallback(thumbnail, file.id, file.posterUrl || null, file.thumbnail || null, file.title || file.name);
       
-      // Nom du fichier
+      // Nom du fichier (titre nettoyé si auto-détecté)
       row.querySelector('.filename-title').textContent = file.title || file.name;
       row.querySelector('.filename-path').textContent = file.path || '';
-      
+
+      // Badge "auto-détecté" si le type a été reconnu depuis le nom
+      if (file._autoDetected) {
+        const badge = document.createElement('span');
+        badge.className = 'auto-detect-badge';
+        badge.title = 'Type détecté automatiquement depuis le nom du fichier';
+        badge.textContent = '⚡ auto';
+        const titleEl = row.querySelector('.filename-title');
+        if (titleEl) titleEl.after(badge);
+      }
+
+      // Badge S/E si numéros détectés
+      const seBadge = row.querySelector('.se-badge');
+      if (seBadge && (file.seasonNumber || file.episodeNumber)) {
+        const s = file.seasonNumber != null ? `S${String(file.seasonNumber).padStart(2, '0')}` : '';
+        const e = file.episodeNumber != null ? `E${String(file.episodeNumber).padStart(2, '0')}` : '';
+        seBadge.textContent = s + e;
+        seBadge.style.display = 'inline-flex';
+      }
+
       // Durée
-      row.querySelector('.duration-value').textContent = file.duration ? 
+      row.querySelector('.duration-value').textContent = file.duration ?
         this.formatDuration(file.duration) : '--:--:--';
-      
+
       // Taille
       row.querySelector('.size-value').textContent = file.formattedSize || '--';
-      
+
       // Sélecteur de type
       const typeSelector = row.querySelector('.type-selector');
       typeSelector.value = file.triageType || 'unsorted';
 
-      // Éléments pour le mode de tri et les séries
-      const sortModeInput = row.querySelector('.sort-mode-input');
-      const seriesFields = row.querySelector('.series-fields');
+      // Éléments séries
+      const seriesFields   = row.querySelector('.series-fields');
       const seriesSelector = row.querySelector('.series-name-selector');
-      const newSeriesBtn = row.querySelector('.new-series-btn');
-      const validationError = row.querySelector('.validation-error');
+      const newSeriesBtn   = row.querySelector('.new-series-btn');
 
       // Initialiser les séries dans le sélecteur
       this.populateSeriesSelector(seriesSelector);
+
+      // Pré-remplir le nom de série détecté
+      if (file._detectedSeriesName && seriesSelector) {
+        seriesSelector.setAttribute('data-detected-name', file._detectedSeriesName);
+        const match = this.series.find(s =>
+          s.name.toLowerCase() === file._detectedSeriesName.toLowerCase()
+        );
+        if (match) {
+          seriesSelector.value = match.id;
+          this.currentFiles[index].seriesId = match.id;
+          this.currentFiles[index].seriesName = match.name;
+        }
+      }
 
       // Événement sur le sélecteur de type
       typeSelector.addEventListener('change', (e) => {
         const newType = e.target.value;
         this.currentFiles[index].triageType = newType;
         this.updateSortMode(row, index, newType);
-        console.log(`🏷️ Type modifié pour ${file.name}: ${newType}`);
       });
 
       // Événement sur le sélecteur de série
@@ -310,7 +351,6 @@ class ImportTriageSystem {
           this.currentFiles[index].seriesName = seriesId ?
             this.series.find(s => s.id == seriesId)?.name : '';
           this.hideValidationError(row);
-          console.log(`📺 Série sélectionnée pour ${file.name}: ${this.currentFiles[index].seriesName}`);
         });
       }
 
@@ -321,7 +361,7 @@ class ImportTriageSystem {
         });
       }
 
-      // Initialiser le mode de tri
+      // Initialiser l'affichage (après avoir pré-rempli les données)
       this.updateSortMode(row, index, file.triageType || 'unsorted');
       
       // Bouton "Passer"
@@ -403,11 +443,12 @@ class ImportTriageSystem {
             results.push({ success: true, file: file.name });
             console.log(`✅ ${file.name} enregistré comme non trié`);
 
-            // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
             if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
               this.newlyScannedIds.push(result.movieId);
-              console.log('📋 ID ajouté à la liste des films trackés (tout passer triage):', result.movieId);
             }
+          } else if (result.duplicate) {
+            results.push({ success: true, file: file.name }); // traité = ok
+            console.warn(`⚠️ Doublon ignoré: "${file.name}" — déjà présent sous "${result.existingTitle}"`);
           } else {
             results.push({ success: false, file: file.name, error: result.message });
             console.error(`❌ Erreur pour ${file.name}: ${result.message}`);
@@ -423,7 +464,7 @@ class ImportTriageSystem {
     } catch (error) {
       console.error('❌ Erreur lors de l\'enregistrement:', error);
       this.hideProgress();
-      alert('Erreur lors de l\'enregistrement: ' + error.message);
+      window.showNotification('Erreur d\'enregistrement', error.message, 'error');
     }
   }
 
@@ -475,11 +516,11 @@ class ImportTriageSystem {
         );
       } else {
         console.error('❌ Système de classification avancé non disponible');
-        alert('Erreur: Système de classification non disponible');
+        window.showNotification('Erreur système', 'Système de classification non disponible.', 'error');
       }
     } else if (filesToSkip.length === 0) {
       // Aucun fichier sélectionné
-      alert('Aucun fichier sélectionné pour la classification.');
+      window.showNotification('Aucune sélection', 'Aucun fichier sélectionné pour la classification.', 'warning');
     } else {
       // Tous les fichiers ont été passés, forcer le rechargement
       await this.forceReloadMovies();
@@ -502,18 +543,18 @@ class ImportTriageSystem {
           year: null,
           seriesId: file.seriesId || null,
           seriesName: file.seriesName || null,
-          season_number: null,
-          episode_number: null
+          season_number: file.seasonNumber ?? null,
+          episode_number: file.episodeNumber ?? null
         });
 
         if (result.success) {
           console.log(`✅ ${file.name} sauvegardé comme ${file.triageType}`);
 
-          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
           if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
             this.newlyScannedIds.push(result.movieId);
-            console.log('📋 ID ajouté à la liste des films trackés (fichiers sautés):', result.movieId);
           }
+        } else if (result.duplicate) {
+          console.warn(`⚠️ Doublon ignoré: "${file.name}" — déjà présent sous "${result.existingTitle}"`);
         } else {
           console.error(`❌ Erreur pour ${file.name}: ${result.message}`);
         }
@@ -547,8 +588,8 @@ class ImportTriageSystem {
             year: null,
             seriesId: file.seriesId || null,
             seriesName: file.seriesName || null,
-            season_number: null,
-            episode_number: null
+            season_number: file.seasonNumber ?? null,
+            episode_number: file.episodeNumber ?? null
           });
 
           if (result.success) {
@@ -559,6 +600,9 @@ class ImportTriageSystem {
             if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
               this.newlyScannedIds.push(result.movieId);
             }
+          } else if (result.duplicate) {
+            console.warn(`⚠️ Doublon ignoré: "${file.title || file.name}" — déjà présent sous "${result.existingTitle}"`);
+            savedCount++; // compte comme traité, pas comme erreur
           } else {
             console.error(`❌ Erreur: ${result.message}`);
           }
@@ -806,8 +850,13 @@ class ImportTriageSystem {
     // Forcer le rechargement des films AVANT l'alert
     await this.forceReloadMovies();
 
-    // Afficher le message après le rechargement
-    alert(message);
+    // Afficher la notification après le rechargement
+    window.showNotification(
+      'Import terminé',
+      `${successCount} fichier(s) traité(s) avec succès${errorCount > 0 ? `, ${errorCount} erreur(s)` : ''}`,
+      errorCount > 0 ? 'warning' : 'success',
+      6000
+    );
   }
 
   async forceReloadMovies() {
@@ -837,7 +886,7 @@ class ImportTriageSystem {
     const typeValue = globalTypeSelect?.value;
 
     if (!typeValue) {
-      alert('Veuillez sélectionner un type de média à appliquer');
+      window.showNotification('Type requis', 'Sélectionnez un type de média à appliquer.', 'warning');
       return;
     }
 
@@ -929,42 +978,30 @@ class ImportTriageSystem {
   }
 
   updateSortMode(row, fileIndex, mediaType) {
-    const sortModeInput = row.querySelector('.sort-mode-input');
     const seriesFields = row.querySelector('.series-fields');
+    const noSeriesDash = row.querySelector('.no-series-dash');
     const file = this.currentFiles[fileIndex];
 
-    // Mettre à jour l'affichage du mode de tri
+    const isSeries = mediaType === 'series';
+
+    if (seriesFields)   seriesFields.style.display   = isSeries ? 'flex' : 'none';
+    if (noSeriesDash)   noSeriesDash.style.display   = isSeries ? 'none' : '';
+
     switch (mediaType) {
       case 'film':
-        sortModeInput.value = '🎬 Unique';
-        file.mediaType = 'unique';
-        seriesFields.style.display = 'none';
-        break;
       case 'short':
-        sortModeInput.value = '🎞️ Unique';
-        file.mediaType = 'unique';
-        seriesFields.style.display = 'none';
-        break;
       case 'other':
-        sortModeInput.value = '📁 Unique';
         file.mediaType = 'unique';
-        seriesFields.style.display = 'none';
         break;
       case 'series':
-        sortModeInput.value = '📺 Série';
         file.mediaType = 'series';
-        seriesFields.style.display = 'block';
         break;
       default:
-        sortModeInput.value = 'Non défini';
         file.mediaType = null;
-        seriesFields.style.display = 'none';
         break;
     }
 
     this.hideValidationError(row);
-
-    // Mettre à jour la barre de gestion groupée des séries
     this.updateSeriesBatchControl();
   }
 
@@ -1097,11 +1134,11 @@ class ImportTriageSystem {
         console.log('📺 Nouvelle série sélectionnée automatiquement');
       } else {
         console.error('❌ Erreur lors de la création de la série:', result.message);
-        alert('Erreur lors de la création de la série: ' + result.message);
+        window.showNotification('Erreur', result.message, 'error');
       }
     } catch (error) {
       console.error('❌ Erreur lors de la création de la série:', error);
-      alert('Erreur lors de la création de la série: ' + error.message);
+      window.showNotification('Erreur', error.message, 'error');
     }
   }
 
@@ -1130,6 +1167,135 @@ class ImportTriageSystem {
     });
 
     return !hasErrors;
+  }
+
+  // ── Recherche / filtre dans le triage ────────────────────────────────────────
+
+  attachSearchFilter() {
+    const searchInput  = document.getElementById('triage-search-input');
+    const filterSelect = document.getElementById('triage-filter-type');
+    const clearBtn     = document.getElementById('triage-search-clear');
+
+    if (!searchInput || !filterSelect) return;
+
+    // Réinitialiser les champs à chaque ouverture
+    searchInput.value  = '';
+    filterSelect.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    const onUpdate = () => {
+      const q = searchInput.value.trim().toLowerCase();
+      if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+      this.applyTriageFilter(q, filterSelect.value);
+    };
+
+    searchInput.addEventListener('input', onUpdate);
+    filterSelect.addEventListener('change', onUpdate);
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearBtn.style.display = 'none';
+        this.applyTriageFilter('', filterSelect.value);
+        searchInput.focus();
+      });
+    }
+  }
+
+  applyTriageFilter(query, typeFilter) {
+    const rows        = document.querySelectorAll('#triage-table-body .import-row');
+    const resultsEl   = document.getElementById('triage-search-results');
+    let visibleCount  = 0;
+
+    rows.forEach((row) => {
+      const idx  = parseInt(row.dataset.fileIndex);
+      const file = this.currentFiles[idx];
+      if (!file) return;
+
+      const name        = (file.title || file.name || '').toLowerCase();
+      const rowType     = row.querySelector('.type-selector')?.value || file.triageType || '';
+      const matchQuery  = !query || name.includes(query);
+      const matchType   = !typeFilter || rowType === typeFilter;
+      const visible     = matchQuery && matchType;
+
+      row.style.display = visible ? '' : 'none';
+      if (visible) visibleCount++;
+    });
+
+    if (resultsEl) {
+      const total = rows.length;
+      resultsEl.textContent = (query || typeFilter)
+        ? `${visibleCount} / ${total} résultat(s)`
+        : '';
+    }
+  }
+
+  // ── Détection automatique depuis le nom de fichier ──────────────────────────
+
+  parseFilename(filename) {
+    const name = filename.replace(/\.[^.]+$/, ''); // retirer l'extension
+    const result = { detectedType: null, seriesName: null, seasonNumber: null, episodeNumber: null, year: null, cleanTitle: null };
+
+    // Détecter l'année (1900-2099)
+    const yearMatch = name.match(/[\[(. _-]((19|20)\d{2})[\]). _-]|^((19|20)\d{2})[\]). _-]/);
+    if (yearMatch) {
+      result.year = parseInt(yearMatch[1] || yearMatch[3]);
+    }
+
+    // Pattern SxxExx ou SxEx (le plus commun)
+    const sxeMatch = name.match(/[Ss](\d{1,2})[Ee](\d{1,3})/);
+    if (sxeMatch) {
+      result.detectedType = 'series';
+      result.seasonNumber = parseInt(sxeMatch[1]);
+      result.episodeNumber = parseInt(sxeMatch[2]);
+      result.seriesName = this.cleanFilenameTitle(name.substring(0, sxeMatch.index));
+      result.cleanTitle = result.seriesName;
+      return result;
+    }
+
+    // Pattern NxNN (ex: 2x05)
+    const xMatch = name.match(/\b(\d{1,2})[xX](\d{2,3})\b/);
+    if (xMatch) {
+      result.detectedType = 'series';
+      result.seasonNumber = parseInt(xMatch[1]);
+      result.episodeNumber = parseInt(xMatch[2]);
+      result.seriesName = this.cleanFilenameTitle(name.substring(0, xMatch.index));
+      result.cleanTitle = result.seriesName;
+      return result;
+    }
+
+    // Pattern "Season X Episode Y" ou "Saison X Épisode Y"
+    const longMatch = name.match(/[Ss](?:aison|eason)\s*(\d+)\s*[ÉéEe]pisode?\s*(\d+)/);
+    if (longMatch) {
+      result.detectedType = 'series';
+      result.seasonNumber = parseInt(longMatch[1]);
+      result.episodeNumber = parseInt(longMatch[2]);
+      result.seriesName = this.cleanFilenameTitle(name.substring(0, longMatch.index));
+      result.cleanTitle = result.seriesName;
+      return result;
+    }
+
+    // Si année détectée → probablement un film
+    if (result.year) {
+      result.detectedType = 'film';
+      const yearIdx = name.search(/[\[(. _-]((19|20)\d{2})/);
+      const beforeYear = yearIdx > 0 ? name.substring(0, yearIdx) : name;
+      result.cleanTitle = this.cleanFilenameTitle(beforeYear) || this.cleanFilenameTitle(name);
+      return result;
+    }
+
+    // Type inconnu — nettoyer quand même le titre
+    result.cleanTitle = this.cleanFilenameTitle(name);
+    return result;
+  }
+
+  cleanFilenameTitle(raw) {
+    const noise = /\b(HDTV|BluRay|BRRip|DVDRip|WEB[-.]?DL|WEBRip|x264|x265|H\.?264|H\.?265|AAC|AC3|DTS|HEVC|1080p|720p|480p|4K|UHD|HDR|SDR|REMUX|REPACK|PROPER|EXTENDED|THEATRICAL|UNRATED|MULTI|FRENCH|VOSTFR|VO|VF)\b/gi;
+    return raw
+      .replace(/[._\-]+/g, ' ')
+      .replace(noise, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   formatDuration(duration) {
@@ -1257,7 +1423,7 @@ class ImportTriageSystem {
         appliedCount++;
 
         // Mettre à jour l'affichage dans le tableau
-        const row = document.querySelector(`#triage-table tbody tr:nth-child(${index + 1})`);
+        const row = document.querySelector(`.import-row[data-file-index="${index}"]`);
         if (row) {
           const seriesSelector = row.querySelector('.series-name-selector');
           if (seriesSelector) {
@@ -1307,8 +1473,8 @@ class ImportTriageSystem {
     console.log('🔄 Tous les sélecteurs de série mis à jour');
   }
 
-  // Méthode pour afficher la modale de création de série
-  showNewSeriesModal() {
+  // Méthode pour afficher la modale de création de série (batch - sans fileIndex/row)
+  showBatchNewSeriesModal() {
     const modal = document.getElementById('new-series-modal');
     if (modal) {
       modal.style.display = 'flex';

@@ -285,28 +285,31 @@
 }
 
 .series-fields {
-  margin-top: 8px;
-  padding: 10px;
+  padding: 8px;
   background-color: rgba(255, 255, 255, 0.05);
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.series-name-row {
+/* Ligne 1 : sélecteur de série + bouton + */
+.series-assign-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  margin-bottom: 8px;
 }
 
 .series-name-selector {
   flex: 1;
+  min-width: 0;
   background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: var(--text-primary);
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -320,10 +323,43 @@
   color: var(--text-primary);
 }
 
+.btn-icon {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 .new-series-btn {
-  padding: 6px 10px;
-  font-size: 12px;
+  font-size: 14px;
   white-space: nowrap;
+}
+
+/* Badge S/E dans la cellule nom */
+.se-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(74, 144, 226, 0.18);
+  color: #4a90e2;
+  border: 1px solid rgba(74, 144, 226, 0.35);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  letter-spacing: 0.03em;
+  margin-top: 3px;
+}
+
+/* Tiret quand pas de série assignée */
+.no-series-dash {
+  color: #444;
+  font-size: 14px;
 }
 
 .series-selector-group {

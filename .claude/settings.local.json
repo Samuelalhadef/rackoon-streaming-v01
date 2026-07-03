@@ -75,7 +75,9 @@
       "Bash(timeout:*)",
       "Bash(ping:*)",
       "Bash(npm show:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(python3:*)",
+      "Bash(git diff:*)"
     ],
     "deny": [],
     "ask": []

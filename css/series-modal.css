@@ -79,7 +79,36 @@
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* Container unifié avec scroll unique (similaire aux médias) */
+/* Scroll unique sur view-mode (comme movie-modal) */
+.series-modal .view-mode {
+  height: calc(85vh - 100px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  margin-top: 20px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(100, 181, 246, 0.3) transparent !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.series-modal .view-mode::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.series-modal .view-mode::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.series-modal .view-mode::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.2)) !important;
+  border-radius: 10px !important;
+}
+
+.series-modal .view-mode::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4)) !important;
+}
+
+/* Container unifié - PAS de scroll propre, le scroll est sur view-mode */
 .series-modal .unified-content {
   display: flex !important;
   gap: 40px !important;
@@ -87,36 +116,16 @@
   max-width: 100% !important;
   width: 100% !important;
   box-sizing: border-box !important;
-  max-height: 95vh;
-  overflow: hidden;
 }
 
-/* Sidebar avec affiche et évaluation */
+/* Sidebar - scroll unique avec le contenu (comme movie-modal) */
 .series-modal .modal-sidebar {
   width: 350px !important;
   flex-shrink: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 20px !important;
-  overflow-y: auto;
-}
-
-/* Scrollbar pour la sidebar */
-.series-modal .modal-sidebar::-webkit-scrollbar {
-  width: 8px;
-}
-
-.series-modal .modal-sidebar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.series-modal .modal-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
-
-.series-modal .modal-sidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  align-self: flex-start !important;
 }
 
 /* Poster de la série */
@@ -261,10 +270,11 @@
 
 .series-modal .progressive-stars {
   position: relative;
-  width: 120px;
-  height: 24px;
+  width: 210px;
+  height: 36px;
   cursor: pointer;
   user-select: none;
+  flex: 0 0 auto;
 }
 
 .series-modal .stars-background,
@@ -274,24 +284,24 @@
   top: 0;
   left: 0;
   display: flex;
-  gap: 2px;
+  gap: 8px;
+  font-size: 32px;
   pointer-events: none;
 }
 
 .series-modal .stars-background i {
   color: rgba(255, 255, 255, 0.2);
-  font-size: 20px;
 }
 
 .series-modal .stars-fill {
   overflow: hidden;
   width: 0%;
   transition: width 0.2s ease;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5));
 }
 
 .series-modal .stars-fill i {
   color: #ffd700;
-  font-size: 20px;
 }
 
 .series-modal .stars-overlay {
@@ -370,15 +380,13 @@
   transform: translateY(-1px);
 }
 
-/* Contenu principal */
+/* Contenu principal - PAS de scroll propre, le scroll est sur view-mode */
 .series-modal .modal-content {
   flex: 1 !important;
   padding: 40px 50px !important;
   display: flex !important;
   flex-direction: column !important;
   position: relative !important;
-  min-height: 100% !important;
-  overflow-y: auto;
   min-width: 0 !important;
   max-width: 100% !important;
 }
@@ -389,24 +397,6 @@
 
 .series-modal .modal-content > *:last-child {
   margin-bottom: 0 !important;
-}
-
-/* Scrollbar pour le contenu */
-.series-modal .modal-content::-webkit-scrollbar {
-  width: 10px;
-}
-
-.series-modal .modal-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.series-modal .modal-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 5px;
-}
-
-.series-modal .modal-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 
 /* En-tête avec titre et bouton édition */
@@ -1017,4 +1007,285 @@
     font-size: 14px;
     padding: 12px 24px;
   }
+}
+
+/* ================================
+   MODE ÉDITION SÉRIE
+   (cohérent avec modal.css pour les films)
+   ================================ */
+
+/* Bordure bleue subtile - même style que movie-modal */
+#series-modal-overlay.edit-mode-active .series-modal {
+  border: 1px solid rgba(100, 181, 246, 0.25) !important;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(100, 181, 246, 0.15) !important;
+  background: linear-gradient(135deg, #020a14 0%, #03101e 50%, #020a14 100%) !important;
+}
+
+#series-modal-overlay.edit-mode-active {
+  background-color: rgba(5, 15, 35, 0.95);
+}
+
+/* Champs éditables - mêmes classes que movie-modal */
+#series-modal-overlay.edit-mode-active .edit-title-field,
+#series-modal-overlay.edit-mode-active .edit-year-field,
+#series-modal-overlay.edit-mode-active .edit-synopsis-field,
+#series-modal-overlay.edit-mode-active .edit-credit-field {
+  transition: all 0.3s ease;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  animation: seriesFieldAppear 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+#series-modal-overlay.edit-mode-active .edit-title-field:focus,
+#series-modal-overlay.edit-mode-active .edit-year-field:focus,
+#series-modal-overlay.edit-mode-active .edit-synopsis-field:focus,
+#series-modal-overlay.edit-mode-active .edit-credit-field:focus {
+  border-color: var(--color-primary-light, rgba(100, 181, 246, 0.8));
+  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.2);
+  background: rgba(100, 181, 246, 0.05);
+}
+
+/* Titre */
+#series-modal-overlay.edit-mode-active .edit-title-field {
+  background: rgba(100, 181, 246, 0.06);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-left: 3px solid rgba(100, 181, 246, 0.5);
+  color: #fff;
+  font-size: 36px;
+  font-weight: 800;
+  padding: 8px 12px;
+  margin: 0 0 8px 0;
+  width: 100%;
+  border-radius: 6px;
+  line-height: 1.2;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Année */
+#series-modal-overlay.edit-mode-active .edit-year-field {
+  background: rgba(100, 181, 246, 0.06);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-left: 3px solid rgba(100, 181, 246, 0.5);
+  color: #ccc;
+  font-size: 16px;
+  font-weight: 300;
+  padding: 6px 12px;
+  width: 90px;
+  border-radius: 6px;
+  text-align: center;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Synopsis */
+#series-modal-overlay.edit-mode-active .edit-synopsis-field {
+  background: rgba(100, 181, 246, 0.06);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-left: 3px solid rgba(100, 181, 246, 0.5);
+  color: #c0c0c0;
+  font-size: 15px;
+  padding: 16px;
+  width: 100%;
+  min-height: 120px;
+  border-radius: 8px;
+  resize: vertical;
+  line-height: 1.6;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Crédits (créateur, acteurs, plateforme, statut, pays) */
+#series-modal-overlay.edit-mode-active .edit-credit-field {
+  background: rgba(100, 181, 246, 0.06);
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  border-left: 3px solid rgba(100, 181, 246, 0.5);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 6px;
+  min-width: 200px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+#series-modal-overlay.edit-mode-active select.edit-credit-field {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+#series-modal-overlay.edit-mode-active select.edit-credit-field option {
+  background: #0a1b42;
+  color: white;
+}
+
+/* Hover sur les champs */
+#series-modal-overlay.edit-mode-active .edit-title-field:hover,
+#series-modal-overlay.edit-mode-active .edit-year-field:hover,
+#series-modal-overlay.edit-mode-active .edit-synopsis-field:hover,
+#series-modal-overlay.edit-mode-active .edit-credit-field:hover {
+  border-color: rgba(100, 181, 246, 0.5);
+  background: rgba(100, 181, 246, 0.1);
+}
+
+/* Placeholders */
+#series-modal-overlay.edit-mode-active input::placeholder,
+#series-modal-overlay.edit-mode-active textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+@keyframes seriesFieldAppear {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Tags éditables - chips avec ✕ */
+#series-modal-overlay.edit-mode-active .tag-chip.editable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: default;
+  transition: all 0.3s ease;
+}
+
+#series-modal-overlay.edit-mode-active .tag-chip.editable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#series-modal-overlay.edit-mode-active .tag-remove-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+#series-modal-overlay.edit-mode-active .tag-remove-btn:hover {
+  color: #ff5252;
+  background: rgba(255, 82, 82, 0.2);
+}
+
+/* Bouton + pour ajouter un tag */
+.series-modal .tag-add-btn {
+  background: rgba(100, 181, 246, 0.15);
+  border: 1px dashed rgba(100, 181, 246, 0.4);
+  color: rgba(100, 181, 246, 0.8);
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.series-modal .tag-add-btn:hover {
+  background: rgba(100, 181, 246, 0.25);
+  border-color: rgba(100, 181, 246, 0.6);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Bouton TMDB (remplace le bouton play en mode édition) */
+.series-modal .series-tmdb-btn {
+  background: linear-gradient(135deg, rgba(1, 180, 228, 0.8), rgba(144, 206, 161, 0.8)) !important;
+  box-shadow: 0 8px 30px rgba(1, 180, 228, 0.4) !important;
+}
+
+.series-modal .series-tmdb-btn:hover {
+  background: linear-gradient(135deg, rgba(1, 180, 228, 1), rgba(144, 206, 161, 1)) !important;
+  box-shadow: 0 12px 40px rgba(1, 180, 228, 0.5) !important;
+}
+
+/* Overlay d'édition sur le poster */
+.series-poster-edit-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+  z-index: 3;
+  border-radius: 14px;
+}
+
+.series-poster-edit-overlay:hover {
+  opacity: 1;
+}
+
+.series-poster-edit-overlay i {
+  font-size: 36px;
+  color: rgba(100, 181, 246, 0.9);
+}
+
+.series-poster-edit-overlay span {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Boutons annuler/sauvegarder - animation cohérente avec movie-modal */
+#series-modal-overlay .edit-cancel-btn,
+#series-modal-overlay .edit-save-btn {
+  opacity: 0;
+  width: 0;
+  border-width: 0;
+  padding: 0;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#series-modal-overlay .edit-cancel-btn.show,
+#series-modal-overlay .edit-save-btn.show {
+  opacity: 1;
+  width: 44px;
+  border-width: 2px;
+}
+
+/* Sections verrouillées en mode édition */
+#series-modal-overlay.edit-mode-active .evaluation-section {
+  position: relative;
+}
+
+#series-modal-overlay.edit-mode-active .evaluation-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+/* Atténuer les sections lecture seule en mode édition */
+#series-modal-overlay.edit-mode-active .viewing-stats,
+#series-modal-overlay.edit-mode-active .technical-info {
+  opacity: 0.5;
+  pointer-events: none;
 }

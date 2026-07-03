@@ -17,10 +17,14 @@ async function syncUserPreferencesFromDatabase() {
       const localPrefs = localStorage.getItem('userPrefs_global');
       let currentPrefs = localPrefs ? JSON.parse(localPrefs) : {};
 
-      // Utiliser les préférences du fichier comme base
+      // Fusionner en profondeur : DB comme base, localStorage prioritaire par clé dans chaque sous-objet
+      const dbPrefs = result.prefs;
       const mergedPrefs = {
-        ...result.prefs,
-        ...currentPrefs  // localStorage a la priorité (pour les changements non encore sauvegardés)
+        watchedMovies: { ...(dbPrefs.watchedMovies || {}), ...(currentPrefs.watchedMovies || {}) },
+        ratings: { ...(dbPrefs.ratings || {}), ...(currentPrefs.ratings || {}) },
+        watchCount: { ...(dbPrefs.watchCount || {}), ...(currentPrefs.watchCount || {}) },
+        lastWatched: { ...(dbPrefs.lastWatched || {}), ...(currentPrefs.lastWatched || {}) },
+        playProgress: { ...(dbPrefs.playProgress || {}), ...(currentPrefs.playProgress || {}) }
       };
 
       // Sauvegarder dans localStorage
@@ -351,10 +355,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (orphanedEpisodes.length > 0) {
         console.warn(`⚠️ ${orphanedEpisodes.length} épisode(s) orphelin(s) détecté(s)`);
-
-        // TEMPORAIREMENT DÉSACTIVÉ pour diagnostic
-        // await window.repairOrphanedEpisodes(orphanedEpisodes);
-        console.log('🚫 Réparation automatique désactivée pour diagnostic');
       }
       console.log('🔍 Séries créées:', series);
 
@@ -436,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const firstEpisode = serie.seasons[0].episodes[0];
       if (firstEpisode.thumbnail) {
         const thumbnailName = firstEpisode.thumbnail.split('\\').pop().split('/').pop();
-        thumbnailSrc = `data/thumbnails/${thumbnailName}`;
+        thumbnailSrc = `http://localhost:3001/thumbnails/${thumbnailName}`;
       }
     }
 
@@ -503,9 +503,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return card;
   }
 
-  // Charger les films au démarrage
-  loadMediasFromDatabase();
-  
   // Fonction pour filtrer les médias affichés
   function filterMedias(searchTerm) {
     // Si pas de terme de recherche, afficher tout
@@ -609,37 +606,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   
-  // Fonction pour configurer les événements sur une carte
-  function setupCardEvents(card) {
-    const movieId = card.dataset.id;
-    
-    // Événement clic sur la carte
-    card.addEventListener('click', async (e) => {
-      if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star')) {
-        return;
-      }
-      
-      try {
-        safeOpenMovieModal(movieId);
-      } catch (error) {
-        console.error('Erreur lors de l\'ouverture de la modal:', error);
-      }
-    });
-    
-    // Événements sur les boutons watch toggle
-    const watchButtons = card.querySelectorAll('.btn-watch-toggle');
-    watchButtons.forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleWatchStatus(movieId, button);
-      });
-    });
-    
-    // Événements sur les étoiles
-    window.setupStarsInteraction(card, (rating) => rateMedia(movieId, rating));
-  }
-  
-  
   // Marquer un film comme vu/à voir
   function toggleWatchStatus(movieId, button) {
     let userPrefs = localStorage.getItem('userPrefs_global');
@@ -717,122 +683,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.loadMovies = async function() {
     console.log('⚠️ loadMovies() appelée - redirection vers loadMediasFromDatabase()');
     await loadMediasFromDatabase();
-  }
-  
-  // Fonction pour appliquer les modifications locales aux films
-  function applyLocalEdits(movies) {
-    // Vérifier que movies est un tableau
-    if (!Array.isArray(movies)) {
-      console.warn('applyLocalEdits: movies n\'est pas un tableau, retour d\'un tableau vide');
-      return [];
-    }
-
-    const storageKey = 'movieEdits'; // Utiliser la même clé que window.movieEdits
-    let movieEdits = localStorage.getItem(storageKey);
-
-    if (!movieEdits) {
-      movieEdits = {};
-    } else {
-      try {
-        movieEdits = JSON.parse(movieEdits);
-      } catch (e) {
-        console.error('Erreur lors du parsing des modifications:', e);
-        movieEdits = {};
-      }
-    }
-
-    return movies.map(movie => {
-      const edits = movieEdits[movie.id];
-      if (edits) {
-        // Fusionner les données originales avec les modifications
-        return { ...movie, ...edits };
-      }
-      return movie;
-    });
-  }
-  
-  
-  // Fonction helper pour créer une section de catégorie
-  function createCategorySection(categoryTitle, moviesInCategory) {
-    let html = `
-      <div class="category-section">
-        <div class="category-header">
-          <h3 class="category-title">${categoryTitle}</h3>
-          <span class="category-count">${moviesInCategory.length} média(s)</span>
-        </div>
-        <div class="category-grid">
-    `;
-    
-    // Charger les préférences utilisateur
-    let userPrefs = localStorage.getItem('userPrefs_global');
-    
-    if (!userPrefs) {
-      userPrefs = {
-        watchedMovies: {},
-        ratings: {}
-      };
-    } else {
-      userPrefs = JSON.parse(userPrefs);
-      if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
-      if (!userPrefs.ratings) userPrefs.ratings = {};
-    }
-    
-    // Ajouter les films de cette catégorie
-    moviesInCategory.forEach(movie => {
-      // Configurer l'image de couverture
-      let thumbnailSrc;
-      if (movie.posterUrl) {
-        thumbnailSrc = movie.posterUrl;
-      } else if (movie.thumbnail) {
-        const thumbnailName = movie.thumbnail.split(/[\\/]/).pop();
-        thumbnailSrc = `../data/thumbnails/${thumbnailName}`;
-      } else {
-        thumbnailSrc = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFlM2E2ZCIvPgo8dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zZW0iPkF1Y3VuZSBpbWFnZTwvdGV4dD4KPC9zdmc+";
-      }
-      
-      // État "vu/à voir"
-      const isWatched = userPrefs.watchedMovies[movie.id] === true;
-      const watchButtonText = isWatched ? 'vu !' : 'à voir';
-      const watchButtonClass = isWatched ? 'watched' : '';
-      
-      // Étoiles de notation
-      const rating = userPrefs.ratings[movie.id] || 0;
-      const starsHtml = [1, 2, 3, 4, 5].map(star => {
-        const filledClass = star <= rating ? 'filled' : '';
-        return `<span class="star ${filledClass}" data-value="${star}">⭐</span>`;
-      }).join('');
-      
-      html += `
-        <div class="media-card" data-id="${movie.id}" data-title="${movie.title}">
-          <div class="media-thumbnail">
-            <img src="${thumbnailSrc}" alt="${movie.title}" loading="lazy">
-            <div class="media-overlay">
-              <button class="play-button" title="Lire la vidéo">▶</button>
-            </div>
-          </div>
-          <div class="media-info">
-            <h4 class="media-title">${movie.title}</h4>
-            <div class="media-meta">
-              <span class="media-duration">${window.formatTime(movie.duration)}</span>
-              <span class="media-size">${movie.formattedSize}</span>
-            </div>
-            <div class="media-actions">
-              <div class="rating-stars">
-                ${starsHtml}
-              </div>
-              <button class="btn-watch-toggle ${watchButtonClass}" data-movie-id="${movie.id}">${watchButtonText}</button>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-    
-    html += `
-        </div>
-      </div>
-    `;
-    
-    return html;
   }
   
   // Affichage des films dans la grille - VERSION CATÉGORIES FIXES
@@ -1033,219 +883,6 @@ function setupMediaCard(mediaCard, movie) {
   });
 }
 
-// Fonction helper pour obtenir le nom d'affichage des catégories
-function getCategoryDisplayName(category) {
-  const displayNames = {
-    'film': '🎬 Films',
-    'series': '📺 Séries',
-    'short': '🎞️ Courts métrages',
-    'other': '📁 Autres'
-  };
-  return displayNames[category] || category;
-}
-
-// Fonction helper pour créer une section de catégorie AVEC LE TEMPLATE
-function createCategorySection(categoryTitle, moviesInCategory) {
-  // Créer le header de la catégorie
-  const categorySection = document.createElement('div');
-  categorySection.className = 'category-section';
-  
-  const categoryHeader = document.createElement('div');
-  categoryHeader.className = 'category-header';
-  categoryHeader.innerHTML = `
-    <h3 class="category-title">${categoryTitle}</h3>
-    <span class="category-count">${moviesInCategory.length} média(s)</span>
-  `;
-  
-  const categoryGrid = document.createElement('div');
-  categoryGrid.className = 'category-grid';
-  
-  // Charger les préférences utilisateur
-  let userPrefs = localStorage.getItem('userPrefs_global');
-  
-  if (!userPrefs) {
-    userPrefs = {
-      watchedMovies: {},
-      ratings: {}
-    };
-  } else {
-    userPrefs = JSON.parse(userPrefs);
-    if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
-    if (!userPrefs.ratings) userPrefs.ratings = {};
-  }
-  
-  // Utiliser le template pour créer les cartes
-  const template = document.getElementById('media-card-template');
-  
-  // Ajouter chaque film de cette catégorie
-  moviesInCategory.forEach(movie => {
-    // Cloner le template
-    const mediaCard = template.content.cloneNode(true).querySelector('.media-card');
-    
-    // Configurer les attributs de la carte
-    mediaCard.dataset.id = movie.id;
-    mediaCard.dataset.title = movie.title.toLowerCase();
-    
-    // Configurer l'image de couverture - utiliser la miniature ou l'image personnalisée
-    let thumbnailSrc;
-    if (movie.posterUrl) {
-      thumbnailSrc = movie.posterUrl;
-    } else if (movie.thumbnail) {
-      // Utiliser le chemin absolu vers le dossier data/thumbnails
-      thumbnailSrc = `../data/thumbnails/${movie.thumbnail}`;
-    } else {
-      thumbnailSrc = window.DEFAULT_THUMBNAIL;
-    }
-
-    const thumbnailImg = mediaCard.querySelector('.media-thumbnail');
-    thumbnailImg.src = thumbnailSrc;
-    thumbnailImg.alt = movie.title;
-    thumbnailImg.onerror = () => { thumbnailImg.src = window.DEFAULT_THUMBNAIL; };
-    
-    // Configurer le titre
-    mediaCard.querySelector('.media-title').textContent = movie.title;
-    
-    // Configurer la durée
-    mediaCard.querySelector('.duration-value').textContent = window.formatTime(movie.duration);
-    
-    // Configurer l'état "vu/à voir"
-    const isWatched = userPrefs.watchedMovies[movie.id] === true;
-    const watchButtons = mediaCard.querySelectorAll('.btn-watch-toggle');
-    
-    watchButtons.forEach(button => {
-      if (isWatched) {
-        button.textContent = 'vu !';
-        button.classList.add('watched');
-      } else {
-        button.textContent = 'à voir';
-        button.classList.remove('watched');
-      }
-      
-      // Ajouter l'écouteur pour le changement d'état
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleWatchStatus(movie.id, button);
-      });
-    });
-    
-    // Configurer les étoiles de notation
-    const rating = userPrefs.ratings[movie.id] || 0;
-    window.updateStarsDisplay(mediaCard, rating);
-    window.setupStarsInteraction(mediaCard, (rating) => rateMedia(movie.id, rating));
-    
-    // Ajouter un écouteur pour le bouton de lecture
-    const playBtn = mediaCard.querySelector('.play-btn');
-    if (playBtn) {
-      playBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        try {
-          await window.openVideoPlayer(movie.id, movie.title, movie.path);
-        } catch (error) {
-          console.error('Erreur lors du lancement du lecteur vidéo:', error);
-          alert('Erreur lors du lancement de la vidéo: ' + error.message);
-        }
-      });
-    }
-    
-    // Ajouter un écouteur pour la carte entière (clic sur l'image pour ouvrir la modal)
-    mediaCard.addEventListener('click', async (e) => {
-      // Éviter de déclencher si on clique sur un bouton ou les étoiles
-      if (e.target.closest('.btn-watch-toggle') || 
-          e.target.closest('.star') || 
-          e.target.closest('.play-btn') ||
-          e.target.closest('.play-overlay')) {
-        return;
-      }
-      
-      try {
-        // Ouvrir la modal au lieu de lire directement la vidéo
-        safeOpenMovieModal(movie.id);
-      } catch (error) {
-        console.error('Erreur lors de l\'ouverture de la modal:', error);
-      }
-    });
-    
-    // Ajouter la carte au grid de la catégorie
-    categoryGrid.appendChild(mediaCard);
-  });
-  
-  // Assembler la section complète
-  categorySection.appendChild(categoryHeader);
-  categorySection.appendChild(categoryGrid);
-  
-  // Ajouter la section au mediaGrid principal
-  mediaGrid.appendChild(categorySection);
-  
-  // Initialiser les déclencheurs de modal
-  if (window.setupModalTriggers) {
-    window.setupModalTriggers();
-  }
-}
-  
-  // Configurer les événements des cartes média
-  function setupMediaCardEvents() {
-    // Configurer les boutons "vu/à voir"
-    document.querySelectorAll('.btn-watch-toggle').forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const movieId = button.getAttribute('data-movie-id');
-        toggleWatchStatus(movieId, button);
-      });
-    });
-    
-    // Configurer les étoiles de notation
-    document.querySelectorAll('.media-card').forEach(card => {
-      const movieId = card.getAttribute('data-id');
-      window.setupStarsInteraction(card, (rating) => rateMedia(movieId, rating));
-      
-      // Ajouter l'écouteur pour la carte entière (clic pour ouvrir la modal)
-      card.addEventListener('click', async (e) => {
-        // Éviter de déclencher si on clique sur un bouton ou les étoiles
-        if (e.target.closest('.btn-watch-toggle') || e.target.closest('.star') || e.target.closest('.play-button')) {
-          return;
-        }
-        
-        try {
-          const movieId = card.getAttribute('data-id');
-          // Ouvrir la modal au lieu de lire directement la vidéo
-          safeOpenMovieModal(movieId);
-        } catch (error) {
-          console.error('Erreur lors de l\'ouverture de la modal:', error);
-        }
-      });
-    });
-    
-    // Initialiser les déclencheurs de modal
-    if (window.setupModalTriggers) {
-      window.setupModalTriggers();
-    }
-  }
-  
-  // Fonction pour la génération dynamique des miniatures (sur demande)
-  async function generateThumbnail(movieId) {
-    try {
-      const result = await window.electronAPI.generateThumbnail(movieId);
-      
-      if (result.success) {
-        // Mettre à jour l'affichage avec la nouvelle miniature
-        const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
-        if (card) {
-          const img = card.querySelector('.media-thumbnail img');
-          if (img && result.thumbnail) {
-            // Extraire juste le nom du fichier et utiliser le chemin relatif
-            const thumbnailName = result.thumbnail.split(/[\\/]/).pop();
-            img.src = `../data/thumbnails/${thumbnailName}`;
-          }
-        }
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Erreur lors de la génération de la miniature:', error);
-      return false;
-    }
-  }
-  
   // Ajouter une fonction pour la gestion du menu contextuel (bouton droit)
   function setupContextMenu() {
     document.addEventListener('contextmenu', async (e) => {
@@ -1259,7 +896,7 @@ function createCategorySection(categoryTitle, moviesInCategory) {
         
         // Ouvrir le dossier contenant le fichier
         try {
-          const result = await window.electronAPI.openFolder(movieId);
+          const result = await window.electronAPI.openMediaFolder(movieId);
           if (!result.success) {
             console.error(result.message);
           }
@@ -1322,57 +959,6 @@ function createCategorySection(categoryTitle, moviesInCategory) {
     }
   };
   
-  // Ouvrir une boîte de dialogue de sélection de fichier
-  window.electronAPI.openFileDialog = async function(options) {
-    try {
-      console.log("Ouverture du sélecteur de fichiers avec options:", options);
-      
-      if (options.properties && options.properties.includes('openFile')) {
-        const filePath = await new Promise((resolve) => {
-          const fileInput = document.createElement('input');
-          fileInput.type = 'file';
-          
-          if (options.filters && options.filters.length > 0) {
-            const extensions = options.filters
-              .flatMap(filter => filter.extensions.map(ext => `.${ext}`))
-              .join(',');
-            fileInput.accept = extensions;
-          }
-          
-          fileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-              const objectURL = URL.createObjectURL(file);
-              resolve({
-                path: objectURL,
-                name: file.name
-              });
-            } else {
-              resolve(null);
-            }
-          });
-          
-          fileInput.click();
-        });
-        
-        if (!filePath) {
-          return { canceled: true };
-        }
-        
-        return {
-          canceled: false,
-          filePaths: [filePath.path],
-          fileName: filePath.name
-        };
-      }
-      
-      return { canceled: true };
-    } catch (error) {
-      console.error('Erreur lors de l\'ouverture de la boîte de dialogue:', error);
-      return { canceled: true, error: error.message };
-    }
-  };
-  
   // Exposer les fonctions pour la modal et les autres scripts
   window.loadMoviesFromDashboard = window.loadMovies;
   window.refreshDashboard = window.loadMovies;
@@ -1380,56 +966,74 @@ function createCategorySection(categoryTitle, moviesInCategory) {
   window.displayMedias = displayMedias;
   window.displaySeries = displaySeries;
 
-  // Méthode pour réparer les épisodes orphelins
-  window.repairOrphanedEpisodes = async function(orphanedEpisodes) {
-    console.log('🔧 Tentative de réparation des épisodes orphelins...');
-
-    for (const episode of orphanedEpisodes) {
-      try {
-        // Tenter de trouver une série correspondante dans la base
-        const allSeriesResult = await window.electronAPI.getAllSeries();
-        if (allSeriesResult.success && allSeriesResult.series.length > 0) {
-          // Chercher une série potentielle par nom (extraire le nom depuis le titre de l'épisode)
-          const episodeTitle = episode.title.toLowerCase();
-          const potentialSeries = allSeriesResult.series.find(s => {
-            const seriesName = s.name.toLowerCase();
-            return episodeTitle.includes(seriesName) || seriesName.includes(episodeTitle.substring(0, 10));
-          });
-
-          if (potentialSeries) {
-            console.log(`🔧 Réparation: Associer "${episode.title}" à la série "${potentialSeries.name}"`);
-
-            // Mettre à jour l'épisode avec les bonnes métadonnées
-            const updateResult = await window.electronAPI.updateMedia(episode.id, {
-              seriesId: potentialSeries.id,
-              seriesName: potentialSeries.name,
-              category: 'series'
-            });
-
-            if (updateResult.success) {
-              console.log('✅ Épisode réparé avec succès');
-            } else {
-              console.error('❌ Échec de la réparation:', updateResult.message);
-            }
-          } else {
-            console.warn(`⚠️ Aucune série correspondante trouvée pour "${episode.title}"`);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Erreur lors de la réparation de l\'épisode:', episode.title, error);
-      }
-    }
-
-    // Recharger les données après réparation
-    console.log('🔄 Rechargement des données après réparation...');
-    await loadMediasFromDatabase();
-  };
-  
   // Écouteur pour les mises à jour de films
   document.addEventListener('moviesUpdated', () => {
     console.log('🔄 Événement de mise à jour des films reçu');
     loadMediasFromDatabase();
   });
+
+  // ── Drag & Drop import ────────────────────────────────────────────────────
+  (function setupDragDrop() {
+    const overlay = document.getElementById('drop-overlay');
+    if (!overlay) return;
+
+    let dragCounter = 0;
+
+    document.addEventListener('dragenter', (e) => {
+      if (!e.dataTransfer.types.includes('Files')) return;
+      e.preventDefault();
+      dragCounter++;
+      overlay.classList.add('active');
+    });
+
+    document.addEventListener('dragleave', () => {
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        overlay.classList.remove('active');
+      }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      if (!e.dataTransfer.types.includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      overlay.classList.remove('active');
+
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+
+      // En Electron, File.path contient le chemin système réel
+      const paths = files.map(f => f.path).filter(Boolean);
+      if (paths.length === 0) return;
+
+      statusMessage.textContent = 'Analyse des fichiers déposés…';
+
+      try {
+        const result = await window.electronAPI.scanMediasFromPaths(paths);
+
+        if (result.success && result.medias && result.medias.length > 0) {
+          if (window.startTriage) {
+            window.startTriage(result.medias, 'drop');
+          } else {
+            statusMessage.textContent = 'Système de tri non disponible';
+          }
+        } else {
+          statusMessage.textContent = result.message || 'Aucun fichier vidéo détecté';
+          setTimeout(() => { statusMessage.textContent = 'Prêt à rechercher des vidéos'; }, 3000);
+        }
+      } catch (err) {
+        console.error('Erreur drag & drop:', err);
+        statusMessage.textContent = 'Erreur lors de l\'import';
+        setTimeout(() => { statusMessage.textContent = 'Prêt à rechercher des vidéos'; }, 3000);
+      }
+    });
+  })();
 
   // Initialiser l'interface
   setupContextMenu();

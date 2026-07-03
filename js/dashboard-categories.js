@@ -174,23 +174,6 @@ class DashboardCategories {
     return section;
   }
 
-  // Afficher un état vide quand il n'y a pas de médias
-  displayEmptyState(container) {
-    container.innerHTML = `
-      <div class="empty-dashboard-state">
-        <div class="empty-state-content">
-          <span class="empty-state-icon">📼</span>
-          <h3>Aucun média trouvé</h3>
-          <p>Commencez par ajouter des vidéos à votre bibliothèque</p>
-          <button class="btn-primary" onclick="document.getElementById('add-btn').click()">
-            <i class="fas fa-plus"></i>
-            Ajouter des médias
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
   // Créer la section "Nouvelle catégorie"
   createNewCategorySection() {
     const section = document.createElement('div');

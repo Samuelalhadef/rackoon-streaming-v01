@@ -917,7 +917,7 @@ class FileManagerElectron {
     
     try {
       const deletePromises = filesToDelete.map(fileId => 
-        window.electronAPI.deleteMovie(fileId)
+        window.electronAPI.deleteMedia(fileId)
       );
       
       const results = await Promise.all(deletePromises);
@@ -1045,12 +1045,6 @@ class FileManagerElectron {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  // Échapper les caractères spéciaux pour les sélecteurs CSS
-  escapeCSSSelector(selector) {
-    // Échapper les caractères spéciaux CSS : \ / [ ] ( ) { } : " '
-    return selector.replace(/[\\\/\[\](){}"':]/g, '\\$&');
   }
 
   // Générer un ID unique pour un dossier basé sur son chemin

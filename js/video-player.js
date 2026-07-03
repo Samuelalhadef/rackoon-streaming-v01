@@ -8,7 +8,8 @@ class VideoPlayer {
     this.container = null;
     this.video = null;
     this.currentMovie = null;
-    
+    this.seriesContext = null; // { episodes: [...], currentIndex: n } pour les séries
+
     // États
     this.isPlaying = false;
     this.isFullscreen = false;
@@ -92,10 +93,18 @@ class VideoPlayer {
           <!-- Contrôles principaux -->
           <div class="main-controls">
             <div class="controls-left">
+              <button class="control-btn prev-episode-btn" title="Épisode précédent (P)" style="display:none">
+                <i class="fas fa-step-backward"></i>
+              </button>
+
               <button class="control-btn play-pause" title="Lecture/Pause (Espace)">
                 <i class="fas fa-play"></i>
               </button>
-              
+
+              <button class="control-btn next-episode-btn" title="Épisode suivant (N)" style="display:none">
+                <i class="fas fa-step-forward"></i>
+              </button>
+
               <div class="volume-container">
                 <button class="control-btn volume-btn" title="Volume">
                   <i class="fas fa-volume-up"></i>
@@ -179,6 +188,8 @@ class VideoPlayer {
       timelineBuffer: this.modal.querySelector('.timeline-buffer'),
       timelineProgress: this.modal.querySelector('.timeline-progress'),
       timelineThumb: this.modal.querySelector('.timeline-thumb'),
+      prevEpisodeBtn: this.modal.querySelector('.prev-episode-btn'),
+      nextEpisodeBtn: this.modal.querySelector('.next-episode-btn'),
       playPauseBtn: this.modal.querySelector('.play-pause'),
       playPauseIcon: this.modal.querySelector('.play-pause i'),
       volumeBtn: this.modal.querySelector('.volume-btn'),
@@ -215,6 +226,8 @@ class VideoPlayer {
     
     // Boutons de contrôle
     this.elements.closeBtn.addEventListener('click', () => this.close());
+    this.elements.prevEpisodeBtn.addEventListener('click', () => this.playPreviousEpisode());
+    this.elements.nextEpisodeBtn.addEventListener('click', () => this.playNextEpisode());
     this.elements.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
     this.elements.volumeBtn.addEventListener('click', () => this.toggleMute());
     this.elements.speedBtn.addEventListener('click', () => this.toggleSpeedMenu());
@@ -279,6 +292,14 @@ class VideoPlayer {
           e.preventDefault();
           this.toggleMute();
           break;
+        case 'KeyN':
+          e.preventDefault();
+          this.playNextEpisode();
+          break;
+        case 'KeyP':
+          e.preventDefault();
+          this.playPreviousEpisode();
+          break;
         case 'ArrowLeft':
           e.preventDefault();
           this.seek(-10);
@@ -313,7 +334,7 @@ class VideoPlayer {
     });
   }
   
-  async open(movieId, movieTitle, moviePath) {
+  async open(movieId, movieTitle, moviePath, seriesContext = null) {
     try {
       // Validation des paramètres
       if (!movieTitle || typeof movieTitle !== 'string') {
@@ -325,6 +346,8 @@ class VideoPlayer {
       }
 
       this.currentMovie = { id: movieId, title: movieTitle, path: moviePath };
+      this.seriesContext = seriesContext;
+      this.updateSeriesNavigation();
 
       // Enregistrer le moment de début du visionnage pour les statistiques
       this.watchStartTime = Date.now();
@@ -747,55 +770,6 @@ class VideoPlayer {
     }
   }
   
-  async detectAllTracks() {
-    console.log('🔍 Démarrage de la détection complète des pistes...');
-
-    // Attente minimale pour que les pistes soient disponibles
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    try {
-      // Log des informations de base
-      console.log('📊 Informations vidéo:', {
-        readyState: this.video.readyState,
-        duration: this.video.duration,
-        videoTracks: this.video.videoTracks?.length || 0,
-        audioTracks: this.video.audioTracks?.length || 0,
-        textTracks: this.video.textTracks?.length || 0
-      });
-
-      // Log final après détection
-      console.log('📊 Pistes détectées:', {
-        audioTracks: this.video.audioTracks?.length || 0,
-        textTracks: this.video.textTracks?.length || 0
-      });
-
-    } catch (error) {
-      console.error('Erreur lors de la détection des pistes:', error);
-    }
-  }
-
-  async loadAudioTracksInBackground(moviePath) {
-    // Charger les pistes audio en arrière-plan sans bloquer
-    if (window.electronAPI && window.electronAPI.getVideoInfo) {
-      try {
-        console.log('🎵 Chargement des pistes audio en arrière-plan...');
-        const videoInfo = await window.electronAPI.getVideoInfo(moviePath);
-        if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
-          this.detectedAudioTracks = videoInfo.audioTracks;
-          console.log(`✅ ${videoInfo.audioTracks.length} pistes audio détectées`);
-
-          // Détecter aussi les sous-titres
-          if (videoInfo.subtitleTracks && videoInfo.subtitleTracks.length > 0) {
-            this.detectedSubtitles = videoInfo.subtitleTracks;
-            console.log(`✅ ${videoInfo.subtitleTracks.length} sous-titres détectés`);
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ Erreur lors du chargement des pistes en arrière-plan:', error);
-      }
-    }
-  }
-
   /**
    * Détecte les pistes audio/vidéo et vérifie si un transcodage est nécessaire
    *
@@ -2211,6 +2185,48 @@ class VideoPlayer {
     this.isPlaying = false;
     this.updatePlayPauseButton();
     this.showControls();
+
+    // Passer automatiquement à l'épisode suivant si on est en mode série
+    if (this.seriesContext) {
+      const { episodes, currentIndex } = this.seriesContext;
+      if (currentIndex < episodes.length - 1) {
+        console.log('▶️ Fin d\'épisode — passage automatique au suivant');
+        setTimeout(() => this.playNextEpisode(), 1500);
+      }
+    }
+  }
+
+  updateSeriesNavigation() {
+    const hasSeries = !!this.seriesContext;
+    const { episodes, currentIndex } = this.seriesContext || { episodes: [], currentIndex: 0 };
+
+    const showPrev = hasSeries && currentIndex > 0;
+    const showNext = hasSeries && currentIndex < episodes.length - 1;
+
+    this.elements.prevEpisodeBtn.style.display = showPrev ? '' : 'none';
+    this.elements.nextEpisodeBtn.style.display = showNext ? '' : 'none';
+  }
+
+  playNextEpisode() {
+    if (!this.seriesContext) return;
+    const { episodes, currentIndex } = this.seriesContext;
+    if (currentIndex >= episodes.length - 1) return;
+
+    const nextEpisode = episodes[currentIndex + 1];
+    const nextContext = { episodes, currentIndex: currentIndex + 1 };
+    console.log('⏭️ Épisode suivant:', nextEpisode.title);
+    this.open(nextEpisode.id, nextEpisode.title, nextEpisode.path, nextContext);
+  }
+
+  playPreviousEpisode() {
+    if (!this.seriesContext) return;
+    const { episodes, currentIndex } = this.seriesContext;
+    if (currentIndex <= 0) return;
+
+    const prevEpisode = episodes[currentIndex - 1];
+    const prevContext = { episodes, currentIndex: currentIndex - 1 };
+    console.log('⏮️ Épisode précédent:', prevEpisode.title);
+    this.open(prevEpisode.id, prevEpisode.title, prevEpisode.path, prevContext);
   }
   
   onVideoError(e) {
@@ -3025,9 +3041,9 @@ class VideoPlayer {
 window.videoPlayer = new VideoPlayer();
 
 // Fonction globale pour ouvrir le lecteur vidéo
-window.openVideoPlayer = async function(movieId, title, path) {
+window.openVideoPlayer = async function(movieId, title, path, seriesContext = null) {
   try {
-    await window.videoPlayer.open(movieId, title, path);
+    await window.videoPlayer.open(movieId, title, path, seriesContext);
   } catch (error) {
     console.error('Erreur lors de l\'ouverture du lecteur vidéo:', error);
     alert('Erreur lors du chargement de la vidéo');

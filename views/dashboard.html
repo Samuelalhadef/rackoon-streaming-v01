@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="../css/filters.css">
   <link rel="stylesheet" href="../css/file-manager.css">
   <link rel="stylesheet" href="../css/watch-party.css">
+  <link rel="stylesheet" href="../css/personnes.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -32,6 +33,10 @@
         <a href="#statistiques" class="nav-link tab-link" data-tab="statistiques">
           <i class="fas fa-chart-bar"></i>
           Statistiques
+        </a>
+        <a href="#personnes" class="nav-link tab-link" data-tab="personnes">
+          <i class="fas fa-users"></i>
+          Personnes
         </a>
         <a href="#gestion-fichiers" class="nav-link tab-link" data-tab="gestion-fichiers">
           <i class="fas fa-folder-open"></i>
@@ -302,6 +307,35 @@
       </main>
     </div>
     <!-- Fin Section Statistiques -->
+
+    <!-- Section Personnes -->
+    <div class="tab-section" id="section-personnes" data-section="personnes">
+      <main class="main-content">
+        <div class="persons-header">
+          <h2><i class="fas fa-users"></i> Personnes</h2>
+          <div class="persons-controls">
+            <div class="persons-search-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input type="text" class="persons-search-input" id="persons-search-input" placeholder="Rechercher une personne...">
+            </div>
+            <button class="btn-add-person" id="btn-add-person">
+              <i class="fas fa-user-plus"></i> Ajouter une personne
+            </button>
+          </div>
+        </div>
+
+        <div class="persons-grid" id="persons-grid" style="display: none;"></div>
+
+        <div class="persons-empty" id="persons-empty">
+          <i class="fas fa-users"></i>
+          <p>Aucune personne ajoutée pour l'instant.<br>Commencez par ajouter des acteurs, réalisateurs ou autres.</p>
+          <button class="btn-add-person" id="btn-add-person-empty">
+            <i class="fas fa-user-plus"></i> Ajouter une personne
+          </button>
+        </div>
+      </main>
+    </div>
+    <!-- Fin Section Personnes -->
 
     <!-- Section Gestion de fichiers -->
     <div class="tab-section" id="section-gestion-fichiers" data-section="gestion-fichiers">
@@ -924,6 +958,40 @@
 
           <!-- Crédits après les tags -->
           <div class="movie-credits">
+            <!-- Section Équipe Technique -->
+            <div class="credits-section" id="crew-section" style="display: none;">
+              <div class="credits-section-title"><i class="fas fa-film"></i> Équipe Technique</div>
+              <div class="credits-departments">
+                <div class="credits-department" id="crew-director" style="display: none;">
+                  <div class="credits-dept-label">Réalisateur</div>
+                  <div class="credits-persons-grid" data-department="director"></div>
+                </div>
+                <div class="credits-department" id="crew-producer" style="display: none;">
+                  <div class="credits-dept-label">Producteur</div>
+                  <div class="credits-persons-grid" data-department="producer"></div>
+                </div>
+                <div class="credits-department" id="crew-writer" style="display: none;">
+                  <div class="credits-dept-label">Scénariste</div>
+                  <div class="credits-persons-grid" data-department="writer"></div>
+                </div>
+                <div class="credits-department" id="crew-composer" style="display: none;">
+                  <div class="credits-dept-label">Compositeur</div>
+                  <div class="credits-persons-grid" data-department="composer"></div>
+                </div>
+                <div class="credits-department" id="crew-cinematographer" style="display: none;">
+                  <div class="credits-dept-label">Dir. Photo</div>
+                  <div class="credits-persons-grid" data-department="cinematographer"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section Casting -->
+            <div class="credits-section" id="cast-section" style="display: none;">
+              <div class="credits-section-title"><i class="fas fa-users"></i> Casting</div>
+              <div class="credits-persons-grid" id="cast-persons-grid" data-department="actor"></div>
+            </div>
+
+            <!-- Fallback texte pour anciens films -->
             <div class="director-section" id="director-section" style="display: none;">
               <span class="credit-label">Réalisateur :</span>
               <span class="director-name" id="director-name"></span>
@@ -932,6 +1000,7 @@
               <span class="credit-label">Acteurs :</span>
               <span class="actors-list" id="actors-list"></span>
             </div>
+
             <div class="franchise-section" id="franchise-section" style="display: none;">
               <span class="credit-label">Collection :</span>
               <span class="franchise-name" id="franchise-name"></span>
@@ -1200,6 +1269,14 @@
               <span class="credit-label">Plateforme :</span>
               <span class="platform-name" id="series-platform-name"></span>
             </div>
+            <div class="director-section" id="series-status-section" style="display: none;">
+              <span class="credit-label">Statut :</span>
+              <span class="status-value" id="series-status-name"></span>
+            </div>
+            <div class="director-section" id="series-country-section" style="display: none;">
+              <span class="credit-label">Pays :</span>
+              <span class="country-value" id="series-country-name"></span>
+            </div>
           </div>
 
           <!-- Liste des saisons et épisodes -->
@@ -1343,6 +1420,24 @@
           </div>
         </div>
 
+        <!-- Barre de recherche / filtre -->
+        <div class="triage-search-bar">
+          <div class="triage-search-input-wrap">
+            <i class="fas fa-search triage-search-icon"></i>
+            <input type="text" id="triage-search-input" class="triage-search-input" placeholder="Rechercher par nom...">
+            <button class="triage-search-clear" id="triage-search-clear" title="Effacer" style="display:none">×</button>
+          </div>
+          <select id="triage-filter-type" class="triage-filter-select">
+            <option value="">Tous les types</option>
+            <option value="film">🎬 Films</option>
+            <option value="series">📺 Séries</option>
+            <option value="short">🎞️ Courts métrages</option>
+            <option value="other">📁 Autres</option>
+            <option value="unsorted">❓ Non triés</option>
+          </select>
+          <span class="triage-search-results" id="triage-search-results"></span>
+        </div>
+
         <div class="import-table-container">
           <table class="import-table" id="triage-table">
             <thead>
@@ -1352,7 +1447,7 @@
                 <th>Durée</th>
                 <th>Taille</th>
                 <th>Type de média</th>
-                <th>Mode de tri</th>
+                <th>Série / S·E</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1391,6 +1486,7 @@
         <div class="filename-info">
           <span class="filename-title"></span>
           <span class="filename-path"></span>
+          <span class="se-badge" style="display: none;"></span>
         </div>
       </td>
       <td class="duration-cell">
@@ -1410,19 +1506,19 @@
       </td>
       <td class="sort-mode-cell">
         <div class="sort-mode-container">
-          <input type="text" class="sort-mode-input" value="Non défini" readonly disabled>
           <div class="series-fields" style="display: none;">
-            <div class="series-name-row">
+            <div class="series-assign-row">
               <select class="series-name-selector">
-                <option value="">Sélectionner une série</option>
+                <option value="">Sélectionner une série…</option>
               </select>
-              <button type="button" class="btn-small btn-primary new-series-btn" title="Créer une nouvelle série">🆕</button>
+              <button type="button" class="btn-small btn-icon new-series-btn" title="Créer une nouvelle série">+</button>
             </div>
             <div class="validation-error" style="display: none;">
               <span class="error-icon">⚠️</span>
               <span class="error-text">Nom de série requis</span>
             </div>
           </div>
+          <span class="no-series-dash">—</span>
         </div>
       </td>
       <td class="actions-cell">
@@ -1546,6 +1642,10 @@
   <!-- Template pour les cartes de la galerie -->
   <template id="gallery-card-template">
     <div class="gallery-card" data-file-index="">
+      <!-- Miniature -->
+      <div class="gallery-card-thumbnail">
+        <img class="gallery-card-thumb-img" src="" alt="">
+      </div>
       <div class="gallery-card-body">
         <!-- Titre (obligatoire) -->
         <div class="form-group">
@@ -1560,16 +1660,16 @@
             <input type="text" class="form-control series-name-readonly" readonly>
           </div>
 
-          <!-- Saison (auto via drag&drop) -->
+          <!-- Saison -->
           <div class="form-group">
             <label>🎬 Saison</label>
-            <input type="text" class="form-control season-display" readonly placeholder="--">
+            <input type="number" class="form-control season-display" min="0" max="99" placeholder="—">
           </div>
 
-          <!-- Épisode (auto via drag&drop) -->
+          <!-- Épisode -->
           <div class="form-group">
             <label>📺 Épisode</label>
-            <input type="text" class="form-control episode-display" readonly placeholder="--">
+            <input type="number" class="form-control episode-display" min="0" max="9999" placeholder="—">
           </div>
 
           <!-- Durée pour les épisodes -->
@@ -1938,6 +2038,7 @@
   <script src="../js/dashboard-categories.js"></script>
   <script src="../js/file-manager-electron.js"></script>
   <script src="../js/stats-manager.js"></script>
+  <script src="../js/personnes.js"></script>
 
   <!-- Initialisation du gestionnaire de fichiers pour la section gestion-fichiers -->
   <script>
@@ -2159,5 +2260,17 @@
       }
     });
   </script>
+
+  <!-- Container de notifications toast -->
+  <div id="notifications-container"></div>
+
+  <!-- Overlay drag & drop -->
+  <div id="drop-overlay" class="drop-overlay">
+    <div class="drop-overlay-inner">
+      <div class="drop-overlay-icon">🎬</div>
+      <div class="drop-overlay-title">Déposer pour importer</div>
+      <div class="drop-overlay-sub">Fichiers vidéo ou dossiers</div>
+    </div>
+  </div>
 </body>
 </html>

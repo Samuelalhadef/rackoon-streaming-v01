@@ -7,8 +7,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Exposer les fonctions protégées à la fenêtre du navigateur
 contextBridge.exposeInMainWorld('electronAPI', {
   // Médias - APIs avec stockage JSON
-  scanMedias: (options) => ipcRenderer.invoke('medias:scan', options),
   scanMediasLight: (folderPath) => ipcRenderer.invoke('medias:scan-light', folderPath),
+  scanMediasFromPaths: (paths) => ipcRenderer.invoke('medias:scan-paths', paths),
   scanSingleMedia: () => ipcRenderer.invoke('medias:scanSingle'),
   getAllMedias: () => ipcRenderer.invoke('medias:getAll'),
   getMediaPath: (mediaPath) => ipcRenderer.invoke('medias:getPath', mediaPath),
@@ -19,11 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   playMedia: (mediaId) => ipcRenderer.invoke('medias:play', mediaId),
   getMediaStats: () => ipcRenderer.invoke('medias:getStats'),
   saveClassifiedFile: (fileData) => ipcRenderer.invoke('medias:saveClassified', fileData),
-  isFileAlreadyImported: (filePath) => ipcRenderer.invoke('medias:isFileAlreadyImported', filePath),
   openMediaFolder: (mediaPath) => ipcRenderer.invoke('medias:openFolder', mediaPath),
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
   downloadTMDBImage: (imageUrl, mediaTitle) => ipcRenderer.invoke('medias:downloadTMDBImage', imageUrl, mediaTitle),
-  updateMediasMetadata: () => ipcRenderer.invoke('medias:updateMetadata'),
+  savePosterLocal: (sourcePath, mediaTitle) => ipcRenderer.invoke('medias:savePosterLocal', sourcePath, mediaTitle),
   generateThumbnail: (mediaId) => ipcRenderer.invoke('medias:generateThumbnail', mediaId),
 
   // APIs pour informations vidéo
@@ -53,32 +52,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSeriesSeasons: (seriesId) => ipcRenderer.invoke('seasons:get', seriesId),
   saveSeriesSeasons: (seriesId, seasons) => ipcRenderer.invoke('seasons:save', seriesId, seasons),
 
-  // APIs pour le système de tags
-  migrateTags: () => ipcRenderer.invoke('tags:migrate'),
-  getAllTags: () => ipcRenderer.invoke('tags:getAll'),
-  addCustomTag: (tagName) => ipcRenderer.invoke('tags:addCustom', tagName),
-  removeCustomTag: (tagName) => ipcRenderer.invoke('tags:removeCustom', tagName),
-  addTagsToMedia: (mediaId, tags, tagType) => ipcRenderer.invoke('tags:addToMedia', mediaId, tags, tagType),
-  removeTagsFromMedia: (mediaId, tags, tagType) => ipcRenderer.invoke('tags:removeFromMedia', mediaId, tags, tagType),
-  searchMediasByTags: (searchTags, operator) => ipcRenderer.invoke('tags:searchMedias', searchTags, operator),
-  getTagSuggestions: (query, limit) => ipcRenderer.invoke('tags:getSuggestions', query, limit),
+  // APIs pour la gestion des personnes
+  getAllPersons: () => ipcRenderer.invoke('persons:getAll'),
+  getPersonById: (personId) => ipcRenderer.invoke('persons:getById', personId),
+  getPersonByTmdbId: (tmdbId) => ipcRenderer.invoke('persons:getByTmdbId', tmdbId),
+  addPerson: (personData) => ipcRenderer.invoke('persons:add', personData),
+  updatePerson: (personId, updates) => ipcRenderer.invoke('persons:update', personId, updates),
+  deletePerson: (personId) => ipcRenderer.invoke('persons:delete', personId),
+  linkPersonToMedia: (personId, mediaId, mediaType, role, character) => ipcRenderer.invoke('persons:link', personId, mediaId, mediaType, role, character),
+  unlinkPersonFromMedia: (personId, mediaId, role) => ipcRenderer.invoke('persons:unlink', personId, mediaId, role),
+  getPersonsForMedia: (mediaId) => ipcRenderer.invoke('persons:forMedia', mediaId),
+  searchPersons: (query) => ipcRenderer.invoke('persons:search', query),
+  downloadPersonPhoto: (imageUrl, personName) => ipcRenderer.invoke('persons:downloadPhoto', imageUrl, personName),
 
   // APIs pour les préférences utilisateur
   getUserPrefs: () => ipcRenderer.invoke('userPrefs:get'),
   updateRating: (mediaId, rating) => ipcRenderer.invoke('userPrefs:updateRating', mediaId, rating),
-  updateWatchStatus: (mediaId, isWatched) => ipcRenderer.invoke('userPrefs:updateWatchStatus', mediaId, isWatched),
-  saveUserPrefs: (prefs) => ipcRenderer.invoke('userPrefs:save', prefs),
 
   // APIs Watch Party
   createWatchParty: (videoInfo) => ipcRenderer.invoke('watchparty:create', videoInfo),
   joinWatchParty: (code) => ipcRenderer.invoke('watchparty:join', code),
   leaveWatchParty: (sessionId) => ipcRenderer.invoke('watchparty:leave', sessionId),
-  getWatchPartyInfo: (sessionId) => ipcRenderer.invoke('watchparty:getSessionInfo', sessionId),
 
   // APIs Ngrok (partage en ligne)
   startNgrok: () => ipcRenderer.invoke('ngrok:start'),
   stopNgrok: () => ipcRenderer.invoke('ngrok:stop'),
-  getNgrokUrl: () => ipcRenderer.invoke('ngrok:getUrl'),
   getShareLink: (sessionCode) => ipcRenderer.invoke('ngrok:getShareLink', sessionCode),
 
   // Événements

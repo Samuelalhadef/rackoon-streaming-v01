@@ -19,7 +19,8 @@ class JSONDatabase {
       seriesMetadata: path.join(this.dbDir, 'series_metadata.json'),
       seriesSeasons: path.join(this.dbDir, 'series_seasons.json'),
       appConfig: path.join(this.dbDir, 'app_config.json'),
-      userPrefs: path.join(this.dbDir, 'user_prefs.json')
+      userPrefs: path.join(this.dbDir, 'user_prefs.json'),
+      persons: path.join(this.dbDir, 'persons.json')
     };
 
     // Ancien fichier pour migration
@@ -27,6 +28,7 @@ class JSONDatabase {
 
     // Dossiers pour assets
     this.thumbnailsPath = path.join(this.dataDir, 'thumbnails');
+    this.personPhotosPath = path.join(this.dataDir, 'person-photos');
 
     // Données en mémoire
     this.data = {
@@ -35,7 +37,8 @@ class JSONDatabase {
       seriesMetadata: [],
       seriesSeasons: {},
       config: null,
-      userPrefs: null
+      userPrefs: null,
+      persons: []
     };
 
     // Throttling des sauvegardes
@@ -49,6 +52,7 @@ class JSONDatabase {
   ensureDirectories() {
     fs.ensureDirSync(this.dbDir);
     fs.ensureDirSync(this.thumbnailsPath);
+    fs.ensureDirSync(this.personPhotosPath);
   }
 
   // ============================================
@@ -164,7 +168,13 @@ class JSONDatabase {
       this.getDefaultUserPrefs()
     );
 
-    console.log(`✅ Base chargée: ${this.data.uniqueMedias.length} médias uniques, ${this.data.seriesEpisodes.length} épisodes, ${this.data.seriesMetadata.length} séries`);
+    // Charger les personnes
+    this.data.persons = await this.loadFileWithBackup(
+      this.paths.persons,
+      []
+    );
+
+    console.log(`✅ Base chargée: ${this.data.uniqueMedias.length} médias uniques, ${this.data.seriesEpisodes.length} épisodes, ${this.data.seriesMetadata.length} séries, ${this.data.persons.length} personnes`);
   }
 
   /**
@@ -238,7 +248,8 @@ class JSONDatabase {
       this.saveFileAtomic(this.paths.uniqueMedias, this.data.uniqueMedias),
       this.saveFileAtomic(this.paths.seriesEpisodes, this.data.seriesEpisodes),
       this.saveFileAtomic(this.paths.seriesMetadata, this.data.seriesMetadata),
-      this.saveFileAtomic(this.paths.appConfig, this.data.config)
+      this.saveFileAtomic(this.paths.appConfig, this.data.config),
+      this.saveFileAtomic(this.paths.persons, this.data.persons)
     ]);
   }
 
@@ -394,21 +405,6 @@ class JSONDatabase {
 
     // Chercher dans les épisodes
     return this.data.seriesEpisodes.find(m => m.id === id);
-  }
-
-  // Obtenir les médias par catégorie
-  async getMediasByCategory(category) {
-    if (!this.data.config) await this.load();
-
-    if (category === 'all') {
-      return [...this.data.uniqueMedias, ...this.data.seriesEpisodes];
-    }
-
-    if (category === 'series') {
-      return this.data.seriesEpisodes;
-    }
-
-    return this.data.uniqueMedias.filter(m => m.category === category);
   }
 
   // Ajouter un média
@@ -630,19 +626,6 @@ class JSONDatabase {
       console.error('❌ Erreur lors de la suppression de tous les médias:', error);
       return { success: false, message: error.message };
     }
-  }
-
-  // Rechercher des médias
-  async searchMedias(query) {
-    if (!this.data.config) await this.load();
-    const lowerQuery = query.toLowerCase();
-
-    const allMedias = [...this.data.uniqueMedias, ...this.data.seriesEpisodes];
-
-    return allMedias.filter(media =>
-      media.title.toLowerCase().includes(lowerQuery) ||
-      (media.description && media.description.toLowerCase().includes(lowerQuery))
-    );
   }
 
   // Obtenir les statistiques
@@ -1041,31 +1024,6 @@ class JSONDatabase {
     }
   }
 
-  async cleanupThumbnails() {
-    if (!this.data.config) await this.load();
-
-    try {
-      const thumbnailFiles = await fs.readdir(this.thumbnailsPath);
-      const allMedias = [...this.data.uniqueMedias, ...this.data.seriesEpisodes];
-      const usedThumbnails = allMedias
-        .map(m => m.thumbnail)
-        .filter(t => t);
-
-      let deletedCount = 0;
-      for (const file of thumbnailFiles) {
-        if (!usedThumbnails.includes(file)) {
-          await fs.unlink(path.join(this.thumbnailsPath, file));
-          deletedCount++;
-        }
-      }
-
-      return { success: true, deletedCount };
-    } catch (error) {
-      console.error('Erreur lors du nettoyage des miniatures:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
   // ============================================
   // SYSTÈME DE TAGS
   // ============================================
@@ -1142,213 +1100,200 @@ class JSONDatabase {
     return 'long';
   }
 
-  // Ajouter un tag personnalisé
-  async addCustomTag(tagName) {
-    if (!this.data.config) await this.load();
+  // ============================================
+  // GESTION DES PERSONNES
+  // ============================================
 
-    const normalizedTag = tagName.toLowerCase().trim();
-
-    if (!this.data.config.tagManager.customTags.includes(normalizedTag)) {
-      this.data.config.tagManager.customTags.push(normalizedTag);
-      this.data.config.tagManager.tagStats[normalizedTag] = 0;
-      await this.saveConfig();
-      return { success: true, tag: normalizedTag };
-    }
-
-    return { success: false, message: 'Tag déjà existant' };
+  async savePersons() {
+    return this.saveThrottled('persons', () =>
+      this.saveFileAtomic(this.paths.persons, this.data.persons)
+    );
   }
 
-  async removeCustomTag(tagName) {
-    if (!this.data.config) await this.load();
-
-    const normalizedTag = tagName.toLowerCase().trim();
-    const index = this.data.config.tagManager.customTags.indexOf(normalizedTag);
-
-    if (index > -1) {
-      this.data.config.tagManager.customTags.splice(index, 1);
-      delete this.data.config.tagManager.tagStats[normalizedTag];
-
-      // Supprimer de tous les médias
-      const allMedias = [...this.data.uniqueMedias, ...this.data.seriesEpisodes];
-      allMedias.forEach(media => {
-        if (media.personalTags) {
-          media.personalTags = media.personalTags.filter(tag => tag !== normalizedTag);
-        }
-      });
-
-      this.data.seriesMetadata.forEach(series => {
-        if (series.personalTags) {
-          series.personalTags = series.personalTags.filter(tag => tag !== normalizedTag);
-        }
-      });
-
-      await this.saveAll();
-      return { success: true };
-    }
-
-    return { success: false, message: 'Tag non trouvé' };
+  async savePersonsImmediate() {
+    return this.saveFileAtomic(this.paths.persons, this.data.persons);
   }
 
-  async addTagsToMedia(mediaId, tags, tagType = 'personalTags') {
+  async getAllPersons() {
+    if (!this.data.config) await this.load();
+    return { success: true, persons: this.data.persons };
+  }
+
+  async getPersonById(personId) {
+    if (!this.data.config) await this.load();
+    const person = this.data.persons.find(p => p.id === personId);
+    if (!person) {
+      return { success: false, message: 'Personne non trouvée' };
+    }
+    return { success: true, person };
+  }
+
+  async getPersonByTmdbId(tmdbId) {
+    if (!this.data.config) await this.load();
+    const person = this.data.persons.find(p => p.tmdbId === tmdbId);
+    if (!person) {
+      return { success: false, message: 'Personne non trouvée' };
+    }
+    return { success: true, person };
+  }
+
+  async addPerson(personData) {
     if (!this.data.config) await this.load();
 
-    // Chercher dans les médias uniques
-    let media = this.data.uniqueMedias.find(m => m.id === mediaId);
-    let isEpisode = false;
-
-    if (!media) {
-      media = this.data.seriesEpisodes.find(m => m.id === mediaId);
-      isEpisode = true;
-    }
-
-    if (!media) {
-      return { success: false, message: 'Média non trouvé' };
-    }
-
-    if (!media[tagType]) {
-      media[tagType] = [];
-    }
-
-    const addedTags = [];
-    tags.forEach(tag => {
-      const normalizedTag = tag.toLowerCase().trim();
-      if (!media[tagType].includes(normalizedTag)) {
-        media[tagType].push(normalizedTag);
-        addedTags.push(normalizedTag);
-
-        if (!this.data.config.tagManager.tagStats[normalizedTag]) {
-          this.data.config.tagManager.tagStats[normalizedTag] = 0;
-        }
-        this.data.config.tagManager.tagStats[normalizedTag]++;
+    // Vérifier si la personne existe déjà par tmdbId
+    if (personData.tmdbId) {
+      const existing = this.data.persons.find(p => p.tmdbId === personData.tmdbId);
+      if (existing) {
+        return { success: true, person: existing, alreadyExists: true };
       }
-    });
-
-    if (isEpisode) {
-      await this.saveSeriesEpisodes();
-    } else {
-      await this.saveUniqueMedias();
-    }
-    await this.saveConfig();
-
-    return { success: true, addedTags };
-  }
-
-  async removeTagsFromMedia(mediaId, tags, tagType = 'personalTags') {
-    if (!this.data.config) await this.load();
-
-    let media = this.data.uniqueMedias.find(m => m.id === mediaId);
-    let isEpisode = false;
-
-    if (!media) {
-      media = this.data.seriesEpisodes.find(m => m.id === mediaId);
-      isEpisode = true;
     }
 
-    if (!media) {
-      return { success: false, message: 'Média non trouvé' };
-    }
-
-    if (!media[tagType]) {
-      return { success: true, removedTags: [] };
-    }
-
-    const removedTags = [];
-    tags.forEach(tag => {
-      const normalizedTag = tag.toLowerCase().trim();
-      const index = media[tagType].indexOf(normalizedTag);
-      if (index > -1) {
-        media[tagType].splice(index, 1);
-        removedTags.push(normalizedTag);
-
-        if (this.data.config.tagManager.tagStats[normalizedTag]) {
-          this.data.config.tagManager.tagStats[normalizedTag]--;
-          if (this.data.config.tagManager.tagStats[normalizedTag] <= 0) {
-            delete this.data.config.tagManager.tagStats[normalizedTag];
-          }
-        }
-      }
-    });
-
-    if (isEpisode) {
-      await this.saveSeriesEpisodes();
-    } else {
-      await this.saveUniqueMedias();
-    }
-    await this.saveConfig();
-
-    return { success: true, removedTags };
-  }
-
-  async searchByTags(searchTags, operator = 'AND') {
-    if (!this.data.config) await this.load();
-
-    const normalizedSearchTags = searchTags.map(tag => tag.toLowerCase().trim());
-    const allMedias = [...this.data.uniqueMedias, ...this.data.seriesEpisodes];
-
-    return allMedias.filter(media => {
-      const allMediaTags = [
-        ...(media.genres || []),
-        ...(media.mood || []),
-        ...(media.technical || []),
-        ...(media.personalTags || []),
-        media.franchise,
-        media.durationCategory,
-        media.decade
-      ].filter(Boolean).map(tag => tag.toLowerCase());
-
-      if (operator === 'AND') {
-        return normalizedSearchTags.every(searchTag =>
-          allMediaTags.some(mediaTag => mediaTag.includes(searchTag))
-        );
-      } else {
-        return normalizedSearchTags.some(searchTag =>
-          allMediaTags.some(mediaTag => mediaTag.includes(searchTag))
-        );
-      }
-    });
-  }
-
-  async getAllTags() {
-    if (!this.data.config) await this.load();
-
-    return {
-      success: true,
-      tags: {
-        predefined: this.data.config.tagManager.predefinedTags,
-        custom: this.data.config.tagManager.customTags,
-        stats: this.data.config.tagManager.tagStats
-      }
+    const person = {
+      id: crypto.randomBytes(8).toString('hex'),
+      tmdbId: personData.tmdbId || null,
+      name: personData.name || '',
+      photo: personData.photo || null,
+      biography: personData.biography || null,
+      birthday: personData.birthday || null,
+      deathday: personData.deathday || null,
+      placeOfBirth: personData.placeOfBirth || null,
+      knownForDepartment: personData.knownForDepartment || null,
+      roles: personData.roles || [],
+      dateAdded: new Date().toISOString()
     };
+
+    this.data.persons.push(person);
+    await this.savePersonsImmediate();
+
+    console.log(`👤 Personne ajoutée: ${person.name}`);
+    return { success: true, person };
   }
 
-  async getTagSuggestions(query, limit = 10) {
+  async updatePerson(personId, updates) {
+    if (!this.data.config) await this.load();
+
+    const personIndex = this.data.persons.findIndex(p => p.id === personId);
+    if (personIndex === -1) {
+      return { success: false, message: 'Personne non trouvée' };
+    }
+
+    // Ne pas écraser id et dateAdded
+    const { id, dateAdded, ...safeUpdates } = updates;
+    Object.assign(this.data.persons[personIndex], safeUpdates);
+
+    await this.savePersonsImmediate();
+
+    console.log(`👤 Personne mise à jour: ${this.data.persons[personIndex].name}`);
+    return { success: true, person: this.data.persons[personIndex] };
+  }
+
+  async deletePerson(personId) {
+    if (!this.data.config) await this.load();
+
+    const personIndex = this.data.persons.findIndex(p => p.id === personId);
+    if (personIndex === -1) {
+      return { success: false, message: 'Personne non trouvée' };
+    }
+
+    const person = this.data.persons[personIndex];
+
+    // Supprimer la photo si elle existe
+    if (person.photo) {
+      const photoPath = path.join(this.personPhotosPath, person.photo);
+      try {
+        await fs.remove(photoPath);
+      } catch (err) {
+        console.warn(`⚠️ Impossible de supprimer la photo: ${photoPath}`);
+      }
+    }
+
+    this.data.persons.splice(personIndex, 1);
+    await this.savePersonsImmediate();
+
+    console.log(`👤 Personne supprimée: ${person.name}`);
+    return { success: true };
+  }
+
+  async linkPersonToMedia(personId, mediaId, mediaType, role, character = null) {
+    if (!this.data.config) await this.load();
+
+    const person = this.data.persons.find(p => p.id === personId);
+    if (!person) {
+      return { success: false, message: 'Personne non trouvée' };
+    }
+
+    // Vérifier si le lien existe déjà
+    const existingRole = person.roles.find(
+      r => r.mediaId === mediaId && r.role === role
+    );
+    if (existingRole) {
+      // Mettre à jour le character si différent
+      if (character && existingRole.character !== character) {
+        existingRole.character = character;
+        await this.savePersonsImmediate();
+      }
+      return { success: true, person, alreadyLinked: true };
+    }
+
+    person.roles.push({
+      mediaId,
+      mediaType: mediaType || 'unique',
+      role,
+      character: character || null
+    });
+
+    await this.savePersonsImmediate();
+
+    console.log(`🔗 ${person.name} lié au média ${mediaId} en tant que ${role}`);
+    return { success: true, person };
+  }
+
+  async unlinkPersonFromMedia(personId, mediaId, role = null) {
+    if (!this.data.config) await this.load();
+
+    const person = this.data.persons.find(p => p.id === personId);
+    if (!person) {
+      return { success: false, message: 'Personne non trouvée' };
+    }
+
+    if (role) {
+      person.roles = person.roles.filter(
+        r => !(r.mediaId === mediaId && r.role === role)
+      );
+    } else {
+      person.roles = person.roles.filter(r => r.mediaId !== mediaId);
+    }
+
+    await this.savePersonsImmediate();
+
+    console.log(`🔗 ${person.name} délié du média ${mediaId}`);
+    return { success: true, person };
+  }
+
+  async getPersonsForMedia(mediaId) {
+    if (!this.data.config) await this.load();
+
+    const persons = this.data.persons.filter(
+      p => p.roles.some(r => r.mediaId === mediaId)
+    ).map(p => ({
+      ...p,
+      roles: p.roles.filter(r => r.mediaId === mediaId)
+    }));
+
+    return { success: true, persons };
+  }
+
+  async searchPersons(query) {
     if (!this.data.config) await this.load();
 
     const normalizedQuery = query.toLowerCase().trim();
-    const suggestions = [];
+    const results = this.data.persons.filter(
+      p => p.name.toLowerCase().includes(normalizedQuery)
+    );
 
-    Object.values(this.data.config.tagManager.predefinedTags || {}).forEach(tagGroup => {
-      tagGroup.forEach(tag => {
-        if (tag.toLowerCase().includes(normalizedQuery)) {
-          suggestions.push({ tag, type: 'predefined' });
-        }
-      });
-    });
-
-    (this.data.config.tagManager.customTags || []).forEach(tag => {
-      if (tag.includes(normalizedQuery)) {
-        suggestions.push({ tag, type: 'custom' });
-      }
-    });
-
-    suggestions.sort((a, b) => {
-      const aStats = this.data.config.tagManager.tagStats[a.tag] || 0;
-      const bStats = this.data.config.tagManager.tagStats[b.tag] || 0;
-      return bStats - aStats;
-    });
-
-    return { success: true, suggestions: suggestions.slice(0, limit) };
+    return { success: true, persons: results };
   }
+
 }
 
 module.exports = JSONDatabase;

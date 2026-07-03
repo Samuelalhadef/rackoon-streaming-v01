@@ -2,12 +2,6 @@
 
 console.log('📁 Script movie-modal.js CHARGÉ');
 
-// Exposer immédiatement une fonction simple pour tester
-window.testMovieModal = function() {
-  console.log('✅ Test movie-modal fonctionne !');
-  return true;
-};
-
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🎬 Initialisation de movie-modal.js...');
 
@@ -69,6 +63,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
   
   // Plus de système utilisateur - supprimé
+
+  // ============================================
+  // MAPPING DÉPARTEMENTS / RÔLES PERSONNES
+  // ============================================
+  const CREW_ROLES = {
+    director:        { label: 'Réalisateur',  tmdbJobs: ['Director'] },
+    producer:        { label: 'Producteur',   tmdbJobs: ['Producer', 'Executive Producer'] },
+    writer:          { label: 'Scénariste',   tmdbJobs: ['Screenplay', 'Writer', 'Story'] },
+    composer:        { label: 'Compositeur',  tmdbJobs: ['Original Music Composer', 'Music'] },
+    cinematographer: { label: 'Dir. Photo',   tmdbJobs: ['Director of Photography'] }
+  };
+
+  function mapTMDBJobToRole(job) {
+    for (const [role, config] of Object.entries(CREW_ROLES)) {
+      if (config.tmdbJobs.includes(job)) return role;
+    }
+    return null;
+  }
+
+  function getDepartmentLabel(dept) {
+    const map = {
+      'Acting': 'Acteur/Actrice',
+      'Directing': 'Réalisation',
+      'Writing': 'Scénario',
+      'Production': 'Production',
+      'Sound': 'Son',
+      'Camera': 'Photographie',
+      'Editing': 'Montage',
+      'Art': 'Direction artistique',
+      'Costume & Make-Up': 'Costumes',
+      'Visual Effects': 'Effets visuels',
+      'Crew': 'Équipe technique'
+    };
+    return map[dept] || dept || '';
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
 
   // Exposer la fonction openMovieModal immédiatement pour éviter les problèmes de timing
   window.openMovieModal = async function(movieId) {
@@ -162,52 +198,113 @@ document.addEventListener('DOMContentLoaded', () => {
   // NOUVELLES FONCTIONS POUR LES TAGS ET MÉTADONNÉES
   // ============================================
 
-  // Afficher les crédits du film (acteurs, réalisateur, franchise)
-  function displayMovieCredits(movie) {
-    // Réalisateur
+  // Afficher les crédits du film (personnes liées + fallback texte)
+  async function displayMovieCredits(movie) {
+    // Masquer toutes les sections par défaut
+    const crewSection = document.getElementById('crew-section');
+    const castSection = document.getElementById('cast-section');
     const directorSection = document.getElementById('director-section');
-    const directorName = document.getElementById('director-name');
-    if (movie.director && movie.director.trim()) {
-      directorName.textContent = movie.director;
-      directorName.style.fontStyle = 'normal';
-      directorName.style.color = '#ffffff';
-      directorSection.style.display = 'block';
-    } else {
-      directorName.textContent = 'Non renseigné';
-      directorName.style.fontStyle = 'italic';
-      directorName.style.color = '#888';
-      directorSection.style.display = 'block';
+    const actorsSection = document.getElementById('actors-section');
+
+    if (crewSection) crewSection.style.display = 'none';
+    if (castSection) castSection.style.display = 'none';
+    if (directorSection) directorSection.style.display = 'none';
+    if (actorsSection) actorsSection.style.display = 'none';
+
+    // Réinitialiser les grids
+    for (const dept of Object.keys(CREW_ROLES)) {
+      const deptEl = document.getElementById(`crew-${dept}`);
+      if (deptEl) {
+        deptEl.style.display = 'none';
+        const grid = deptEl.querySelector('.credits-persons-grid');
+        if (grid) grid.innerHTML = '';
+      }
+    }
+    const castGrid = document.getElementById('cast-persons-grid');
+    if (castGrid) castGrid.innerHTML = '';
+
+    // Récupérer les personnes liées
+    let hasPersons = false;
+    try {
+      const result = await window.electronAPI.getPersonsForMedia(movie.id);
+      if (result.success && result.persons && result.persons.length > 0) {
+        hasPersons = true;
+        const crewByRole = {};
+        for (const dept of Object.keys(CREW_ROLES)) crewByRole[dept] = [];
+        const cast = [];
+
+        for (const person of result.persons) {
+          for (const roleObj of (person.roles || [])) {
+            const role = roleObj.role;
+            if (role === 'actor') {
+              cast.push({ person, roleObj });
+            } else if (CREW_ROLES[role]) {
+              crewByRole[role].push({ person, roleObj });
+            }
+          }
+        }
+
+        // Remplir les grids crew
+        let hasAnyCrew = false;
+        for (const [dept, items] of Object.entries(crewByRole)) {
+          if (items.length > 0) {
+            hasAnyCrew = true;
+            const deptEl = document.getElementById(`crew-${dept}`);
+            if (deptEl) {
+              deptEl.style.display = 'block';
+              const grid = deptEl.querySelector('.credits-persons-grid');
+              for (const { person, roleObj } of items) {
+                grid.appendChild(createPersonAvatarCard(person, roleObj, false));
+              }
+            }
+          }
+        }
+        if (hasAnyCrew && crewSection) crewSection.style.display = 'block';
+
+        // Remplir le grid casting
+        if (cast.length > 0 && castSection) {
+          castSection.style.display = 'block';
+          for (const { person, roleObj } of cast) {
+            castGrid.appendChild(createPersonAvatarCard(person, roleObj, false));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Impossible de charger les personnes liées:', err);
     }
 
-    // Acteurs
-    const actorsSection = document.getElementById('actors-section');
-    const actorsList = document.getElementById('actors-list');
-    if (movie.actors && movie.actors.length > 0) {
-      const actorsText = movie.actors.slice(0, 3).join(', '); // Max 3 acteurs principaux
-      actorsList.textContent = actorsText;
-      actorsList.style.fontStyle = 'normal';
-      actorsList.style.color = '#e3f2fd';
-      actorsSection.style.display = 'block';
-    } else {
-      actorsList.textContent = 'Non renseigné';
-      actorsList.style.fontStyle = 'italic';
-      actorsList.style.color = '#888';
-      actorsSection.style.display = 'block';
+    // Fallback rétrocompatibilité si aucune personne liée
+    if (!hasPersons) {
+      const directorName = document.getElementById('director-name');
+      if (movie.director && movie.director.trim()) {
+        if (directorName) directorName.textContent = movie.director;
+        if (directorSection) directorSection.style.display = 'block';
+      }
+
+      const actorsList = document.getElementById('actors-list');
+      if (movie.actors && movie.actors.length > 0) {
+        if (actorsList) actorsList.textContent = movie.actors.slice(0, 3).join(', ');
+        if (actorsSection) actorsSection.style.display = 'block';
+      }
     }
 
     // Franchise/Collection
     const franchiseSection = document.getElementById('franchise-section');
     const franchiseName = document.getElementById('franchise-name');
     if (movie.franchise && movie.franchise.trim()) {
-      franchiseName.textContent = movie.franchise;
-      franchiseName.style.fontStyle = 'normal';
-      franchiseName.style.color = '#ffffff';
-      franchiseSection.style.display = 'block';
+      if (franchiseName) {
+        franchiseName.textContent = movie.franchise;
+        franchiseName.style.fontStyle = 'normal';
+        franchiseName.style.color = '#ffffff';
+      }
+      if (franchiseSection) franchiseSection.style.display = 'block';
     } else {
-      franchiseName.textContent = 'Aucune collection';
-      franchiseName.style.fontStyle = 'italic';
-      franchiseName.style.color = '#888';
-      franchiseSection.style.display = 'block';
+      if (franchiseName) {
+        franchiseName.textContent = 'Aucune collection';
+        franchiseName.style.fontStyle = 'italic';
+        franchiseName.style.color = '#888';
+      }
+      if (franchiseSection) franchiseSection.style.display = 'block';
     }
 
     // Plateforme d'origine
@@ -218,13 +315,642 @@ document.addEventListener('DOMContentLoaded', () => {
         platformName.textContent = movie.platform;
         platformName.style.fontStyle = 'normal';
         platformName.style.color = '#ffffff';
-        platformSection.style.display = 'block';
+        if (platformSection) platformSection.style.display = 'block';
       } else {
         platformName.textContent = 'Non renseigné';
         platformName.style.fontStyle = 'italic';
         platformName.style.color = '#888';
-        platformSection.style.display = 'block';
+        if (platformSection) platformSection.style.display = 'block';
       }
+    }
+  }
+
+  // Créer une carte avatar pour une personne
+  function createPersonAvatarCard(person, roleObj, isEditMode) {
+    const card = document.createElement('div');
+    card.className = 'person-avatar-card';
+    card.dataset.personId = person.id;
+    card.dataset.role = roleObj.role;
+
+    // Photo ou placeholder
+    if (person.photo) {
+      const img = document.createElement('img');
+      img.className = 'person-avatar-photo';
+      img.src = `http://localhost:3001/person-photos/${person.photo}`;
+      img.alt = escapeHtml(person.name);
+      img.onerror = function() {
+        const ph = document.createElement('div');
+        ph.className = 'person-avatar-placeholder';
+        ph.innerHTML = '<i class="fas fa-user"></i>';
+        this.parentNode.replaceChild(ph, this);
+      };
+      card.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'person-avatar-placeholder';
+      ph.innerHTML = '<i class="fas fa-user"></i>';
+      card.appendChild(ph);
+    }
+
+    // Nom
+    const nameEl = document.createElement('div');
+    nameEl.className = 'person-avatar-name';
+    nameEl.textContent = person.name;
+    card.appendChild(nameEl);
+
+    // Rôle / Personnage
+    if (roleObj.character) {
+      const roleEl = document.createElement('div');
+      roleEl.className = 'person-avatar-role';
+      roleEl.textContent = roleObj.character;
+      card.appendChild(roleEl);
+    }
+
+    if (!isEditMode) {
+      card.addEventListener('click', () => openPersonMiniPopup(person.id));
+    } else {
+      // Bouton supprimer
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'person-avatar-remove-btn';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.title = 'Retirer';
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removePersonFromCredits(person.id, roleObj.role);
+      });
+      card.appendChild(removeBtn);
+    }
+
+    return card;
+  }
+
+  // ============================================
+  // MINI-POPUP PERSONNE
+  // ============================================
+  async function openPersonMiniPopup(personId) {
+    // Supprimer une popup existante
+    const existing = document.querySelector('.person-mini-popup-overlay');
+    if (existing) existing.remove();
+
+    try {
+      const result = await window.electronAPI.getPersonById(personId);
+      if (!result.success || !result.person) {
+        console.warn('Personne non trouvée:', personId);
+        return;
+      }
+      const person = result.person;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'person-mini-popup-overlay';
+
+      const popup = document.createElement('div');
+      popup.className = 'person-mini-popup';
+
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'person-mini-popup-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.addEventListener('click', () => overlay.remove());
+      popup.appendChild(closeBtn);
+
+      // Header (photo + info)
+      const header = document.createElement('div');
+      header.className = 'person-mini-popup-header';
+
+      if (person.photo) {
+        const img = document.createElement('img');
+        img.className = 'person-mini-popup-photo';
+        img.src = `http://localhost:3001/person-photos/${person.photo}`;
+        img.alt = escapeHtml(person.name);
+        img.onerror = function() {
+          const ph = document.createElement('div');
+          ph.className = 'person-mini-popup-photo-placeholder';
+          ph.innerHTML = '<i class="fas fa-user"></i>';
+          this.parentNode.replaceChild(ph, this);
+        };
+        header.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'person-mini-popup-photo-placeholder';
+        ph.innerHTML = '<i class="fas fa-user"></i>';
+        header.appendChild(ph);
+      }
+
+      const info = document.createElement('div');
+      const nameEl = document.createElement('h3');
+      nameEl.className = 'person-mini-popup-name';
+      nameEl.textContent = person.name;
+      info.appendChild(nameEl);
+
+      if (person.knownForDepartment) {
+        const deptEl = document.createElement('div');
+        deptEl.className = 'person-mini-popup-dept';
+        deptEl.textContent = getDepartmentLabel(person.knownForDepartment);
+        info.appendChild(deptEl);
+      }
+
+      if (person.birthday) {
+        const datesEl = document.createElement('div');
+        datesEl.className = 'person-mini-popup-dates';
+        let dateText = `Né(e) le ${person.birthday}`;
+        if (person.deathday) dateText += ` — Décédé(e) le ${person.deathday}`;
+        datesEl.textContent = dateText;
+        info.appendChild(datesEl);
+      }
+
+      header.appendChild(info);
+      popup.appendChild(header);
+
+      // Bio
+      if (person.biography) {
+        const bio = document.createElement('div');
+        bio.className = 'person-mini-popup-bio';
+        bio.textContent = person.biography;
+        popup.appendChild(bio);
+      }
+
+      // Filmographie locale
+      if (person.roles && person.roles.length > 0) {
+        const filmoTitle = document.createElement('div');
+        filmoTitle.className = 'person-mini-popup-filmography-title';
+        filmoTitle.textContent = 'Filmographie locale';
+        popup.appendChild(filmoTitle);
+
+        const filmoList = document.createElement('div');
+        filmoList.className = 'person-mini-popup-filmography';
+
+        for (const role of person.roles) {
+          try {
+            const mediaResult = await window.electronAPI.getMediaDetails(role.mediaId);
+            if (mediaResult.success && mediaResult.media) {
+              const item = document.createElement('div');
+              item.className = 'person-mini-popup-film-item';
+
+              const titleEl = document.createElement('span');
+              titleEl.className = 'person-mini-popup-film-title';
+              titleEl.textContent = mediaResult.media.title;
+              item.appendChild(titleEl);
+
+              const roleEl = document.createElement('span');
+              roleEl.className = 'person-mini-popup-film-role';
+              roleEl.textContent = role.character || (CREW_ROLES[role.role] ? CREW_ROLES[role.role].label : role.role);
+              item.appendChild(roleEl);
+
+              filmoList.appendChild(item);
+            }
+          } catch (e) {
+            console.warn('Erreur chargement média pour filmographie:', e);
+          }
+        }
+
+        popup.appendChild(filmoList);
+      }
+
+      overlay.appendChild(popup);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+      document.body.appendChild(overlay);
+
+    } catch (err) {
+      console.error('Erreur ouverture mini-popup personne:', err);
+    }
+  }
+
+  // ============================================
+  // MODE ÉDITION PERSONNES
+  // ============================================
+  async function transformCreditsToEditMode() {
+    try {
+      const result = await window.electronAPI.getPersonsForMedia(currentMovieId);
+      const crewByRole = {};
+      for (const dept of Object.keys(CREW_ROLES)) crewByRole[dept] = [];
+      const cast = [];
+
+      if (result.success && result.persons) {
+        for (const person of result.persons) {
+          for (const roleObj of (person.roles || [])) {
+            if (roleObj.role === 'actor') {
+              cast.push({ person, roleObj });
+            } else if (CREW_ROLES[roleObj.role]) {
+              crewByRole[roleObj.role].push({ person, roleObj });
+            }
+          }
+        }
+      }
+
+      // Afficher toutes les sections crew (même vides en édition)
+      const crewSection = document.getElementById('crew-section');
+      if (crewSection) crewSection.style.display = 'block';
+
+      for (const [dept, items] of Object.entries(crewByRole)) {
+        const deptEl = document.getElementById(`crew-${dept}`);
+        if (!deptEl) continue;
+        deptEl.style.display = 'block';
+        const grid = deptEl.querySelector('.credits-persons-grid');
+        if (!grid) continue;
+        grid.innerHTML = '';
+
+        for (const { person, roleObj } of items) {
+          grid.appendChild(createPersonAvatarCard(person, roleObj, true));
+        }
+
+        // Bouton "+"
+        const addBtn = document.createElement('div');
+        addBtn.className = 'person-avatar-card';
+        addBtn.style.cursor = 'pointer';
+        const addCircle = document.createElement('button');
+        addCircle.className = 'add-person-btn';
+        addCircle.innerHTML = '<i class="fas fa-plus"></i>';
+        addCircle.addEventListener('click', () => openPersonSearchModal(dept));
+        addBtn.appendChild(addCircle);
+        grid.appendChild(addBtn);
+      }
+
+      // Section casting
+      const castSection = document.getElementById('cast-section');
+      if (castSection) castSection.style.display = 'block';
+      const castGrid = document.getElementById('cast-persons-grid');
+      if (castGrid) {
+        castGrid.innerHTML = '';
+        for (const { person, roleObj } of cast) {
+          castGrid.appendChild(createPersonAvatarCard(person, roleObj, true));
+        }
+        // Bouton "+"
+        const addBtn = document.createElement('div');
+        addBtn.className = 'person-avatar-card';
+        addBtn.style.cursor = 'pointer';
+        const addCircle = document.createElement('button');
+        addCircle.className = 'add-person-btn';
+        addCircle.innerHTML = '<i class="fas fa-plus"></i>';
+        addCircle.addEventListener('click', () => openPersonSearchModal('actor'));
+        addBtn.appendChild(addCircle);
+        castGrid.appendChild(addBtn);
+      }
+
+      // Masquer les fallback texte
+      const directorSection = document.getElementById('director-section');
+      const actorsSection = document.getElementById('actors-section');
+      if (directorSection) directorSection.style.display = 'none';
+      if (actorsSection) actorsSection.style.display = 'none';
+
+    } catch (err) {
+      console.error('Erreur transformCreditsToEditMode:', err);
+    }
+  }
+
+  // ============================================
+  // MODAL RECHERCHE PERSONNE
+  // ============================================
+  function openPersonSearchModal(department) {
+    const existing = document.querySelector('.person-search-modal-overlay');
+    if (existing) existing.remove();
+
+    const roleLabel = department === 'actor' ? 'Acteur' : (CREW_ROLES[department] ? CREW_ROLES[department].label : department);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'person-search-modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'person-search-modal';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'person-search-header';
+    const title = document.createElement('h3');
+    title.textContent = `Ajouter un ${roleLabel}`;
+    header.appendChild(title);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'person-search-close-btn';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', () => overlay.remove());
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+
+    // Input
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'person-search-input-wrap';
+    const input = document.createElement('input');
+    input.className = 'person-search-input';
+    input.type = 'text';
+    input.placeholder = 'Rechercher une personne...';
+    inputWrap.appendChild(input);
+    modal.appendChild(inputWrap);
+
+    // Résultats
+    const resultsContainer = document.createElement('div');
+    resultsContainer.className = 'person-search-results';
+    resultsContainer.innerHTML = '<div class="person-search-empty">Tapez un nom pour rechercher</div>';
+    modal.appendChild(resultsContainer);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
+
+    // Focus input
+    setTimeout(() => input.focus(), 100);
+
+    // Debounce search
+    let debounceTimer = null;
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = input.value.trim();
+      if (query.length < 2) {
+        resultsContainer.innerHTML = '<div class="person-search-empty">Tapez au moins 2 caractères</div>';
+        return;
+      }
+      debounceTimer = setTimeout(() => performPersonSearch(query, resultsContainer, overlay, department), 300);
+    });
+  }
+
+  async function performPersonSearch(query, container, overlay, department) {
+    container.innerHTML = '<div class="person-search-empty">Recherche en cours...</div>';
+
+    try {
+      // Récupérer les personnes déjà liées à ce média
+      const linkedResult = await window.electronAPI.getPersonsForMedia(currentMovieId);
+      const linkedIds = new Set();
+      const linkedTmdbIds = new Set();
+      if (linkedResult.success && linkedResult.persons) {
+        for (const p of linkedResult.persons) {
+          // Vérifier si déjà lié avec ce rôle spécifique
+          for (const r of (p.roles || [])) {
+            if (r.role === department) {
+              linkedIds.add(p.id);
+              if (p.tmdbId) linkedTmdbIds.add(p.tmdbId);
+            }
+          }
+        }
+      }
+
+      // Recherche locale
+      const localResult = await window.electronAPI.searchPersons(query);
+      const localPersons = (localResult.success ? localResult.persons : [])
+        .filter(p => !linkedIds.has(p.id));
+
+      // Recherche TMDB
+      let tmdbPersons = [];
+      try {
+        const tmdbResults = await searchTMDBPerson(query);
+        tmdbPersons = tmdbResults.filter(p => !linkedTmdbIds.has(p.id));
+      } catch (e) {
+        console.warn('Recherche TMDB échouée:', e);
+      }
+
+      // Exclure les TMDB déjà en local (par tmdbId)
+      const localTmdbIds = new Set(localPersons.filter(p => p.tmdbId).map(p => p.tmdbId));
+      tmdbPersons = tmdbPersons.filter(p => !localTmdbIds.has(p.id));
+
+      container.innerHTML = '';
+
+      if (localPersons.length === 0 && tmdbPersons.length === 0) {
+        container.innerHTML = '<div class="person-search-empty">Aucun résultat</div>';
+        return;
+      }
+
+      // Section locale
+      if (localPersons.length > 0) {
+        const label = document.createElement('div');
+        label.className = 'person-search-section-label';
+        label.textContent = 'Bibliothèque locale';
+        container.appendChild(label);
+
+        for (const person of localPersons) {
+          container.appendChild(createSearchResultItem(person, 'local', overlay, department));
+        }
+      }
+
+      // Section TMDB
+      if (tmdbPersons.length > 0) {
+        const label = document.createElement('div');
+        label.className = 'person-search-section-label';
+        label.textContent = 'TMDB';
+        container.appendChild(label);
+
+        for (const tmdbPerson of tmdbPersons.slice(0, 10)) {
+          const item = createSearchResultItem({
+            tmdbId: tmdbPerson.id,
+            name: tmdbPerson.name,
+            photo: tmdbPerson.profile_path ? `https://image.tmdb.org/t/p/w185${tmdbPerson.profile_path}` : null,
+            knownForDepartment: tmdbPerson.known_for_department,
+            _isTMDB: true,
+            _profilePath: tmdbPerson.profile_path
+          }, 'tmdb', overlay, department);
+          container.appendChild(item);
+        }
+      }
+
+    } catch (err) {
+      console.error('Erreur recherche personne:', err);
+      container.innerHTML = '<div class="person-search-empty">Erreur de recherche</div>';
+    }
+  }
+
+  function createSearchResultItem(person, source, overlay, department) {
+    const item = document.createElement('div');
+    item.className = 'person-search-result-item';
+
+    // Photo
+    if (person.photo) {
+      const img = document.createElement('img');
+      img.className = 'person-search-result-photo';
+      if (source === 'local') {
+        img.src = `http://localhost:3001/person-photos/${person.photo}`;
+      } else {
+        img.src = person.photo;
+      }
+      img.onerror = function() {
+        const ph = document.createElement('div');
+        ph.className = 'person-search-result-photo-placeholder';
+        ph.innerHTML = '<i class="fas fa-user"></i>';
+        this.parentNode.replaceChild(ph, this);
+      };
+      item.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'person-search-result-photo-placeholder';
+      ph.innerHTML = '<i class="fas fa-user"></i>';
+      item.appendChild(ph);
+    }
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'person-search-result-info';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'person-search-result-name';
+    nameEl.textContent = person.name;
+    info.appendChild(nameEl);
+
+    if (person.knownForDepartment) {
+      const deptEl = document.createElement('div');
+      deptEl.className = 'person-search-result-dept';
+      deptEl.textContent = getDepartmentLabel(person.knownForDepartment);
+      info.appendChild(deptEl);
+    }
+    item.appendChild(info);
+
+    // Badge
+    const badge = document.createElement('span');
+    badge.className = `person-search-result-badge ${source}`;
+    badge.textContent = source === 'local' ? 'LOCAL' : 'TMDB';
+    item.appendChild(badge);
+
+    // Click handler
+    item.addEventListener('click', () => handlePersonSearchSelection(person, source, overlay, department));
+
+    return item;
+  }
+
+  function showCharacterNameDialog(parentOverlay) {
+    return new Promise((resolve) => {
+      // Remplacer le contenu de la modal par le dialogue
+      const modal = parentOverlay.querySelector('.person-search-modal');
+      if (!modal) { resolve(null); return; }
+
+      const prevContent = modal.innerHTML;
+      modal.innerHTML = `
+        <div class="person-search-header">
+          <h3>Nom du personnage</h3>
+          <button class="person-search-close-btn" id="char-dialog-skip">&times;</button>
+        </div>
+        <div class="person-search-input-wrap">
+          <input class="person-search-input" id="char-dialog-input" type="text" placeholder="Ex: Tony Stark (optionnel)">
+        </div>
+        <div style="padding: 12px 20px; display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="char-dialog-skip-btn" style="padding: 8px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #90a4ae; cursor: pointer;">Passer</button>
+          <button id="char-dialog-ok-btn" style="padding: 8px 16px; background: rgba(100,181,246,0.3); border: 1px solid rgba(100,181,246,0.4); border-radius: 8px; color: #fff; cursor: pointer;">Valider</button>
+        </div>
+      `;
+
+      const input = document.getElementById('char-dialog-input');
+      const okBtn = document.getElementById('char-dialog-ok-btn');
+      const skipBtn = document.getElementById('char-dialog-skip-btn');
+      const closeBtn = document.getElementById('char-dialog-skip');
+
+      setTimeout(() => input.focus(), 50);
+
+      const submit = () => resolve(input.value.trim() || null);
+      const skip = () => resolve(null);
+
+      okBtn.addEventListener('click', submit);
+      skipBtn.addEventListener('click', skip);
+      closeBtn.addEventListener('click', skip);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submit();
+        if (e.key === 'Escape') skip();
+      });
+    });
+  }
+
+  async function handlePersonSearchSelection(person, source, overlay, department) {
+    try {
+      let personId;
+
+      if (source === 'local') {
+        personId = person.id;
+      } else {
+        // TMDB: importer la personne
+        let details;
+        try {
+          details = await getTMDBPersonDetails(person.tmdbId);
+        } catch (e) {
+          console.warn('Impossible de récupérer les détails TMDB:', e);
+          details = {};
+        }
+
+        // Télécharger la photo
+        let fileName = null;
+        if (person._profilePath) {
+          try {
+            const photoUrl = `${TMDB_IMAGE_BASE_URL}${person._profilePath}`;
+            const dlResult = await window.electronAPI.downloadPersonPhoto(photoUrl, person.name);
+            if (dlResult.success) {
+              fileName = dlResult.localPath.split(/[\\/]/).pop();
+            }
+          } catch (e) {
+            console.warn('Photo échouée:', e);
+          }
+        }
+
+        // Créer la personne
+        const addResult = await window.electronAPI.addPerson({
+          tmdbId: person.tmdbId,
+          name: person.name,
+          photo: fileName,
+          knownForDepartment: person.knownForDepartment || details.known_for_department,
+          biography: details.biography || null,
+          birthday: details.birthday || null,
+          deathday: details.deathday || null,
+          placeOfBirth: details.place_of_birth || null
+        });
+
+        if (!addResult.success || !addResult.person) {
+          console.error('Impossible d\'ajouter la personne:', addResult.error);
+          return;
+        }
+        personId = addResult.person.id;
+      }
+
+      // Pour les acteurs, demander le nom du personnage via dialogue inline
+      if (department === 'actor') {
+        const character = await showCharacterNameDialog(overlay);
+        await window.electronAPI.linkPersonToMedia(personId, currentMovieId, 'film', department, character);
+      } else {
+        await window.electronAPI.linkPersonToMedia(personId, currentMovieId, 'film', department, null);
+      }
+
+      // Fermer la modal et rafraîchir
+      overlay.remove();
+      await transformCreditsToEditMode();
+      hasUnsavedChanges = true;
+      updateSaveButtonState();
+
+    } catch (err) {
+      console.error('Erreur ajout personne:', err);
+    }
+  }
+
+  // ============================================
+  // SUPPRESSION PERSONNE DES CRÉDITS
+  // ============================================
+  async function removePersonFromCredits(personId, role) {
+    try {
+      await window.electronAPI.unlinkPersonFromMedia(personId, currentMovieId, role);
+      await transformCreditsToEditMode();
+      hasUnsavedChanges = true;
+      updateSaveButtonState();
+    } catch (err) {
+      console.error('Erreur suppression lien personne:', err);
+    }
+  }
+
+  // Sync rétrocompatible: extraire director/actors depuis les person links
+  async function syncLegacyCreditsFromPersons(movieId) {
+    try {
+      const result = await window.electronAPI.getPersonsForMedia(movieId);
+      if (!result.success || !result.persons || result.persons.length === 0) {
+        return null;
+      }
+
+      const directors = [];
+      const actors = [];
+
+      for (const person of result.persons) {
+        for (const roleObj of (person.roles || [])) {
+          if (roleObj.role === 'director') directors.push(person.name);
+          if (roleObj.role === 'actor') actors.push(person.name);
+        }
+      }
+
+      return {
+        director: directors.join(', '),
+        actors: actors
+      };
+    } catch (err) {
+      console.warn('Erreur sync legacy credits:', err);
+      return null;
     }
   }
 
@@ -289,9 +1015,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function displayTechnicalInfo(movie) {
     // Utiliser les données disponibles + inférer quelques informations
     const videoQuality = movie.videoQuality || inferVideoQuality(movie.title);
-    const fileSize = movie.formattedSize || (movie.fileSize ? formatFileSize(movie.fileSize) : null);
-    const audioFormat = movie.audioFormat || inferAudioFormat();
-    const videoCodec = movie.videoCodec || inferVideoCodec();
+    const fileSize = movie.formattedSize || (movie.fileSize ? window.formatFileSize(movie.fileSize) : null);
+    const audioFormat = movie.audioFormat || null;
+    const videoCodec = movie.videoCodec || null;
     const language = movie.language || 'Français';
 
     const hasAnyTechInfo = videoQuality || fileSize || movie.duration || audioFormat || videoCodec || language;
@@ -457,14 +1183,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Fonctions utilitaires pour le formatage
-  function formatFileSize(bytes) {
-    if (!bytes) return '';
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  }
-
   function formatPreciseDuration(seconds) {
     if (!seconds) return '';
     const hours = Math.floor(seconds / 3600);
@@ -488,16 +1206,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (title.includes('480p')) return '480p SD';
     // Inférer basé sur l'année et la popularité
     return '1080p Full HD'; // Défaut moderne
-  }
-
-  function inferAudioFormat() {
-    const formats = ['Dolby Digital 5.1', 'DTS 5.1', 'Stereo 2.0', 'Dolby Atmos'];
-    return formats[Math.floor(Math.random() * formats.length)];
-  }
-
-  function inferVideoCodec() {
-    const codecs = ['H.264', 'H.265 (HEVC)', 'AV1', 'VP9'];
-    return codecs[Math.floor(Math.random() * codecs.length)];
   }
 
   // Basculer vers le mode édition avec changement visuel
@@ -628,81 +1336,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Système de boutons extensibles - Fonctions de gestion
-  function showExtensionButtons() {
-    editCancelBtn.style.display = 'flex';
-    editSaveBtn.style.display = 'flex';
-    editButtonGroup.classList.add('extended');
-
-    // Animation avec délai pour un effet plus fluide
-    setTimeout(() => {
-      editCancelBtn.classList.add('show');
-      editSaveBtn.classList.add('show');
-    }, 100);
-  }
-
-  function hideExtensionButtons() {
-    editCancelBtn.classList.remove('show');
-    editSaveBtn.classList.remove('show');
-    editButtonGroup.classList.remove('extended');
-
-    // Cacher après l'animation
-    setTimeout(() => {
-      editCancelBtn.style.display = 'none';
-      editSaveBtn.style.display = 'none';
-    }, 400);
-  }
-
-  function updateSaveButtonState() {
-    if (hasUnsavedChanges) {
-      editSaveBtn.classList.add('active');
-    } else {
-      editSaveBtn.classList.remove('active');
-    }
-  }
-
-  function enterEditMode() {
-    isEditMode = true;
-    hasUnsavedChanges = false;
-
-    // Sauvegarder l'état original
-    originalMovieData = { ...currentMovieData };
-
-    // NE PAS afficher les boutons d'extension immédiatement
-    // Ils apparaîtront seulement quand il y aura des modifications
-
-    // Activer le mode édition visuel
-    toggleEditMode(true);
-
-    console.log('Mode édition activé');
-  }
-
-  function exitEditMode(force = false) {
-    if (hasUnsavedChanges && !force) {
-      // Afficher popup de confirmation
-      showExitConfirmationPopup();
-      return;
-    }
-
-    isEditMode = false;
-    hasUnsavedChanges = false;
-
-    // Cacher les boutons d'extension
-    hideExtensionButtons();
-
-    // Désactiver le mode édition visuel
-    toggleEditMode(false);
-
-    // Restaurer les données originales si pas forcé
-    if (!force) {
-      currentMovieData = { ...originalMovieData };
-      // Recharger l'affichage avec les données originales
-      // TODO: Fonction de rechargement à implémenter
-    }
-
-    console.log('Mode édition désactivé');
-  }
-
   async function saveChanges() {
     if (!hasUnsavedChanges) {
       console.log('Aucune modification à sauvegarder');
@@ -729,8 +1362,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Capture l'URL de l'image actuelle
-      let finalImageUrl = imagePreview.src || currentMovieData.posterUrl;
+      // Capture l'URL de l'image actuelle (poster visible ou données en mémoire)
+      const visiblePoster = document.getElementById('modal-poster');
+      let finalImageUrl = currentMovieData.posterUrl || (visiblePoster ? visiblePoster.src : null) || (imagePreview ? imagePreview.src : null);
 
       // Télécharger l'image TMDB si c'est une URL TMDB
       if (finalImageUrl && finalImageUrl.includes('image.tmdb.org')) {
@@ -753,6 +1387,11 @@ document.addEventListener('DOMContentLoaded', () => {
         year = new Date(editReleaseDateInput.value).getFullYear();
       }
 
+      // Synchroniser director/actors depuis les person links (source de vérité)
+      const legacyCredits = await syncLegacyCreditsFromPersons(currentMovieId);
+      const legacyDirector = legacyCredits ? legacyCredits.director : (currentMovieData.director || '');
+      const legacyActors = legacyCredits ? legacyCredits.actors : (currentMovieData.actors || []);
+
       // Préparer les données à sauvegarder
       const movieUpdates = {
         title: title,
@@ -763,7 +1402,9 @@ document.addEventListener('DOMContentLoaded', () => {
         year: year,
         mood: currentMovieData.mood || [],
         technical: currentMovieData.technical || [],
-        personalTags: currentMovieData.personalTags || []
+        personalTags: currentMovieData.personalTags || [],
+        director: legacyDirector,
+        actors: legacyActors
       };
 
       console.log('📝 Données à sauvegarder:', movieUpdates);
@@ -816,79 +1457,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('❌ Erreur lors de la sauvegarde:', error);
       alert('Erreur lors de la sauvegarde: ' + error.message);
     }
-  }
-
-  function cancelChanges() {
-    if (!hasUnsavedChanges) {
-      exitEditMode(true);
-      return;
-    }
-
-    // Afficher popup de confirmation d'annulation
-    showCancelConfirmationPopup();
-  }
-
-  function showExitConfirmationPopup() {
-    const popup = createConfirmationPopup(
-      'Modifications non sauvegardées',
-      'Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?',
-      [
-        { text: 'Annuler', class: 'btn-secondary', action: () => {} },
-        { text: 'Sauvegarder', class: 'btn-success', action: () => { saveChanges(); exitEditMode(true); } },
-        { text: 'Quitter sans sauvegarder', class: 'btn-danger', action: () => exitEditMode(true) }
-      ]
-    );
-    document.body.appendChild(popup);
-  }
-
-  function showCancelConfirmationPopup() {
-    const popup = createConfirmationPopup(
-      'Annuler les modifications',
-      'Êtes-vous sûr de vouloir annuler toutes les modifications ?',
-      [
-        { text: 'Non, continuer l\'édition', class: 'btn-secondary', action: () => {} },
-        { text: 'Oui, annuler', class: 'btn-danger', action: () => exitEditMode(true) }
-      ]
-    );
-    document.body.appendChild(popup);
-  }
-
-  function createConfirmationPopup(title, message, buttons) {
-    const popup = document.createElement('div');
-    popup.className = 'confirmation-popup-overlay';
-
-    const popupContent = document.createElement('div');
-    popupContent.className = 'confirmation-popup-content';
-
-    popupContent.innerHTML = `
-      <h3>${title}</h3>
-      <p>${message}</p>
-      <div class="confirmation-popup-buttons">
-        ${buttons.map(btn =>
-          `<button class="confirmation-btn ${btn.class}">${btn.text}</button>`
-        ).join('')}
-      </div>
-    `;
-
-    popup.appendChild(popupContent);
-
-    // Gérer les clics sur les boutons
-    const btnElements = popupContent.querySelectorAll('.confirmation-btn');
-    btnElements.forEach((btnEl, index) => {
-      btnEl.addEventListener('click', () => {
-        buttons[index].action();
-        document.body.removeChild(popup);
-      });
-    });
-
-    // Gérer la fermeture par clic sur l'overlay
-    popup.addEventListener('click', (e) => {
-      if (e.target === popup) {
-        document.body.removeChild(popup);
-      }
-    });
-
-    return popup;
   }
 
   function markAsChanged() {
@@ -981,12 +1549,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const mediaCategoryElement = document.getElementById('media-category');
       if (mediaCategoryElement) {
         const categoryMap = {
+          'film': 'Film',
           'movie': 'Film',
           'short': 'Court-métrage',
           'documentary': 'Documentaire',
+          'other': 'Autre',
+          'unsorted': 'Non trié',
           'series': 'Série'
         };
-        const categoryDisplay = categoryMap[movie.media_type] || movie.media_type || 'Film';
+        const categoryDisplay = categoryMap[movie.category] || categoryMap[movie.media_type] || movie.category || movie.media_type || 'Film';
         mediaCategoryElement.textContent = categoryDisplay;
       }
       
@@ -1545,34 +2116,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // ANCIEN SYSTÈME DÉSACTIVÉ - Remplacé par le nouveau système de boutons extensibles
-  /*
-  editButton.addEventListener('click', () => {
-    toggleEditMode(true);
-
-    // Mettre le focus sur l'input du titre
-    setTimeout(() => {
-      if (editTitleInput) {
-        editTitleInput.focus();
-      }
-    }, 100);
-  });
-  */
-  
-  // ANCIEN CODE COMMENTÉ - exitEditModeBtn obsolète avec le nouveau système
-  /*
-  exitEditModeBtn.addEventListener('click', () => {
-    toggleEditMode(false);
-    const viewModeElement = document.getElementById('view-mode');
-    const editModeElement = document.getElementById('edit-mode');
-
-    if (viewModeElement && editModeElement) {
-      viewModeElement.style.display = 'flex';
-      editModeElement.style.display = 'none';
-    }
-  });
-  */
-  
   // Fonction pour mettre à jour l'affichage des genres en mode édition
   function updateEditGenresDisplay() {
     editGenresContainer.innerHTML = '';
@@ -1697,6 +2240,113 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Erreur détails TMDB:', error);
       throw error;
     }
+  }
+
+  // Rechercher une personne sur TMDB
+  async function searchTMDBPerson(query) {
+    try {
+      const url = `${TMDB_API_BASE_URL}/search/person?query=${encodeURIComponent(query)}&language=fr-FR&include_adult=false&page=1`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${TMDB_TOKEN}` }
+      });
+
+      if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
+      const data = await response.json();
+      return data.results || [];
+    } catch (error) {
+      console.error('Erreur recherche personne TMDB:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer les détails complets d'une personne TMDB
+  async function getTMDBPersonDetails(tmdbPersonId) {
+    try {
+      const url = `${TMDB_API_BASE_URL}/person/${tmdbPersonId}?language=fr-FR&append_to_response=combined_credits`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${TMDB_TOKEN}` }
+      });
+
+      if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Erreur détails personne TMDB:', error);
+      throw error;
+    }
+  }
+
+  // Synchroniser les personnes (crew mappés + tous les acteurs) depuis les crédits TMDB
+  async function syncPersonsFromCredits(credits, mediaId, mediaType) {
+    if (!credits || !mediaId) return;
+
+    const persons = [];
+
+    // Crew : importer tous les membres dont le job correspond à CREW_ROLES
+    for (const member of (credits.crew || [])) {
+      const role = mapTMDBJobToRole(member.job);
+      if (role) {
+        persons.push({
+          tmdbId: member.id,
+          name: member.name,
+          profilePath: member.profile_path,
+          knownForDepartment: member.known_for_department || 'Crew',
+          role: role,
+          character: null
+        });
+      }
+    }
+
+    // Cast : importer TOUS les acteurs
+    for (const a of (credits.cast || [])) {
+      persons.push({
+        tmdbId: a.id,
+        name: a.name,
+        profilePath: a.profile_path,
+        knownForDepartment: 'Acting',
+        role: 'actor',
+        character: a.character || null
+      });
+    }
+
+    console.log(`🎬 Sync personnes: ${persons.length} personnes à traiter pour le média ${mediaId}`);
+
+    for (const p of persons) {
+      try {
+        // Télécharger la photo si disponible
+        let fileName = null;
+        if (p.profilePath) {
+          const photoUrl = `${TMDB_IMAGE_BASE_URL}${p.profilePath}`;
+          try {
+            const dlResult = await window.electronAPI.downloadPersonPhoto(photoUrl, p.name);
+            if (dlResult.success) {
+              fileName = dlResult.localPath.split(/[\\/]/).pop();
+            }
+          } catch (photoErr) {
+            console.warn(`⚠️ Photo échouée pour ${p.name}:`, photoErr);
+          }
+        }
+
+        // Créer ou récupérer la personne (dédoublonnage par tmdbId)
+        const personResult = await window.electronAPI.addPerson({
+          tmdbId: p.tmdbId,
+          name: p.name,
+          photo: fileName,
+          knownForDepartment: p.knownForDepartment
+        });
+
+        if (personResult.success && personResult.person) {
+          // Lier la personne au média
+          await window.electronAPI.linkPersonToMedia(personResult.person.id, mediaId, mediaType, p.role, p.character);
+          console.log(`✅ ${p.role}: ${p.name} lié(e) au média ${mediaId}`);
+        } else {
+          console.warn(`⚠️ Impossible d'ajouter ${p.name}:`, personResult.error);
+        }
+      } catch (err) {
+        console.error(`❌ Erreur sync personne ${p.name}:`, err);
+      }
+    }
+
+    console.log(`🎬 Sync personnes terminée pour le média ${mediaId}`);
   }
 
   // Ouvrir la modal de recherche TMDB
@@ -1951,6 +2601,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof showExtensionButtons === 'function') showExtensionButtons();
 
       console.log('Données TMDB appliquées avec succès');
+
+      // Sync personnes en arrière-plan (fire-and-forget)
+      if (details.credits && currentMovieId) {
+        syncPersonsFromCredits(details.credits, currentMovieId, currentMovieData.media_type || 'film')
+          .then(() => console.log('✅ Sync personnes terminée en arrière-plan'))
+          .catch(err => console.error('❌ Erreur sync personnes en arrière-plan:', err));
+      }
 
       // Fermer la modal TMDB
       if (closeModal) closeModal();
@@ -2287,14 +2944,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // S'assurer que les boutons d'extension sont cachés au départ
     hideExtensionButtons();
 
-    // Passer en mode édition visuel (nouveau système - switch dans view-mode)
-    const viewModeElement = document.getElementById('view-mode');
-
-    if (viewModeElement) {
-      // Ne plus changer l'affichage - rester en view-mode
-      // Juste changer les couleurs avec la classe edit-mode-active
-      document.querySelector('.modal-overlay').classList.add('edit-mode-active');
+    // Passer en mode édition visuel
+    if (modalOverlay) {
+      modalOverlay.classList.add('edit-mode-active');
       console.log('🎨 Mode édition activé - couleurs changées');
+    } else {
+      console.error('❌ modalOverlay non trouvé pour activer edit-mode-active');
     }
 
     // NOUVEAU: Transformer le bouton "Regarder le film" en "Rechercher sur TMDB"
@@ -2328,6 +2983,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // NOUVEAU: Configurer les boutons + pour ajouter des tags
     setupAddTagButtons();
+
+    // Ajouter l'overlay d'édition sur le poster
+    setupPosterEditOverlay();
   }
 
   // Fonction pour désactiver le mode édition
@@ -2344,13 +3002,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Masquer les boutons d'extension
     hideExtensionButtons();
 
-    // Revenir en mode visualisation (nouveau système - rester en view-mode)
-    const viewModeElement = document.getElementById('view-mode');
-
-    if (viewModeElement) {
-      // Ne plus changer l'affichage - déjà en view-mode
-      // Juste retirer la classe des couleurs d'édition
-      document.querySelector('.modal-overlay').classList.remove('edit-mode-active');
+    // Revenir en mode visualisation
+    if (modalOverlay) {
+      modalOverlay.classList.remove('edit-mode-active');
       console.log('🎨 Mode normal restauré - couleurs originales');
     }
 
@@ -2377,6 +3031,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // NOUVEAU: Sauvegarder les tags automatiquement
     saveTagsToDatabase();
+
+    // Retirer l'overlay d'édition du poster
+    removePosterEditOverlay();
   }
 
   // Fonction pour sauvegarder les tags dans la base de données
@@ -2407,6 +3064,109 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Fonction pour gérer le changement de poster via fichier local
+  async function handlePosterFileChange(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      console.warn('⚠️ Fichier non valide, seules les images sont acceptées');
+      return;
+    }
+
+    try {
+      // Si c'est un fichier local avec un path (Electron), copier vers tmdb-images
+      if (file.path && window.electronAPI && window.electronAPI.savePosterLocal) {
+        const title = currentMovieData ? currentMovieData.title : 'poster';
+        const result = await window.electronAPI.savePosterLocal(file.path, title);
+        if (result.success) {
+          const newUrl = `http://localhost:3001/tmdb-images/${result.filename}`;
+          const posterImg = document.getElementById('modal-poster');
+          if (posterImg) posterImg.src = newUrl;
+          if (currentMovieData) currentMovieData.posterUrl = newUrl;
+          hasUnsavedChanges = true;
+          updateSaveButtonState();
+          showExtensionButtons();
+          console.log('✅ Poster mis à jour:', result.filename);
+          return;
+        }
+      }
+
+      // Fallback: lire comme Data URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const posterImg = document.getElementById('modal-poster');
+        if (posterImg) posterImg.src = e.target.result;
+        if (currentMovieData) currentMovieData.posterUrl = e.target.result;
+        hasUnsavedChanges = true;
+        updateSaveButtonState();
+        showExtensionButtons();
+        console.log('✅ Poster mis à jour (DataURL)');
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('❌ Erreur changement poster:', error);
+    }
+  }
+
+  // Ajouter l'overlay et les handlers d'édition sur le poster
+  function setupPosterEditOverlay() {
+    const poster = document.querySelector('.modal-poster');
+    if (!poster) return;
+
+    // Créer l'overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'poster-edit-overlay';
+    overlay.innerHTML = `
+      <i class="fas fa-camera"></i>
+      <span>Cliquer ou glisser<br>une image</span>
+    `;
+    poster.appendChild(overlay);
+
+    // Click → ouvrir sélecteur de fichier
+    overlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+      fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) handlePosterFileChange(file);
+        document.body.removeChild(fileInput);
+      });
+      fileInput.click();
+    });
+
+    // Drag & Drop
+    poster.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      poster.classList.add('drag-over');
+    });
+
+    poster.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      poster.classList.remove('drag-over');
+    });
+
+    poster.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      poster.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handlePosterFileChange(file);
+    });
+  }
+
+  // Retirer l'overlay d'édition du poster
+  function removePosterEditOverlay() {
+    const overlay = document.querySelector('.poster-edit-overlay');
+    if (overlay) overlay.remove();
+
+    const poster = document.querySelector('.modal-poster');
+    if (poster) poster.classList.remove('drag-over');
+  }
+
   // NOUVELLES FONCTIONS pour transformer les éléments en champs modifiables
   function transformToEditableFields() {
     // Variables pour stocker les valeurs originales
@@ -2422,30 +3182,14 @@ document.addEventListener('DOMContentLoaded', () => {
       titleInput.type = 'text';
       titleInput.value = titleElement.textContent;
       titleInput.className = 'edit-title-field';
+      // Les styles visuels sont gérés par la classe CSS .edit-title-field
       titleInput.style.cssText = `
-        background: transparent;
-        border: none;
-        border-bottom: 2px solid transparent;
-        color: #fff;
-        font-size: 42px;
-        font-weight: 800;
-        padding: 0;
-        margin: 0 0 8px 0;
         width: 100%;
         max-width: 100%;
         min-width: 0;
         box-sizing: border-box;
-        line-height: 1.2;
-        font-family: inherit;
-        letter-spacing: -0.5px;
         outline: none;
       `;
-      titleInput.addEventListener('focus', function() {
-        this.style.borderBottom = '2px solid rgba(100, 181, 246, 0.5)';
-      });
-      titleInput.addEventListener('blur', function() {
-        this.style.borderBottom = '2px solid transparent';
-      });
       titleElement.parentNode.replaceChild(titleInput, titleElement);
       titleInput.id = 'modal-title';
     }
@@ -2458,21 +3202,14 @@ document.addEventListener('DOMContentLoaded', () => {
       yearInput.type = 'number';
       yearInput.value = yearElement.textContent.replace(/[()]/g, '');
       yearInput.className = 'edit-year-field';
+      // Les styles visuels sont gérés par la classe CSS .edit-year-field
       yearInput.style.cssText = `
-        background: transparent;
-        border: none;
-        color: #ccc;
-        font-size: 16px;
-        padding: 0;
-        margin: 0;
         width: 80px;
         max-width: 80px;
         min-width: 0;
-        border-radius: 4px;
         box-sizing: border-box;
         flex-shrink: 0;
-        font-family: inherit;
-        font-weight: 300;
+        outline: none;
       `;
       yearElement.parentNode.replaceChild(yearInput, yearElement);
       yearInput.id = 'movie-year';
@@ -2485,104 +3222,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const synopsisTextarea = document.createElement('textarea');
       synopsisTextarea.value = synopsisElement.textContent;
       synopsisTextarea.className = 'edit-synopsis-field';
+      // Les styles visuels sont gérés par la classe CSS .edit-synopsis-field
       synopsisTextarea.style.cssText = `
-        background: transparent;
-        border: 1px solid transparent;
-        color: #c0c0c0;
-        font-size: 16px;
-        padding: 8px;
-        margin: 0;
         width: 100%;
         max-width: 100%;
         min-width: 0;
         min-height: 100px;
-        border-radius: 4px;
         resize: vertical;
-        font-family: inherit;
-        line-height: 1.6;
         box-sizing: border-box;
         outline: none;
       `;
-      synopsisTextarea.addEventListener('focus', function() {
-        this.style.border = '1px solid rgba(100, 181, 246, 0.5)';
-        this.style.background = 'rgba(100, 181, 246, 0.05)';
-      });
-      synopsisTextarea.addEventListener('blur', function() {
-        this.style.border = '1px solid transparent';
-        this.style.background = 'transparent';
-      });
       synopsisElement.parentNode.replaceChild(synopsisTextarea, synopsisElement);
       synopsisTextarea.id = 'synopsis-content';
     }
 
-    // 4. Transformer le réalisateur
-    const directorElement = document.getElementById('director-name');
-    if (directorElement) {
-      window.originalFieldValues.director = directorElement.textContent;
-      const directorInput = document.createElement('input');
-      directorInput.type = 'text';
-      directorInput.value = directorElement.textContent;
-      directorInput.className = 'edit-director-field';
-      directorInput.style.cssText = `
-        background: transparent;
-        border: 1px solid transparent;
-        color: #ffffff;
-        font-size: 15px;
-        font-weight: 500;
-        padding: 4px 8px;
-        border-radius: 4px;
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-        outline: none;
-      `;
-      directorInput.addEventListener('focus', function() {
-        this.style.border = '1px solid rgba(100, 181, 246, 0.5)';
-        this.style.background = 'rgba(100, 181, 246, 0.05)';
-      });
-      directorInput.addEventListener('blur', function() {
-        this.style.border = '1px solid transparent';
-        this.style.background = 'transparent';
-      });
-      directorElement.parentNode.replaceChild(directorInput, directorElement);
-      directorInput.id = 'director-name';
-    }
-
-    // 5. Transformer les acteurs
-    const actorsElement = document.getElementById('actors-list');
-    if (actorsElement) {
-      window.originalFieldValues.actors = actorsElement.textContent;
-      const actorsInput = document.createElement('input');
-      actorsInput.type = 'text';
-      actorsInput.value = actorsElement.textContent;
-      actorsInput.className = 'edit-actors-field';
-      actorsInput.style.cssText = `
-        background: transparent;
-        border: 1px solid transparent;
-        color: #e3f2fd;
-        font-size: 15px;
-        font-weight: 500;
-        font-style: italic;
-        padding: 4px 8px;
-        border-radius: 4px;
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-        outline: none;
-      `;
-      actorsInput.addEventListener('focus', function() {
-        this.style.border = '1px solid rgba(100, 181, 246, 0.5)';
-        this.style.background = 'rgba(100, 181, 246, 0.05)';
-      });
-      actorsInput.addEventListener('blur', function() {
-        this.style.border = '1px solid transparent';
-        this.style.background = 'transparent';
-      });
-      actorsElement.parentNode.replaceChild(actorsInput, actorsElement);
-      actorsInput.id = 'actors-list';
-    }
+    // 4. Transformer les crédits personnes en mode édition (avatars + boutons)
+    transformCreditsToEditMode();
 
     console.log('🔧 Éléments transformés en champs modifiables');
   }
@@ -2634,24 +3289,9 @@ document.addEventListener('DOMContentLoaded', () => {
       synopsisDiv.id = 'synopsis-content';
     }
 
-    // 4. Restaurer le réalisateur
-    const directorInput = document.getElementById('director-name');
-    if (directorInput && directorInput.tagName === 'INPUT') {
-      const directorSpan = document.createElement('span');
-      directorSpan.className = 'director-name';
-      directorSpan.textContent = directorInput.value || window.originalFieldValues.director;
-      directorInput.parentNode.replaceChild(directorSpan, directorInput);
-      directorSpan.id = 'director-name';
-    }
-
-    // 5. Restaurer les acteurs
-    const actorsInput = document.getElementById('actors-list');
-    if (actorsInput && actorsInput.tagName === 'INPUT') {
-      const actorsSpan = document.createElement('span');
-      actorsSpan.className = 'actors-list';
-      actorsSpan.textContent = actorsInput.value || window.originalFieldValues.actors;
-      actorsInput.parentNode.replaceChild(actorsSpan, actorsInput);
-      actorsSpan.id = 'actors-list';
+    // 4. Restaurer les crédits personnes en mode lecture
+    if (currentMovieData) {
+      displayMovieCredits(currentMovieData);
     }
 
     console.log('🔄 Éléments restaurés en mode lecture');

@@ -432,21 +432,24 @@
     console.log('📊 Médias à filtrer:', medias.length);
 
     return medias.filter(media => {
-      // Filtre par type de média
-      if (!filtersState.mediaTypes.includes(media.category)) {
-        console.log(`❌ Média filtré (type): ${media.title} - catégorie: ${media.category}, types acceptés:`, filtersState.mediaTypes);
+      // Filtre par type de média (null/undefined → 'unsorted')
+      const effectiveCategory = media.category || 'unsorted';
+      if (!filtersState.mediaTypes.includes(effectiveCategory)) {
+        console.log(`❌ Média filtré (type): ${media.title} - catégorie: ${effectiveCategory}, types acceptés:`, filtersState.mediaTypes);
         return false;
       }
 
       // Filtre par genre
       if (filtersState.genres.length > 0) {
-        if (!media.genres || !Array.isArray(media.genres)) {
+        if (!media.genres || !Array.isArray(media.genres) || media.genres.length === 0) {
+          console.log(`❌ Média filtré (genre): ${media.title} - genres du média: ${JSON.stringify(media.genres)}, genres requis:`, filtersState.genres);
           return false;
         }
         const hasGenre = filtersState.genres.some(filterGenre =>
           media.genres.some(mediaGenre => mediaGenre === filterGenre)
         );
         if (!hasGenre) {
+          console.log(`❌ Média filtré (genre): ${media.title} - aucun genre commun`);
           return false;
         }
       }
@@ -454,6 +457,7 @@
       // Filtre par année
       if (media.year) {
         if (media.year < filtersState.yearMin || media.year > filtersState.yearMax) {
+          console.log(`❌ Média filtré (année): ${media.title} - année: ${media.year}, plage: ${filtersState.yearMin}-${filtersState.yearMax}`);
           return false;
         }
       }
@@ -464,9 +468,11 @@
         const isWatched = userPrefs.watchedMovies[media.id] === true;
 
         if (filtersState.watchStatus === 'toWatch' && isWatched) {
+          console.log(`❌ Média filtré (statut): ${media.title} - est "vu" mais filtre "à voir"`);
           return false;
         }
         if (filtersState.watchStatus === 'watched' && !isWatched) {
+          console.log(`❌ Média filtré (statut): ${media.title} - n'est pas "vu" mais filtre "vu"`);
           return false;
         }
       }
@@ -476,6 +482,7 @@
         const userPrefs = JSON.parse(localStorage.getItem('userPrefs_global') || '{"ratings":{}}');
         const rating = userPrefs.ratings[media.id] || 0;
         if (rating < filtersState.minRating) {
+          console.log(`❌ Média filtré (note): ${media.title} - note: ${rating}, minimum requis: ${filtersState.minRating}`);
           return false;
         }
       }
@@ -565,31 +572,6 @@
     document.querySelectorAll('.alphabetical-section').forEach(section => {
       section.remove();
     });
-  }
-
-  // Affichage par catégories (Films, Séries, Courts métrages, Autres)
-  function displayByCategories(medias) {
-    // Réafficher toutes les catégories
-    const categories = ['films', 'series', 'shorts', 'others', 'unsorted'];
-    categories.forEach(cat => {
-      const catElement = document.getElementById(`${cat}-category`);
-      if (catElement) catElement.style.display = 'block';
-    });
-
-    // Séparer les films des séries
-    const films = medias.filter(media => media.category !== 'series');
-    const seriesEpisodes = medias.filter(media => media.category === 'series');
-
-    // Afficher avec displayMedias (qui groupe par catégorie)
-    if (window.displayMedias) {
-      window.displayMedias(films);
-    }
-
-    // Afficher les séries
-    if (window.displaySeries) {
-      const series = groupSeriesFromEpisodes(seriesEpisodes);
-      window.displaySeries(series);
-    }
   }
 
   // Grouper les épisodes en séries
@@ -995,42 +977,6 @@
     localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
   }
 
-  // Fonction pour trier les groupes de séries
-  function sortSeriesGroups(series) {
-    const sorted = [...series];
-    const order = filtersState.sortOrder === 'asc' ? 1 : -1;
-
-    sorted.sort((a, b) => {
-      let valueA, valueB;
-
-      switch (filtersState.sortBy) {
-        case 'title':
-          valueA = (a.name || '').toLowerCase();
-          valueB = (b.name || '').toLowerCase();
-          break;
-
-        case 'year':
-          // Pour les séries, on prend l'année du premier épisode
-          valueA = (a.episodes[0] && a.episodes[0].year) || 0;
-          valueB = (b.episodes[0] && b.episodes[0].year) || 0;
-          break;
-
-        case 'dateAdded':
-        default:
-          // Pour les séries, on prend la date du premier épisode
-          valueA = new Date((a.episodes[0] && a.episodes[0].dateAdded) || 0).getTime();
-          valueB = new Date((b.episodes[0] && b.episodes[0].dateAdded) || 0).getTime();
-          break;
-      }
-
-      if (valueA < valueB) return -1 * order;
-      if (valueA > valueB) return 1 * order;
-      return 0;
-    });
-
-    return sorted;
-  }
-
   // ========================================
   //  BADGE DE COMPTEUR
   // ========================================
@@ -1166,6 +1112,10 @@
         if (!filtersState.sortBy) {
           filtersState.sortBy = 'category';
         }
+
+        // Réinitialiser les filtres temporaires au lancement (ne pas persister entre sessions)
+        filtersState.watchStatus = 'all';
+        filtersState.minRating = 0;
 
         // MIGRATION: Ajouter 'unsorted' si absent (pour rétrocompatibilité)
         if (filtersState.mediaTypes && !filtersState.mediaTypes.includes('unsorted')) {

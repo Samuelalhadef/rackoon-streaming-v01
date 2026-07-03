@@ -233,6 +233,17 @@
   padding: 10px;
 }
 
+.control-btn.prev-episode-btn,
+.control-btn.next-episode-btn {
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.control-btn.prev-episode-btn:hover,
+.control-btn.next-episode-btn:hover {
+  opacity: 1;
+}
+
 /* Volume */
 .volume-container {
   display: flex;

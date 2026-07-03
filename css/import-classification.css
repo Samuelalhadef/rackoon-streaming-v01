@@ -1909,50 +1909,122 @@
 .season-slots-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
+  gap: 8px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 6px;
-  min-height: 120px;
+  min-height: 60px;
 }
 
+/* ── Slot ── */
 .episode-slot {
   position: relative;
-  width: 180px;
-  min-height: 240px;
-  border: 2px dashed var(--border-color, #555);
+  width: 220px;
+  height: 64px;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.05);
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .episode-slot.filled {
   border-style: solid;
-  border-color: var(--primary-color, #4CAF50);
+  border-color: rgba(76, 175, 80, 0.4);
   background: transparent;
-}
-
-.episode-slot.empty {
-  cursor: pointer;
+  padding: 0;
 }
 
 .episode-slot.empty:hover {
-  border-color: var(--primary-color, #4CAF50);
-  background: rgba(76, 175, 80, 0.1);
+  border-color: rgba(76, 175, 80, 0.5);
+  background: rgba(76, 175, 80, 0.06);
+  cursor: default;
 }
 
 .episode-slot.drag-over {
-  border-color: var(--accent-color, #2196F3);
-  background: rgba(33, 150, 243, 0.2);
-  transform: scale(1.05);
+  border-color: #3474db;
+  background: rgba(52, 116, 219, 0.12);
+  transform: scale(1.02);
 }
 
-.episode-slot .gallery-card {
+/* ── Placeholder slot vide ── */
+.empty-slot-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.empty-slot-placeholder i {
+  font-size: 14px;
+}
+
+/* ── Chip épisode ── */
+.episode-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  cursor: move;
+  height: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: grab;
+  transition: background 0.15s, opacity 0.15s;
+  overflow: hidden;
+}
+
+.episode-chip:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.episode-chip[draggable="true"]:active,
+.episode-chip.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.episode-chip-handle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+  cursor: grab;
+  line-height: 1;
+}
+
+.episode-chip-thumb {
+  width: 52px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: #111;
+}
+
+.episode-chip-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.episode-chip-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.episode-chip-meta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .episode-slot .gallery-card.dragging {
@@ -2085,4 +2157,25 @@
   .btn-remove-slot {
     width: 100%;
   }
+}
+
+/* ========================================
+   MINIATURE DANS LES CARTES GALERIE
+   ======================================== */
+
+.gallery-card-thumbnail {
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+  border-radius: 6px 6px 0 0;
+  background: #0d0d1a;
+  flex-shrink: 0;
+}
+
+.gallery-card-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s;
 }

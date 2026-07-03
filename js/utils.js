@@ -31,28 +31,6 @@ window.formatFileSize = function(bytes) {
   return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
-// Gestion des préférences utilisateur
-window.userPreferences = {
-  load: function() {
-    try {
-      return JSON.parse(localStorage.getItem('userPrefs_global') || '{}');
-    } catch (e) {
-      console.error('Erreur lors du chargement des préférences:', e);
-      return {};
-    }
-  },
-
-  save: function(prefs) {
-    try {
-      const existing = this.load();
-      const updated = { ...existing, ...prefs };
-      localStorage.setItem('userPrefs_global', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Erreur lors de la sauvegarde des préférences:', e);
-    }
-  }
-};
-
 // Gestion des modifications locales de films
 window.movieEdits = {
   load: function() {
@@ -153,8 +131,30 @@ async function setupImageThumbnailWithGeneration(img, mediaId, thumbnailName) {
     };
 
     img.src = thumbnailUrl;
+  } else if (mediaId && window.electronAPI && window.electronAPI.generateThumbnail) {
+    // Pas de thumbnail enregistré : afficher le placeholder immédiatement,
+    // puis tenter la génération en arrière-plan avec timeout
+    img.src = window.DEFAULT_THUMBNAIL;
+
+    // Génération en arrière-plan (non-bloquante, avec timeout de 10s)
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+    Promise.race([
+      window.electronAPI.generateThumbnail(mediaId),
+      timeoutPromise
+    ]).then(result => {
+      if (result && result.success && result.thumbnail) {
+        const newThumbnailFilename = result.thumbnail.split(/[\\\/]/).pop();
+        img.onerror = () => {
+          img.src = window.DEFAULT_THUMBNAIL;
+          img.onerror = null;
+        };
+        img.src = `http://localhost:3001/thumbnails/${newThumbnailFilename}`;
+      }
+    }).catch(() => {
+      // Timeout ou erreur - on garde le placeholder
+    });
   } else {
-    // Pas de thumbnail, utiliser l'image par défaut
+    // Pas de thumbnail et pas de moyen de générer
     img.src = window.DEFAULT_THUMBNAIL;
   }
 }
@@ -162,35 +162,16 @@ async function setupImageThumbnailWithGeneration(img, mediaId, thumbnailName) {
 
 // Mise à jour de l'affichage des étoiles
 window.updateStarsDisplay = function(container, rating) {
-  console.log('🌟 updateStarsDisplay appelé - container:', container, 'rating:', rating);
-
-  if (!container) {
-    console.warn('⚠️ Container non fourni');
-    return;
-  }
+  if (!container) return;
 
   // Si le container est une carte, chercher le container d'étoiles dedans
   let starsContainer = container;
   if (container.classList && container.classList.contains('media-card')) {
-    console.log('📦 Container est une carte, recherche du container d\'étoiles...');
     starsContainer = container.querySelector('.rating-stars') || container.querySelector('.stars-container');
-    if (!starsContainer) {
-      console.warn('⚠️ Container d\'étoiles non trouvé dans la carte');
-      console.log('🔍 Classes de la carte:', container.className);
-      console.log('🔍 HTML de la carte:', container.innerHTML.substring(0, 500));
-      return;
-    }
-    console.log('✅ Container d\'étoiles trouvé:', starsContainer.className);
+    if (!starsContainer) return;
   }
 
   const stars = starsContainer.querySelectorAll('.star');
-  if (stars.length === 0) {
-    console.warn('⚠️ Aucune étoile trouvée dans le container');
-    console.log('🔍 HTML du container:', starsContainer.innerHTML);
-    return;
-  }
-
-  console.log(`✨ ${stars.length} étoiles trouvées, mise à jour...`);
   stars.forEach((star, index) => {
     if (index < rating) {
       star.classList.add('filled');
@@ -198,8 +179,6 @@ window.updateStarsDisplay = function(container, rating) {
       star.classList.remove('filled');
     }
   });
-
-  console.log(`✅ Étoiles mises à jour: ${rating}/5`);
 };
 
 // Configuration d'interaction avec les étoiles
@@ -251,4 +230,44 @@ window.toggleRackoonLive = function() {
   // Message de confirmation
   const message = isActive ? 'Mode Rackoon Live activé 🔴' : 'Mode normal activé ⚪';
   console.log(message);
+};
+
+// ========================================
+// SYSTÈME DE NOTIFICATIONS TOAST
+// ========================================
+
+window.showNotification = function(title, message = '', type = 'info', duration = 4000) {
+  const container = document.getElementById('notifications-container');
+  if (!container) return;
+
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+
+  const toast = document.createElement('div');
+  toast.className = `toast-notification toast-${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type] || icons.info}</div>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      ${message ? `<div class="toast-message">${message}</div>` : ''}
+    </div>
+    <button class="toast-close" title="Fermer">×</button>
+  `;
+
+  container.appendChild(toast);
+
+  // Animation d'entrée
+  requestAnimationFrame(() => toast.classList.add('toast-visible'));
+
+  const dismiss = () => {
+    toast.classList.remove('toast-visible');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+  };
+
+  toast.querySelector('.toast-close').addEventListener('click', dismiss);
+
+  if (duration > 0) {
+    setTimeout(dismiss, duration);
+  }
+
+  return toast;
 };

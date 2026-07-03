@@ -101,6 +101,7 @@
   "dependencies": {
     "@ngrok/ngrok": "^1.7.0",
     "@ngrok/ngrok-win32-x64-msvc": "^1.7.0",
+    "better-sqlite3": "^12.11.1",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
     "fs-extra": "^11.3.1",
@@ -110,6 +111,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.1.0",
     "electron": "^38.1.0",
     "electron-builder": "^24.13.3",
     "rimraf": "^5.0.10"

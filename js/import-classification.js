@@ -500,19 +500,19 @@ class ImportClassificationSystem {
     const seasons = await this.getSeasonsForSeries(seriesData.seriesId) || [];
 
     // Séparer les épisodes assignés vs non assignés
+    // Un épisode est "assigné" seulement si sa saison auto-détectée existe déjà en base
+    const knownSeasonNumbers = new Set(seasons.map(s => s.number));
     const unassignedEpisodes = [];
     const assignedEpisodes = {};
 
     seriesData.files.forEach(file => {
-      if (!file.seasonNumber || file.seasonNumber === null) {
-        // Épisode non assigné
-        unassignedEpisodes.push(file);
+      const sNum = file.seasonNumber;
+      if (sNum != null && knownSeasonNumbers.has(sNum)) {
+        if (!assignedEpisodes[sNum]) assignedEpisodes[sNum] = [];
+        assignedEpisodes[sNum].push(file);
       } else {
-        // Épisode assigné à une saison
-        if (!assignedEpisodes[file.seasonNumber]) {
-          assignedEpisodes[file.seasonNumber] = [];
-        }
-        assignedEpisodes[file.seasonNumber].push(file);
+        // Pas de saison en base → "Non assignés" (même si un numéro a été détecté)
+        unassignedEpisodes.push(file);
       }
     });
 
@@ -644,34 +644,64 @@ class ImportClassificationSystem {
     slot.dataset.seasonNumber = seasonNumber;
     slot.dataset.slotNumber = slotNumber || 'auto';
 
-    // Rendre le slot droppable
-    slot.addEventListener('dragover', (e) => this.onSlotDragOver(e));
-    slot.addEventListener('drop', (e) => this.onSlotDrop(e));
+    slot.addEventListener('dragover',  (e) => this.onSlotDragOver(e));
+    slot.addEventListener('drop',      (e) => this.onSlotDrop(e));
+    slot.addEventListener('dragleave', (e) => this.onSlotDragLeave(e));
 
     if (file) {
-      // Slot rempli avec un épisode
-      const globalIndex = this.currentFiles.indexOf(file);
-      const card = this.createGalleryCard(file, globalIndex);
-
-      if (card) {
-        // Rendre la carte draggable
-        card.setAttribute('draggable', 'true');
-        card.addEventListener('dragstart', (e) => this.onEpisodeDragStart(e, file));
-        card.addEventListener('dragend', (e) => this.onEpisodeDragEnd(e));
-
-        slot.appendChild(card);
-      }
+      const chip = this.createEpisodeChip(file, slotNumber);
+      slot.appendChild(chip);
     } else {
-      // Slot vide
       slot.innerHTML = `
         <div class="empty-slot-placeholder">
-          <i class="fas fa-plus-circle"></i>
-          <span>Slot ${slotNumber}</span>
+          <i class="fas fa-plus"></i>
+          <span>Ép.&nbsp;${slotNumber}</span>
         </div>
       `;
     }
 
     return slot;
+  }
+
+  createEpisodeChip(file, slotNumber) {
+    const chip = document.createElement('div');
+    chip.className = 'episode-chip';
+    chip.setAttribute('draggable', 'true');
+    chip.dataset.fileIndex = this.currentFiles.indexOf(file);
+
+    // Miniature
+    const thumb = document.createElement('img');
+    thumb.className = 'episode-chip-thumb';
+    thumb.alt = file.title || file.name || '';
+    window.setupImageWithFallback(thumb, file.id, file.posterUrl || null, file.thumbnail || null, '');
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'episode-chip-info';
+
+    const label = slotNumber ? `E${String(slotNumber).padStart(2, '0')} — ` : '';
+    const title = file.title || file.name || 'Sans titre';
+    const duration = file.duration ? this.formatDuration(file.duration) : '';
+
+    info.innerHTML = `
+      <div class="episode-chip-title" title="${title}">${label}${title}</div>
+      ${duration ? `<div class="episode-chip-meta">${duration}</div>` : ''}
+    `;
+
+    // Handle drag
+    const handle = document.createElement('span');
+    handle.className = 'episode-chip-handle';
+    handle.innerHTML = '⠿';
+    handle.title = 'Glisser pour déplacer';
+
+    chip.appendChild(handle);
+    chip.appendChild(thumb);
+    chip.appendChild(info);
+
+    chip.addEventListener('dragstart', (e) => this.onEpisodeDragStart(e, file));
+    chip.addEventListener('dragend',   (e) => this.onEpisodeDragEnd(e));
+
+    return chip;
   }
 
   createGalleryCard(file, globalIndex) {
@@ -693,10 +723,23 @@ class ImportClassificationSystem {
     // Ajouter le nom du fichier comme data attribute pour backup
     card.setAttribute('data-file-name', file.name || '');
 
-    // Remplir le titre
+    // Miniature
+    const thumbImg = card.querySelector('.gallery-card-thumb-img');
+    if (thumbImg) {
+      thumbImg.alt = file.title || file.name || '';
+      window.setupImageWithFallback(thumbImg, file.id, file.posterUrl || null, file.thumbnail || null, file.title || file.name);
+    }
+
+    // Remplir le titre (nettoyé si auto-détecté en phase 1)
     const titleInput = card.querySelector('.title-input');
     if (titleInput) {
       titleInput.value = file.title || file.name;
+    }
+
+    // Pré-remplir l'année si détectée automatiquement
+    const yearInput = card.querySelector('.year-input');
+    if (yearInput && file.year) {
+      yearInput.value = file.year;
     }
 
     // Afficher automatiquement les champs série si c'est une série
@@ -718,16 +761,15 @@ class ImportClassificationSystem {
         seriesNameInput.value = file.seriesName;
       }
 
-      // Remplir la saison (TODO: sera géré par le drag&drop)
+      // Pré-remplir saison/épisode depuis la détection automatique du nom
       const seasonDisplay = card.querySelector('.season-display');
-      if (seasonDisplay) {
-        seasonDisplay.value = file.seasonNumber || '--';
+      if (seasonDisplay && file.seasonNumber != null) {
+        seasonDisplay.value = file.seasonNumber;
       }
 
-      // Remplir l'épisode (TODO: sera géré par le drag&drop)
       const episodeDisplay = card.querySelector('.episode-display');
-      if (episodeDisplay) {
-        episodeDisplay.value = file.episodeNumber || '--';
+      if (episodeDisplay && file.episodeNumber != null) {
+        episodeDisplay.value = file.episodeNumber;
       }
 
       // Remplir la durée (lecture seule)
@@ -856,14 +898,9 @@ class ImportClassificationSystem {
       }
     });
 
-    // Boutons d'application globale (série et année seulement)
-    const applyGlobalSeriesBtn = document.getElementById('apply-global-series');
+    // Boutons d'application globale (année seulement)
     const applyGlobalYearBtn = document.getElementById('apply-global-year');
     const globalNewSeriesBtn = document.getElementById('global-new-series');
-
-    if (applyGlobalSeriesBtn) {
-      applyGlobalSeriesBtn.addEventListener('click', () => this.applyGlobalSeries());
-    }
 
     if (applyGlobalYearBtn) {
       applyGlobalYearBtn.addEventListener('click', () => this.applyGlobalYear());
@@ -906,12 +943,6 @@ class ImportClassificationSystem {
     }
   }
 
-
-  applyGlobalSeries() {
-    // Cette fonction n'est plus nécessaire car les séries sont définies en Phase 1 (triage)
-    console.log('ℹ️ Les séries sont maintenant définies lors du triage (Phase 1) et ne peuvent plus être modifiées en Phase 2');
-    alert('Les séries sont définies lors du triage initial et ne peuvent pas être modifiées ici.');
-  }
 
   applyGlobalYear() {
     const globalYearInput = document.getElementById('global-year-input');
@@ -1050,8 +1081,8 @@ class ImportClassificationSystem {
         releaseDate: null,
         seriesId: formData.seriesId || null,
         seriesName: formData.seriesName || null,
-        season_number: formData.seasonNumber || null,
-        episode_number: formData.episodeNumber || null
+        season_number: formData.seasonNumber ?? null,
+        episode_number: formData.episodeNumber ?? null
       };
 
       console.log('📤 Envoi des données de sauvegarde:', saveData);
@@ -1073,11 +1104,11 @@ class ImportClassificationSystem {
 
       } else {
         console.error('❌ Erreur lors de la sauvegarde:', result.message);
-        alert('Erreur lors de la sauvegarde: ' + result.message);
+        window.showNotification('Erreur de sauvegarde', result.message, 'error');
       }
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde:', error);
-      alert('Erreur lors de la sauvegarde: ' + error.message);
+      window.showNotification('Erreur de sauvegarde', error.message, 'error');
     }
   }
 
@@ -1144,9 +1175,9 @@ class ImportClassificationSystem {
       // Champs pour séries
       seriesId: file?.seriesId || null,
       seriesName: file?.seriesName || null,
-      // Récupérer les numéros de saison/épisode depuis le fichier (mis à jour par drag & drop)
-      seasonNumber: file?.seasonNumber || null,
-      episodeNumber: file?.episodeNumber || null
+      // Lire depuis le champ éditable (utilisateur peut corriger), sinon fallback in-memory
+      seasonNumber:  (() => { const v = parseInt(card.querySelector('.season-display')?.value);  return isNaN(v) ? (file?.seasonNumber  ?? null) : v; })(),
+      episodeNumber: (() => { const v = parseInt(card.querySelector('.episode-display')?.value); return isNaN(v) ? (file?.episodeNumber ?? null) : v; })()
     };
 
     console.log(`   - Données finales:`, result);
@@ -1155,7 +1186,7 @@ class ImportClassificationSystem {
 
   validateGalleryCardData(formData, card) {
     if (!formData.title || !formData.title.trim()) {
-      alert('Le titre est obligatoire');
+      window.showNotification('Titre manquant', 'Le titre est obligatoire pour sauvegarder.', 'warning');
       card.querySelector('.title-input')?.focus();
       return false;
     }
@@ -1163,7 +1194,7 @@ class ImportClassificationSystem {
     // La catégorie est maintenant définie en phase 1, pas besoin de validation supplémentaire
 
     if (formData.category === 'series' && (!formData.seriesId || formData.seriesId === '')) {
-      alert('Erreur: aucune série définie. Veuillez revenir au triage pour sélectionner une série.');
+      window.showNotification('Série manquante', 'Aucune série définie. Revenez au triage pour en sélectionner une.', 'warning');
       return false;
     }
 
@@ -1285,64 +1316,70 @@ class ImportClassificationSystem {
   async finishGalleryClassification() {
     console.log('🎉 Finalisation de la classification galerie...');
 
-    // Sauvegarder automatiquement tous les fichiers non encore sauvegardés
     const pendingFiles = this.currentFiles.filter(f => !f.classified && !f.skipped);
+    const total = pendingFiles.length;
 
-    console.log(`⚡ Sauvegarde automatique PARALLÈLE de ${pendingFiles.length} fichiers restants`);
+    // Désactiver le bouton pour éviter les double-clics
+    const finishBtn = document.getElementById('finish-classification-btn');
+    if (finishBtn) {
+      finishBtn.disabled = true;
+      finishBtn.textContent = 'Sauvegarde en cours...';
+    }
 
-    // Créer toutes les promesses de sauvegarde
-    const savePromises = pendingFiles.map(file => {
-      // Trouver la carte correspondante
+    // Afficher l'overlay de progression si des fichiers restent à sauvegarder
+    let progressOverlay = null;
+    if (total > 0) {
+      progressOverlay = this.showSavingOverlay(total);
+    }
+
+    let savedCount = 0;
+
+    for (const file of pendingFiles) {
       const card = document.querySelector(`[data-file-index="${this.currentFiles.indexOf(file)}"]`);
-
-      if (!card) {
-        return Promise.resolve({ success: false, error: 'Carte non trouvée' });
-      }
+      if (!card) continue;
 
       const fileName = file.name || file.title || file.path || 'Fichier inconnu';
-      console.log(`💾 Préparation sauvegarde de: ${fileName}`);
+      this.updateSavingOverlay(progressOverlay, savedCount, total, fileName);
+      console.log(`💾 Sauvegarde de: ${fileName}`);
 
-      // Récupérer les données de la carte
       const formData = this.getGalleryCardData(card);
 
-      return window.electronAPI.saveClassifiedFile({
-        filePath: file.path,
-        title: formData.title.trim(),
-        category: formData.category,
-        mediaType: formData.mediaType,
-        description: '',
-        releaseDate: null,
-        year: formData.year || null,
-        seriesId: formData.seriesId || null,
-        seriesName: formData.seriesName || null,
-        season_number: formData.seasonNumber || null,
-        episode_number: formData.episodeNumber || null
-      })
-      .then(result => {
+      try {
+        const result = await window.electronAPI.saveClassifiedFile({
+          filePath: file.path,
+          title: formData.title.trim(),
+          category: formData.category,
+          mediaType: formData.mediaType,
+          description: '',
+          releaseDate: null,
+          year: formData.year || null,
+          seriesId: formData.seriesId || null,
+          seriesName: formData.seriesName || null,
+          season_number: formData.seasonNumber || null,
+          episode_number: formData.episodeNumber || null
+        });
+
         if (result.success) {
           file.classified = true;
           this.classifiedFiles.push(file);
-          console.log(`✅ ${fileName} sauvegardé automatiquement avec catégorie: ${formData.category}`);
+          savedCount++;
+          console.log(`✅ ${fileName} sauvegardé`);
 
-          // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
           if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
             this.newlyScannedIds.push(result.movieId);
-            console.log('📋 ID ajouté à la liste des films trackés (finir):', result.movieId);
           }
         } else {
-          console.error(`❌ Erreur lors de la sauvegarde automatique de ${fileName}:`, result.message);
+          console.error(`❌ Erreur sauvegarde ${fileName}:`, result.message);
         }
-        return result;
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('❌ Erreur pour', fileName, ':', error);
-        return { success: false, error };
-      });
-    });
+      }
+    }
 
-    // Attendre que TOUTES les sauvegardes soient terminées
-    await Promise.all(savePromises);
-    console.log(`✅ ${pendingFiles.length} fichiers sauvegardés en parallèle !`);
+    if (progressOverlay) progressOverlay.remove();
+    if (finishBtn) finishBtn.disabled = false;
+
+    console.log(`✅ ${savedCount}/${total} fichiers sauvegardés séquentiellement.`);
 
     console.log('🎉 Classification galerie terminée!');
 
@@ -1364,11 +1401,15 @@ class ImportClassificationSystem {
     }
     message += `\nLes fichiers ont été ajoutés à votre bibliothèque.`;
 
-    // Recharger les films AVANT d'afficher le message
+    // Recharger les films AVANT d'afficher la notification
     await this.forceReloadMovies();
 
-    // Afficher le message après le rechargement
-    alert(message);
+    window.showNotification(
+      'Classification terminée',
+      `${classifiedCount} fichier(s) classifié(s)${skippedCount > 0 ? `, ${skippedCount} passé(s)` : ''}`,
+      'success',
+      6000
+    );
   }
 
   onCategoryChange(categoryValue) {
@@ -1439,8 +1480,8 @@ class ImportClassificationSystem {
         year: formData.year || null,
         seriesId: formData.seriesId || null,
         seriesName: formData.seriesName || null,
-        season_number: formData.seasonNumber || null,
-        episode_number: formData.episodeNumber || null
+        season_number: formData.seasonNumber ?? null,
+        episode_number: formData.episodeNumber ?? null
       };
 
       console.log('🔍 Données API:', saveData);
@@ -1603,11 +1644,6 @@ class ImportClassificationSystem {
     console.log('✅ Import complètement annulé');
   }
 
-  async cancelImport() {
-    // Méthode obsolète, rediriger vers la nouvelle méthode avec confirmation
-    this.showCancelConfirmation();
-  }
-
   backToTriage() {
     console.log('🔙 Retour vers la phase de triage');
 
@@ -1709,67 +1745,12 @@ class ImportClassificationSystem {
     this.newlyCreatedSeriesIds = [];
   }
 
-  // Méthode pour nettoyer les films par nom (pour corriger les imports problématiques)
-  async cleanupMoviesByName(searchTerm) {
-    console.log(`🧹 Recherche et suppression des films contenant: "${searchTerm}"`);
-
-    try {
-      // Récupérer tous les films et filtrer côté client
-      const result = await window.electronAPI.getAllMedias();
-
-      if (result.success && result.medias && result.medias.length > 0) {
-        // Filtrer les films contenant le terme de recherche
-        const matchingMovies = result.medias.filter(movie => {
-          const title = (movie.title || movie.name || '').toLowerCase();
-          return title.includes(searchTerm.toLowerCase());
-        });
-
-        if (matchingMovies.length > 0) {
-          console.log(`🔍 ${matchingMovies.length} films trouvés à supprimer`);
-
-          const confirmMessage = `Voulez-vous supprimer ${matchingMovies.length} film(s) contenant "${searchTerm}" ?\n\nFilms concernés:\n${matchingMovies.map(m => `• ${m.title || m.name}`).join('\n')}`;
-
-          if (confirm(confirmMessage)) {
-            let deletedCount = 0;
-
-            for (const movie of matchingMovies) {
-              const deleteResult = await window.electronAPI.deleteMedia(movie.id);
-              if (deleteResult.success) {
-                deletedCount++;
-                console.log(`✅ Film "${movie.title || movie.name}" supprimé`);
-              } else {
-                console.error(`❌ Erreur lors de la suppression de "${movie.title || movie.name}":`, deleteResult.message);
-              }
-            }
-
-            if (window.showNotification) {
-              window.showNotification('Nettoyage terminé', `${deletedCount} film(s) supprimé(s) avec succès.`, 'success');
-            }
-
-            return { success: true, deletedCount };
-          } else {
-            return { success: false, message: 'Nettoyage annulé par l\'utilisateur' };
-          }
-        } else {
-          console.log(`ℹ️ Aucun film trouvé contenant "${searchTerm}"`);
-          return { success: true, deletedCount: 0 };
-        }
-      } else {
-        console.log('ℹ️ Aucun film dans la base de données');
-        return { success: true, deletedCount: 0 };
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors du nettoyage des films:', error);
-      return { success: false, error };
-    }
-  }
-
   async createNewSeries() {
     const name = document.getElementById('new-series-name')?.value?.trim();
     const description = document.getElementById('new-series-description')?.value?.trim();
 
     if (!name) {
-      alert('Le nom de la série est obligatoire');
+      window.showNotification('Nom requis', 'Le nom de la série est obligatoire.', 'warning');
       return;
     }
 
@@ -1812,18 +1793,18 @@ class ImportClassificationSystem {
         // Sélectionner aussi dans les contrôles globaux
         const globalSeriesSelect = document.getElementById('global-series-select');
         if (globalSeriesSelect) {
-          globalSeriesSelect.value = result.id;
+          globalSeriesSelect.value = result.series.id;
         }
         
         // Fermer la modal
         this.hideNewSeriesModal();
       } else {
         console.error('❌ Erreur lors de la création de la série:', result.message);
-        alert('Erreur lors de la création de la série: ' + result.message);
+        window.showNotification('Erreur', result.message, 'error');
       }
     } catch (error) {
       console.error('❌ Erreur lors de la création de la série:', error);
-      alert('Erreur lors de la création de la série: ' + error.message);
+      window.showNotification('Erreur', error.message, 'error');
     }
   }
 
@@ -1850,11 +1831,40 @@ class ImportClassificationSystem {
     }
     message += `\nLes fichiers ont été ajoutés à votre bibliothèque.`;
 
-    // Recharger les films AVANT d'afficher le message
+    // Recharger les films AVANT d'afficher la notification
     await this.forceReloadMovies();
 
-    // Afficher le message après le rechargement
-    alert(message);
+    window.showNotification(
+      'Classification terminée',
+      `${classifiedCount} fichier(s) classifié(s)${skippedCount > 0 ? `, ${skippedCount} passé(s)` : ''}`,
+      'success',
+      6000
+    );
+  }
+
+  showSavingOverlay(total) {
+    const overlay = document.createElement('div');
+    overlay.className = 'saving-overlay';
+    overlay.innerHTML = `
+      <div class="saving-overlay-box">
+        <div class="saving-overlay-title">Sauvegarde en cours...</div>
+        <div class="saving-overlay-bar-track">
+          <div class="saving-overlay-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="saving-overlay-label">0 / ${total}</div>
+        <div class="saving-overlay-file"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  updateSavingOverlay(overlay, done, total, currentFile) {
+    if (!overlay) return;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    overlay.querySelector('.saving-overlay-bar-fill').style.width = `${pct}%`;
+    overlay.querySelector('.saving-overlay-label').textContent = `${done} / ${total}`;
+    overlay.querySelector('.saving-overlay-file').textContent = currentFile;
   }
 
   async forceReloadMovies() {
@@ -2094,8 +2104,8 @@ class ImportClassificationSystem {
   }
 
   async refreshSeriesDisplay(seriesId) {
-    // Trouver le groupe de série et le rafraîchir
-    const seriesGroup = document.querySelector(`[data-series-id="${seriesId}"]`);
+    // Cibler spécifiquement le .series-group (et non une season-zone ou seasons-container)
+    const seriesGroup = document.querySelector(`.series-group[data-series-id="${seriesId}"]`);
     if (!seriesGroup) return;
 
     // Trouver l'élément qui scrolle réellement
@@ -2173,9 +2183,14 @@ class ImportClassificationSystem {
   onSlotDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-
-    // Highlight du slot
     event.currentTarget.classList.add('drag-over');
+  }
+
+  onSlotDragLeave(event) {
+    // Ne retirer la classe que si on quitte vraiment le slot (pas un enfant)
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      event.currentTarget.classList.remove('drag-over');
+    }
   }
 
   onSlotDrop(event) {
@@ -2231,15 +2246,6 @@ class ImportClassificationSystem {
 
 // Créer l'instance globale
 window.importClassificationSystem = new ImportClassificationSystem();
-
-// Exposer la méthode de nettoyage globalement pour utilisation depuis la console
-window.cleanupKizumonogatari = async () => {
-  if (window.importClassificationSystem) {
-    return await window.importClassificationSystem.cleanupMoviesByName('Kizumonogatari');
-  } else {
-    console.error('❌ Système d\'import non initialisé');
-  }
-};
 
 // Export pour utilisation dans d'autres modules
 window.startClassification = (files, scanType) => {

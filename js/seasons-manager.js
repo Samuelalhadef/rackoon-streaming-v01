@@ -125,7 +125,7 @@ class SeasonsManager {
     // Pour l'instant, on va simuler avec des données de test
     // TODO: Intégrer avec les vraies données d'import
 
-    const classificationManager = window.importClassificationManager;
+    const classificationManager = window.importClassificationSystem;
     if (classificationManager) {
       // Filtrer les fichiers de la série actuelle
       this.seriesEpisodes = classificationManager.currentFiles.filter(file =>

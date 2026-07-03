@@ -12,7 +12,8 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist');
 const { glob } = require('glob');
 const { execSync, exec, spawn } = require('child_process');
 const os = require('os');
-const JSONDatabase = require('./js/db-manager');
+const SQLiteDatabase = require('./js/db-sqlite');
+const { migrateToSQLite } = require('./js/migrate-to-sqlite');
 const https = require('https');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -307,52 +308,50 @@ function checkFfmpegInstalled() {
 
 // Extraire les métadonnées d'une vidéo (durée, résolution, etc.)
 function getVideoMetadata(videoPath) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
+    const fallback = (reason) => {
+      console.warn(`⚠️  FFprobe [${reason}]: ${path.basename(videoPath)}`);
+      resolve({ duration: 0, width: 0, height: 0 });
+    };
+
     try {
-      // Commande ffprobe pour obtenir les métadonnées en JSON
+      if (!FFPROBE_PATH || !fs.existsSync(FFPROBE_PATH.replace(/^ffprobe$/, '')) && FFPROBE_PATH !== 'ffprobe') {
+        // chemin absolu manquant — tenter quand même via PATH
+      }
+
+      if (!fs.existsSync(videoPath)) return fallback('fichier introuvable');
+
       const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_format -show_streams "${videoPath}"`;
-      
-      exec(command, (error, stdout, stderr) => {
+
+      exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
         if (error) {
-          console.error('Erreur ffprobe:', error.message);
-          resolve({ duration: 0, width: 0, height: 0 }); // Valeurs par défaut en cas d'erreur
-          return;
+          if (error.killed)        return fallback('timeout 30s');
+          if (error.code === 'ENOENT') return fallback('ffprobe introuvable');
+          return fallback(`erreur (code ${error.code}): ${error.message.split('\n')[0]}`);
         }
-        
+
+        if (!stdout || !stdout.trim()) return fallback('sortie vide');
+
         try {
           const metadata = JSON.parse(stdout);
-          let duration = 0;
-          let width = 0;
-          let height = 0;
-          
-          // Extraire la durée depuis format
-          if (metadata.format && metadata.format.duration) {
-            duration = parseFloat(metadata.format.duration);
+          let duration = 0, width = 0, height = 0;
+
+          if (metadata.format?.duration) duration = parseFloat(metadata.format.duration);
+
+          const videoStream = (metadata.streams || []).find(s => s.codec_type === 'video');
+          if (videoStream) {
+            width  = videoStream.width  || 0;
+            height = videoStream.height || 0;
+            if (duration === 0 && videoStream.duration) duration = parseFloat(videoStream.duration);
           }
-          
-          // Extraire les dimensions depuis le premier stream vidéo
-          if (metadata.streams) {
-            const videoStream = metadata.streams.find(stream => stream.codec_type === 'video');
-            if (videoStream) {
-              width = videoStream.width || 0;
-              height = videoStream.height || 0;
-              
-              // Si pas de durée dans format, essayer dans le stream
-              if (duration === 0 && videoStream.duration) {
-                duration = parseFloat(videoStream.duration);
-              }
-            }
-          }
-          
+
           resolve({ duration, width, height });
-        } catch (parseError) {
-          console.error('Erreur parsing métadonnées:', parseError);
-          resolve({ duration: 0, width: 0, height: 0 });
+        } catch {
+          fallback('JSON invalide');
         }
       });
     } catch (error) {
-      console.error('Erreur extraction métadonnées:', error);
-      resolve({ duration: 0, width: 0, height: 0 });
+      fallback(`exception: ${error.message}`);
     }
   });
 }
@@ -647,6 +646,36 @@ function startHTTPServer() {
         });
         res.end(img);
       }
+      // Route pour servir les photos de personnes
+      else if (url.pathname.startsWith('/person-photos/')) {
+        const photoName = url.pathname.split('/person-photos/')[1];
+        const photoPath = path.join(DATA_DIR, 'person-photos', photoName);
+
+        if (!fs.existsSync(photoPath)) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Person photo not found');
+          return;
+        }
+
+        const stat = fs.statSync(photoPath);
+        const img = fs.readFileSync(photoPath);
+        const ext = path.extname(photoPath).toLowerCase();
+        const mimeTypes = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.webp': 'image/webp'
+        };
+        const contentType = mimeTypes[ext] || 'image/jpeg';
+
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Content-Length': stat.size,
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(img);
+      }
       // Route pour la page Watch Party (lecteur web)
       else if (url.pathname.startsWith('/watch/')) {
         const sessionCode = url.pathname.split('/')[2];
@@ -856,161 +885,53 @@ function setupIPCHandlers() {
     }
   });
 
-  // Recherche et ajout de médias dans la base JSON (fonction complète existante)
-  ipcMain.handle('medias:scan', async (event, options) => {
+  // Scan par chemins déposés (drag & drop)
+  ipcMain.handle('medias:scan-paths', async (event, droppedPaths) => {
     try {
-      let videoFiles = [];
-      
-      // Sélection de dossier
-      const result = await dialog.showOpenDialog(mainWindow, {
-        properties: ['openDirectory'],
-        title: 'Sélectionnez un dossier à scanner'
-      });
-      
-      if (result.canceled || result.filePaths.length === 0) {
-        console.log('Sélection de dossier annulée');
-        return { success: false, message: 'Aucun dossier sélectionné' };
+      if (!Array.isArray(droppedPaths) || droppedPaths.length === 0) {
+        return { success: false, message: 'Aucun chemin fourni' };
       }
-      
-      const folderToScan = result.filePaths[0];
-      console.log(`🔍 Début du scan dans: ${folderToScan}`);
-      
-      mainWindow.webContents.send('scan:status', {
-        message: `Recherche des vidéos dans ${path.basename(folderToScan)}...`,
-        progress: 0
-      });
-      
-      // Rechercher tous les fichiers vidéo
-      for (const ext of SUPPORTED_FORMATS) {
-        try {
-          const pattern = `${folderToScan}/**/*${ext}`;
-          const files = await glob(pattern, { nocase: true });
-          videoFiles = [...videoFiles, ...files];
-        } catch (error) {
-          console.error(`Erreur avec l'extension ${ext}: ${error.message}`);
-        }
-      }
-      
-      console.log(`📊 Total: ${videoFiles.length} fichiers vidéo trouvés`);
-      
-      mainWindow.webContents.send('scan:status', {
-        message: `${videoFiles.length} fichiers trouvés. Ajout à la bibliothèque...`,
-        progress: 20
-      });
-      
-      let addedCount = 0;
-      let skippedCount = 0;
-      const ffmpegInstalled = checkFfmpegInstalled();
-      
-      // Traiter chaque fichier trouvé
-      for (let i = 0; i < videoFiles.length; i++) {
-        const filePath = videoFiles[i];
-        
-        try {
-          const stats = fs.statSync(filePath);
-          const fileExtension = path.extname(filePath).toLowerCase();
-          const fileName = path.basename(filePath, fileExtension);
-          
-          // Vérifier si le film existe déjà
-          const existingMedias = await db.getAllMedias();
-          const exists = existingMedias.find(m => m.path === filePath);
-          if (exists) {
-            skippedCount++;
-            continue;
-          }
-          
-          // Extraire les métadonnées si FFprobe disponible
-          let duration = 0;
-          let width = 0;
-          let height = 0;
-          
-          if (ffmpegInstalled) {
-            try {
-              const metadata = await getVideoMetadata(filePath);
-              duration = metadata.duration || 0;
-              width = metadata.width || 0;
-              height = metadata.height || 0;
-              console.log(`📊 Métadonnées extraites: ${Math.floor(duration/60)}min ${Math.floor(duration%60)}s - ${width}x${height}`);
-            } catch (error) {
-              console.log(`⚠️ Pas de métadonnées pour: ${fileName}`);
-            }
-          }
-          
-          // Générer miniature si FFmpeg disponible
-          let thumbnailName = null;
-          if (ffmpegInstalled) {
-            try {
-              const thumbnailPath = path.join(DATA_DIR, 'thumbnails', `thumb_${Date.now()}_${i}.jpg`);
-              await extractThumbnail(filePath, thumbnailPath);
-              thumbnailName = path.basename(thumbnailPath);
-              console.log(`🖼️ Miniature créée: ${thumbnailName}`);
-            } catch (error) {
-              console.log(`⚠️ Pas de miniature pour: ${fileName}`);
-            }
-          }
-          
-          // Créer l'objet film
-          const mediaData = {
-            title: fileName,
-            path: filePath,
-            format: fileExtension.substring(1),
-            duration: Math.round(duration), // Stocker en secondes, arrondi
-            size_bytes: stats.size,
-            thumbnail: thumbnailName,
-            category: null, // Ne pas pré-définir la catégorie - sera définie lors du tri
-            description: '',
-            dateAdded: new Date().toISOString(),
-            width: width,
-            height: height
-          };
-          
-          // Ajouter à la base JSON
-          const result = await db.addMedia(mediaData);
-          if (result.success) {
-            addedCount++;
-            console.log(`✅ Ajouté: ${fileName}`);
 
-            // Pré-transcoder si c'est un MKV
-            if (fileExtension === '.mkv') {
-              queueForTranscode(filePath);
+      let videoFiles = [];
+
+      for (const p of droppedPaths) {
+        try {
+          const stat = fs.statSync(p);
+          if (stat.isDirectory()) {
+            for (const ext of SUPPORTED_FORMATS) {
+              const found = await glob(`${p}/**/*${ext}`, { nocase: true });
+              videoFiles = [...videoFiles, ...found];
             }
+          } else if (stat.isFile()) {
+            const ext = path.extname(p).toLowerCase();
+            if (SUPPORTED_FORMATS.includes(ext)) videoFiles.push(p);
           }
-          
-          // Mettre à jour le statut
-          const progress = Math.round(((i + 1) / videoFiles.length) * 70) + 20;
-          mainWindow.webContents.send('scan:status', {
-            message: `Traitement: ${i + 1}/${videoFiles.length} (${addedCount} nouveaux)`,
-            progress
-          });
-          
-        } catch (error) {
-          console.error(`❌ Erreur pour ${filePath}:`, error.message);
+        } catch (e) {
+          console.warn(`⚠️  Chemin ignoré: ${p}`, e.message);
         }
       }
-      
-      const finalMessage = `Scan terminé: ${addedCount} nouveaux films, ${skippedCount} ignorés`;
-      console.log(`🎉 ${finalMessage}`);
-      
-      mainWindow.webContents.send('scan:status', {
-        message: finalMessage,
-        progress: 100
+
+      videoFiles = [...new Set(videoFiles)];
+
+      if (videoFiles.length === 0) {
+        return { success: false, message: 'Aucun fichier vidéo dans les éléments déposés' };
+      }
+
+      const lightMedias = videoFiles.map(filePath => {
+        const stats   = fs.statSync(filePath);
+        const ext     = path.extname(filePath).toLowerCase();
+        const name    = path.basename(filePath, ext);
+        return { id: null, title: name, path: filePath, format: ext.substring(1), size_bytes: stats.size, duration: 0, width: 0, height: 0, thumbnail: null };
       });
-      
-      // Retourner tous les films de la base
-      const allMedias = await db.getAllMedias();
-      return {
-        success: true,
-        message: finalMessage,
-        medias: allMedias,
-        stats: { added: addedCount, skipped: skippedCount, total: videoFiles.length }
-      };
-      
+
+      return { success: true, medias: lightMedias };
+
     } catch (error) {
-      console.error('❌ Erreur lors du scan:', error);
-      return { success: false, message: 'Erreur lors du scan: ' + error.message };
+      console.error('Erreur scan-paths:', error);
+      return { success: false, message: error.message };
     }
   });
-  
+
   // Obtenir tous les films depuis la base JSON
   ipcMain.handle('medias:getAll', async () => {
     try {
@@ -1132,31 +1053,6 @@ function setupIPCHandlers() {
     }
   });
 
-  // Mettre à jour le statut vu/à voir
-  ipcMain.handle('userPrefs:updateWatchStatus', async (event, mediaId, isWatched) => {
-    try {
-      const result = await db.updateWatchStatus(mediaId, isWatched);
-      console.log(`👁️ Statut mis à jour pour ${mediaId}: ${isWatched ? 'vu' : 'à voir'}`);
-      return result;
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
-  // Sauvegarder toutes les préférences (pour synchronisation localStorage)
-  ipcMain.handle('userPrefs:save', async (event, prefs) => {
-    try {
-      db.data.userPrefs = prefs;
-      await db.saveUserPrefsImmediate();
-      console.log('💾 Préférences utilisateur sauvegardées');
-      return { success: true };
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde des préférences:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
   // Handler pour générer un thumbnail à la demande
   ipcMain.handle('medias:generateThumbnail', async (event, mediaId) => {
     try {
@@ -1182,7 +1078,7 @@ function setupIPCHandlers() {
       }
 
       // Générer un nouveau thumbnail
-      if (!ffmpegInstalled) {
+      if (!checkFfmpegInstalled()) {
         throw new Error('FFmpeg n\'est pas installé');
       }
 
@@ -1199,7 +1095,7 @@ function setupIPCHandlers() {
       console.log(`✅ Thumbnail: ${thumbnailName}`);
 
       // Mettre à jour la DB avec le thumbnail
-      await db.updateMedia(mediaId, { thumbnail: thumbnailName });
+      await db.updateMediaById(mediaId, { thumbnail: thumbnailName });
 
       return { success: true, thumbnail: thumbnailName };
     } catch (error) {
@@ -1309,10 +1205,38 @@ function setupIPCHandlers() {
       }
 
       if (!existingMedia) {
-        console.log('⚠️ Média non trouvé dans la base, création d\'un nouveau média');
+        console.log('⚠️ Média non trouvé par chemin, vérification doublons…');
 
-        // Créer un nouveau média au lieu de retourner une erreur
         const stats = fs.statSync(fileData.filePath);
+
+        // Récupérer durée pour la détection de doublons (et pour stocker dans la BDD)
+        const meta = await getVideoMetadata(fileData.filePath);
+
+        // Détection de doublon par taille + durée (tolérance ±2 s)
+        if (meta.duration > 0 && allMedias && Array.isArray(allMedias)) {
+          const dup = allMedias.find(m =>
+            m.size_bytes === stats.size &&
+            m.duration   > 0 &&
+            Math.abs(m.duration - meta.duration) <= 2
+          );
+          if (dup) {
+            console.log(`⚠️ Doublon détecté: "${dup.title}" (même taille + durée)`);
+            return { success: false, duplicate: true, existingId: dup.id, existingTitle: dup.title, message: `Doublon de "${dup.title}"` };
+          }
+        }
+
+        // Générer miniature si FFmpeg disponible
+        let thumbnailName = null;
+        if (checkFfmpegInstalled()) {
+          try {
+            const thumbnailPath = path.join(DATA_DIR, 'thumbnails', `thumb_${Date.now()}.jpg`);
+            await extractThumbnail(fileData.filePath, thumbnailPath);
+            thumbnailName = path.basename(thumbnailPath);
+            console.log(`🖼️ Miniature créée: ${thumbnailName}`);
+          } catch (error) {
+            console.log(`⚠️ Pas de miniature pour: ${fileData.title}`);
+          }
+        }
 
         const mediaData = {
           id: crypto.randomUUID(),
@@ -1320,6 +1244,7 @@ function setupIPCHandlers() {
           title: fileData.title,
           category: fileData.category || 'unsorted',
           mediaType: fileData.mediaType || (fileData.category === 'series' ? 'series' : 'unique'),
+          thumbnail: thumbnailName,
 
           // Champs enrichis
           description: fileData.description || '',
@@ -1337,11 +1262,14 @@ function setupIPCHandlers() {
           season_number: fileData.season_number || null,
           episode_number: fileData.episode_number || null,
 
-          // Métadonnées de base
+          // Métadonnées de base + vidéo
           name: path.basename(fileData.filePath),
           size_bytes: stats.size,
           formattedSize: formatFileSize(stats.size),
           format: path.extname(fileData.filePath).toLowerCase().replace('.', ''),
+          duration: meta.duration,
+          width:    meta.width,
+          height:   meta.height,
           dateAdded: new Date().toISOString()
         };
 
@@ -1598,63 +1526,40 @@ function setupIPCHandlers() {
     }
   });
 
-  // Mettre à jour les métadonnées de tous les films existants
-  ipcMain.handle('medias:updateMetadata', async (event) => {
+  // Handler pour sauvegarder un poster depuis un fichier local
+  ipcMain.handle('medias:savePosterLocal', async (event, sourcePath, mediaTitle) => {
     try {
-      const ffmpegInstalled = checkFfmpegInstalled();
-      if (!ffmpegInstalled) {
-        return { success: false, message: 'FFmpeg/FFprobe non disponible' };
+      if (!sourcePath) {
+        return { success: false, message: 'Chemin source manquant' };
       }
 
-      const allMedias = await db.getAllMedias();
-      let updatedCount = 0;
-      let errorCount = 0;
-
-      console.log(`🔄 Mise à jour des métadonnées pour ${allMedias.length} films...`);
-
-      for (const media of allMedias) {
-        try {
-          // Vérifier si le fichier existe toujours
-          if (!fs.existsSync(media.path)) {
-            console.log(`⚠️ Fichier non trouvé, ignoré: ${media.title}`);
-            continue;
-          }
-
-          // Extraire les nouvelles métadonnées
-          const metadata = await getVideoMetadata(media.path);
-          
-          if (metadata.duration > 0) {
-            // Mettre à jour uniquement si on a une durée valide
-            const updates = {
-              duration: Math.round(metadata.duration),
-              width: metadata.width || media.width || 0,
-              height: metadata.height || media.height || 0
-            };
-
-            const updateResult = await db.updateMedia(media.id, updates);
-            if (updateResult.success) {
-              updatedCount++;
-              console.log(`✅ Métadonnées mises à jour: ${media.title} - ${Math.floor(metadata.duration/60)}min ${Math.floor(metadata.duration%60)}s`);
-            }
-          } else {
-            console.log(`⚠️ Pas de métadonnées extraites pour: ${media.title}`);
-          }
-        } catch (error) {
-          errorCount++;
-          console.error(`❌ Erreur pour ${media.title}:`, error.message);
-        }
+      // Vérifier que le fichier existe
+      if (!fs.existsSync(sourcePath)) {
+        return { success: false, message: 'Fichier introuvable' };
       }
+
+      // Créer le dossier tmdb-images s'il n'existe pas
+      const imagesDir = path.join(DATA_DIR, 'tmdb-images');
+      fs.ensureDirSync(imagesDir);
+
+      // Générer un nom unique
+      const ext = path.extname(sourcePath) || '.jpg';
+      const safeName = (mediaTitle || 'poster').replace(/[^a-zA-Z0-9-_]/g, '_').substring(0, 50);
+      const filename = `local_${safeName}_${Date.now()}${ext}`;
+      const outputPath = path.join(imagesDir, filename);
+
+      // Copier le fichier
+      fs.copySync(sourcePath, outputPath);
+      console.log(`✅ Poster local copié: ${filename}`);
 
       return {
         success: true,
-        message: `Métadonnées mises à jour: ${updatedCount} films, ${errorCount} erreurs`,
-        updated: updatedCount,
-        errors: errorCount
+        localPath: outputPath,
+        filename: filename
       };
-
     } catch (error) {
-      console.error('❌ Erreur lors de la mise à jour des métadonnées:', error);
-      return { success: false, message: 'Erreur lors de la mise à jour: ' + error.message };
+      console.error('❌ Erreur lors de la copie du poster local:', error);
+      return { success: false, message: error.message };
     }
   });
 
@@ -2446,93 +2351,138 @@ function setupIPCHandlers() {
   });
 
   // ============================================
-  // API SYSTÈME DE TAGS
-  // ============================================
+  // ========================================
+  // PERSONS IPC HANDLERS
+  // ========================================
 
-  // Migrer vers le système de tags
-  ipcMain.handle('tags:migrate', async (event) => {
+  ipcMain.handle('persons:getAll', async () => {
     try {
-      const result = await db.migrateToTagSystem();
-      return result;
+      return await db.getAllPersons();
     } catch (error) {
-      console.error('Erreur lors de la migration des tags:', error);
+      console.error('Erreur getAllPersons:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Obtenir tous les tags disponibles
-  ipcMain.handle('tags:getAll', async (event) => {
+  ipcMain.handle('persons:getById', async (event, personId) => {
     try {
-      const result = await db.getAllTags();
-      return result;
+      return await db.getPersonById(personId);
     } catch (error) {
-      console.error('Erreur lors de la récupération des tags:', error);
+      console.error('Erreur getPersonById:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Ajouter un tag personnalisé
-  ipcMain.handle('tags:addCustom', async (event, tagName) => {
+  ipcMain.handle('persons:getByTmdbId', async (event, tmdbId) => {
     try {
-      const result = await db.addCustomTag(tagName);
-      return result;
+      return await db.getPersonByTmdbId(tmdbId);
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du tag:', error);
+      console.error('Erreur getPersonByTmdbId:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Supprimer un tag personnalisé
-  ipcMain.handle('tags:removeCustom', async (event, tagName) => {
+  ipcMain.handle('persons:add', async (event, personData) => {
     try {
-      const result = await db.removeCustomTag(tagName);
-      return result;
+      return await db.addPerson(personData);
     } catch (error) {
-      console.error('Erreur lors de la suppression du tag:', error);
+      console.error('Erreur addPerson:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Ajouter des tags à un média
-  ipcMain.handle('tags:addToMedia', async (event, mediaId, tags, tagType = 'personalTags') => {
+  ipcMain.handle('persons:update', async (event, personId, updates) => {
     try {
-      const result = await db.addTagsToMedia(mediaId, tags, tagType);
-      return result;
+      return await db.updatePerson(personId, updates);
     } catch (error) {
-      console.error('Erreur lors de l\'ajout de tags au média:', error);
+      console.error('Erreur updatePerson:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Supprimer des tags d'un média
-  ipcMain.handle('tags:removeFromMedia', async (event, mediaId, tags, tagType = 'personalTags') => {
+  ipcMain.handle('persons:delete', async (event, personId) => {
     try {
-      const result = await db.removeTagsFromMedia(mediaId, tags, tagType);
-      return result;
+      return await db.deletePerson(personId);
     } catch (error) {
-      console.error('Erreur lors de la suppression de tags du média:', error);
+      console.error('Erreur deletePerson:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Rechercher des médias par tags
-  ipcMain.handle('tags:searchMedias', async (event, searchTags, operator = 'AND') => {
+  ipcMain.handle('persons:link', async (event, personId, mediaId, mediaType, role, character) => {
     try {
-      const result = await db.searchByTags(searchTags, operator);
-      return { success: true, medias: result };
+      return await db.linkPersonToMedia(personId, mediaId, mediaType, role, character);
     } catch (error) {
-      console.error('Erreur lors de la recherche par tags:', error);
+      console.error('Erreur linkPersonToMedia:', error);
       return { success: false, message: error.message };
     }
   });
 
-  // Obtenir des suggestions de tags
-  ipcMain.handle('tags:getSuggestions', async (event, query, limit = 10) => {
+  ipcMain.handle('persons:unlink', async (event, personId, mediaId, role) => {
     try {
-      const result = await db.getTagSuggestions(query, limit);
-      return result;
+      return await db.unlinkPersonFromMedia(personId, mediaId, role);
     } catch (error) {
-      console.error('Erreur lors de la récupération des suggestions:', error);
+      console.error('Erreur unlinkPersonFromMedia:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('persons:forMedia', async (event, mediaId) => {
+    try {
+      return await db.getPersonsForMedia(mediaId);
+    } catch (error) {
+      console.error('Erreur getPersonsForMedia:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('persons:search', async (event, query) => {
+    try {
+      return await db.searchPersons(query);
+    } catch (error) {
+      console.error('Erreur searchPersons:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('persons:downloadPhoto', async (event, imageUrl, personName) => {
+    try {
+      const photosDir = path.join(DATA_DIR, 'person-photos');
+      fs.ensureDirSync(photosDir);
+
+      const sanitizedName = personName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const timestamp = Date.now();
+      const ext = path.extname(imageUrl).split('?')[0] || '.jpg';
+      const fileName = `person_${sanitizedName}_${timestamp}${ext}`;
+      const filePath = path.join(photosDir, fileName);
+
+      return new Promise((resolve, reject) => {
+        const protocol = imageUrl.startsWith('https') ? https : http;
+        protocol.get(imageUrl, (response) => {
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            protocol.get(response.headers.location, (redirectRes) => {
+              const fileStream = fs.createWriteStream(filePath);
+              redirectRes.pipe(fileStream);
+              fileStream.on('finish', () => {
+                fileStream.close();
+                resolve({ success: true, fileName });
+              });
+            }).on('error', (err) => reject(err));
+            return;
+          }
+          const fileStream = fs.createWriteStream(filePath);
+          response.pipe(fileStream);
+          fileStream.on('finish', () => {
+            fileStream.close();
+            resolve({ success: true, fileName });
+          });
+        }).on('error', (err) => {
+          console.error('Erreur téléchargement photo:', err);
+          resolve({ success: false, message: err.message });
+        });
+      });
+    } catch (error) {
+      console.error('Erreur downloadPersonPhoto:', error);
       return { success: false, message: error.message };
     }
   });
@@ -2611,17 +2561,6 @@ function setupIPCHandlers() {
     }
   });
 
-  // Obtenir les infos d'une session Watch Party
-  ipcMain.handle('watchparty:getSessionInfo', async (event, sessionId) => {
-    try {
-      const result = watchPartyManager.getSessionInfo(sessionId);
-      return result;
-    } catch (error) {
-      console.error('Erreur pour obtenir info Watch Party:', error);
-      return { success: false, message: error.message };
-    }
-  });
-
   // ========================================
   // NGROK IPC HANDLERS
   // ========================================
@@ -2644,11 +2583,6 @@ function setupIPCHandlers() {
   // Arrêter le tunnel ngrok
   ipcMain.handle('ngrok:stop', async () => {
     return await stopNgrokTunnel();
-  });
-
-  // Obtenir l'URL ngrok actuelle
-  ipcMain.handle('ngrok:getUrl', async () => {
-    return { success: true, url: ngrokUrl };
   });
 
   // Générer le lien de partage complet
@@ -3275,14 +3209,22 @@ app.whenReady().then(async () => {
     fs.ensureDirSync(DATA_DIR);
     fs.ensureDirSync(path.join(DATA_DIR, 'thumbnails'));
     fs.ensureDirSync(path.join(DATA_DIR, 'tmdb-images'));
+    fs.ensureDirSync(path.join(DATA_DIR, 'person-photos'));
   } catch (error) {
     console.error('❌ Erreur création dossiers data:', error);
   }
 
-  const dbPath = path.join(DATA_DIR, 'medias.json');
-  db = new JSONDatabase(dbPath);
-  await db.load();
-  console.log('✅ Base de données prête');
+  const dbPath    = path.join(DATA_DIR, 'medias.json');
+  const sqlitePath = path.join(DATA_DIR, 'database', 'rackoon.db');
+
+  if (!fs.existsSync(sqlitePath)) {
+    console.log('🔄 Première utilisation — migration JSON → SQLite...');
+    db = await migrateToSQLite(DATA_DIR, SQLiteDatabase);
+  } else {
+    db = new SQLiteDatabase(dbPath);
+    await db.load();
+  }
+  console.log('✅ Base de données prête (SQLite)');
 
   // Créer la fenêtre
   createWindow();

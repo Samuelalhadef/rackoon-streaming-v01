@@ -1,0 +1,643 @@
+/* personnes.css - Styles pour la page Personnes */
+
+/* Header de la section */
+.persons-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 30px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.persons-header h2 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.persons-header h2 i {
+  color: var(--color-primary-light);
+}
+
+.persons-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+/* Barre de recherche */
+.persons-search-wrapper {
+  position: relative;
+  max-width: 300px;
+  flex: 1;
+}
+
+.persons-search-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.persons-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  outline: none;
+}
+
+.persons-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.persons-search-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(52, 116, 219, 0.2);
+}
+
+/* Bouton ajouter */
+.btn-add-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--gradient-accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.btn-add-person:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(52, 116, 219, 0.4);
+}
+
+/* Grille de personnes */
+.persons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 0 30px 30px;
+}
+
+/* Carte personne */
+.person-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s, background 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.person-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  background: var(--bg-card-hover);
+}
+
+/* Photo ronde */
+.person-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  transition: border-color 0.3s;
+}
+
+.person-card:hover .person-photo {
+  border-color: var(--color-primary-light);
+}
+
+.person-photo-placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 0.3s;
+}
+
+.person-card:hover .person-photo-placeholder {
+  border-color: var(--color-primary-light);
+}
+
+.person-photo-placeholder i {
+  font-size: 2.5rem;
+  color: var(--text-muted);
+}
+
+/* Infos personne */
+.person-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-department {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* Badge nombre de rôles */
+.person-roles-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(52, 116, 219, 0.15);
+  color: var(--color-primary-light);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Bouton supprimer sur la carte */
+.person-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s, background 0.2s;
+}
+
+.person-card:hover .person-delete-btn {
+  opacity: 1;
+}
+
+.person-delete-btn:hover {
+  background: rgba(220, 53, 69, 0.8);
+  color: #fff;
+}
+
+/* État vide */
+.persons-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 16px;
+  color: var(--text-tertiary);
+}
+
+.persons-empty i {
+  font-size: 4rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.persons-empty p {
+  font-size: 1.1rem;
+  text-align: center;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.persons-empty .btn-add-person {
+  margin-top: 10px;
+}
+
+/* ========================================
+   MODAL AJOUT PERSONNE
+   ======================================== */
+
+.person-add-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.person-add-modal {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.person-add-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.person-add-modal-header h3 {
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.person-add-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.person-add-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.person-add-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Champ nom */
+.person-add-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.person-add-field input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.person-add-field input:focus {
+  border-color: var(--color-primary);
+}
+
+/* Bouton recherche TMDB */
+.person-tmdb-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  background: rgba(52, 116, 219, 0.15);
+  border: 1px dashed var(--color-primary);
+  border-radius: 8px;
+  color: var(--color-primary-light);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.person-tmdb-search-btn:hover {
+  background: rgba(52, 116, 219, 0.25);
+}
+
+/* Résultats TMDB */
+.person-tmdb-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.person-tmdb-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid transparent;
+}
+
+.person-tmdb-result-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--color-primary);
+}
+
+.person-tmdb-result-photo {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+
+.person-tmdb-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-tmdb-result-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.person-tmdb-result-dept {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.person-tmdb-status {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+}
+
+/* Footer modal */
+.person-add-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.person-add-cancel-btn {
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.person-add-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.person-add-confirm-btn {
+  padding: 10px 18px;
+  background: var(--gradient-accent);
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.person-add-confirm-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(52, 116, 219, 0.4);
+}
+
+.person-add-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ========================================
+   MODAL DÉTAIL PERSONNE
+   ======================================== */
+
+.person-detail-modal-content {
+  max-width: 550px;
+}
+
+.person-detail-body {
+  gap: 20px !important;
+}
+
+.person-detail-top {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.person-detail-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.person-detail-photo-placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.person-detail-photo-placeholder i {
+  font-size: 2.5rem;
+  color: var(--text-muted);
+}
+
+.person-detail-main-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.person-detail-name {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.person-detail-dept {
+  font-size: 0.9rem;
+  color: var(--color-primary-light);
+  font-weight: 500;
+}
+
+.person-detail-infos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.person-detail-infos span {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.person-detail-infos span i {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Sections de détail */
+.person-detail-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16px;
+}
+
+.person-detail-section h4 {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.person-detail-section h4 i {
+  color: var(--color-primary-light);
+  font-size: 0.85rem;
+}
+
+.person-detail-bio {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* Liste des rôles */
+.person-detail-roles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.person-detail-role-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  gap: 10px;
+}
+
+.person-detail-role-media {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-detail-role-type {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Bouton supprimer dans le détail */
+.person-detail-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.person-detail-delete-btn:hover {
+  background: rgba(220, 53, 69, 0.3) !important;
+  color: #ff6b6b !important;
+}

@@ -365,17 +365,6 @@ class StatsManager {
     });
   }
 
-  // Enregistrer le temps de visionnage
-  static updateWatchTime(movieId, seconds) {
-    const prefs = JSON.parse(localStorage.getItem('userPrefs_global') || '{}');
-
-    if (!prefs.watchTime) prefs.watchTime = {};
-
-    const minutes = Math.round(seconds / 60);
-    prefs.watchTime[movieId] = (prefs.watchTime[movieId] || 0) + minutes;
-
-    localStorage.setItem('userPrefs_global', JSON.stringify(prefs));
-  }
 }
 
 // Initialiser le gestionnaire de statistiques au chargement du DOM
