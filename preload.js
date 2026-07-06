@@ -6,6 +6,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Exposer les fonctions protégées à la fenêtre du navigateur
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Contrôles fenêtre
+  minimize: () => ipcRenderer.send('window:minimize'),
+  maximize: () => ipcRenderer.send('window:maximize'),
+  close:    () => ipcRenderer.send('window:close'),
+
   // Médias - APIs avec stockage JSON
   scanMediasLight: (folderPath) => ipcRenderer.invoke('medias:scan-light', folderPath),
   scanMediasFromPaths: (paths) => ipcRenderer.invoke('medias:scan-paths', paths),

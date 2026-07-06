@@ -3,7 +3,7 @@
     {
       "id": "default-dark",
       "name": "Rackoon Dark (Défaut)",
-      "description": "Thème sombre bleu par défaut",
+      "description": "Thème sombre neutre avec accent bleu",
       "colors": {
         "primary": "#3474db",
         "primary-dark": "#2a5db3",
@@ -13,12 +13,12 @@
         "secondary": "#00d4ff",
         "secondary-dark": "#00b8e6",
         "secondary-light": "#33ddff",
-        "bg-primary": "#0e2356",
-        "bg-secondary": "#1e3a6d",
-        "bg-tertiary": "#132b4c",
-        "bg-card": "#1d3b5f",
-        "bg-card-hover": "#2a4a6b",
-        "bg-card-active": "#355a8a",
+        "bg-primary": "#0d0f14",
+        "bg-secondary": "#141820",
+        "bg-tertiary": "#0f1219",
+        "bg-card": "#1c1f28",
+        "bg-card-hover": "#242835",
+        "bg-card-active": "#2c3040",
         "text-primary": "#ffffff",
         "text-secondary": "#e0e0e0",
         "text-tertiary": "#b0b0b0"

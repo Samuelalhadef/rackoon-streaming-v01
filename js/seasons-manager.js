@@ -12,6 +12,7 @@ class SeasonsManager {
     this.currentSeasonIndex = null; // Index de la saison en cours d'édition
 
     this.modal = null;
+    this._onFinishCallback = null;
     this.init();
   }
 
@@ -118,19 +119,32 @@ class SeasonsManager {
   }
 
   /**
-   * Charge tous les épisodes de la série actuelle
+   * Charge tous les épisodes de la série actuelle.
+   * En contexte import : utilise importClassificationSystem.currentFiles.
+   * En contexte bibliothèque : charge depuis la DB via getSeriesById.
    */
   async loadSeriesEpisodes() {
-    // Récupérer les épisodes depuis import-classification.js
-    // Pour l'instant, on va simuler avec des données de test
-    // TODO: Intégrer avec les vraies données d'import
-
     const classificationManager = window.importClassificationSystem;
-    if (classificationManager) {
-      // Filtrer les fichiers de la série actuelle
-      this.seriesEpisodes = classificationManager.currentFiles.filter(file =>
-        file.seriesId === this.currentSeriesId && file.triageType === 'series'
-      );
+    const importFiles = classificationManager?.currentFiles || [];
+    const importEpisodes = importFiles.filter(f =>
+      String(f.seriesId) === String(this.currentSeriesId) && f.triageType === 'series'
+    );
+
+    if (importEpisodes.length > 0) {
+      this.seriesEpisodes = importEpisodes;
+    } else {
+      // Contexte bibliothèque — charger depuis la DB
+      try {
+        const result = await window.electronAPI.getSeriesById(this.currentSeriesId);
+        if (result.success && result.series.seasons) {
+          this.seriesEpisodes = result.series.seasons.flatMap(s => s.episodes || []);
+        } else {
+          this.seriesEpisodes = [];
+        }
+      } catch (e) {
+        console.error('❌ Erreur chargement épisodes bibliothèque:', e);
+        this.seriesEpisodes = [];
+      }
     }
 
     console.log(`📺 ${this.seriesEpisodes.length} épisodes chargés pour la série`);
@@ -545,7 +559,16 @@ class SeasonsManager {
   finishManagement() {
     console.log('✅ Gestion des saisons terminée');
 
-    // Rafraîchir l'affichage de la classification si nécessaire
+    // Contexte bibliothèque (modal série)
+    if (typeof this._onFinishCallback === 'function') {
+      const cb = this._onFinishCallback;
+      this._onFinishCallback = null;
+      this.closeModal();
+      cb();
+      return;
+    }
+
+    // Contexte import — rafraîchir la galerie de classification
     if (this.currentSeriesId && window.importClassificationSystem) {
       window.importClassificationSystem.refreshSeriesDisplay(this.currentSeriesId)
         .then(() => console.log('✅ Affichage de la série rafraîchi'))

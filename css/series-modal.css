@@ -9,8 +9,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  background-color: var(--bg-overlay);
+  backdrop-filter: blur(5px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -28,19 +28,19 @@
 }
 
 .series-modal {
-  width: 95vw !important;
-  max-width: 1600px !important;
-  min-height: 85vh !important;
-  max-height: 90vh !important;
-  overflow: hidden !important;
-  display: block !important;
-  background: linear-gradient(135deg, #0a1b42 0%, #1a2b5d 50%, #0f1f4a 100%) !important;
-  border-radius: 20px !important;
-  position: relative !important;
-  padding: 30px !important;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  width: 95vw;
+  max-width: 1600px;
+  min-height: 85vh;
+  max-height: 90vh;
+  overflow: clip;
+  display: block;
+  background: var(--bg-modal);
+  border-radius: 20px;
+  position: relative;
+  padding: 30px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transform: translateY(30px);
   opacity: 0;
   transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.4s ease;
@@ -55,106 +55,108 @@
 /* Bouton de fermeture pour la modale série */
 #series-modal-close {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  top: 15px;
+  right: 15px;
+  background-color: var(--modal-black-06);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color-medium);
+  border-radius: var(--radius-md);
+  width: 36px;
+  height: 36px;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 18px;
   z-index: 10;
   transition: all 0.3s ease;
   font-weight: 300;
 }
 
 #series-modal-close:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--modal-white-08);
   transform: rotate(90deg);
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: var(--border-color-strong);
 }
 
-/* Scroll unique sur view-mode (comme movie-modal) */
+/* view-mode série : scroll global — les deux colonnes scrollent ensemble */
 .series-modal .view-mode {
-  height: calc(85vh - 100px) !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  margin-top: 20px !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(100, 181, 246, 0.3) transparent !important;
-  position: relative !important;
-  z-index: 1 !important;
+  height: calc(85vh - 100px);
+  display: flex;
+  align-items: stretch;
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+  overflow-y: auto;
+  overflow-x: clip;
+  padding-left: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 181, 246, 0.3) transparent;
 }
 
-.series-modal .view-mode::-webkit-scrollbar {
-  width: 6px !important;
-}
-
-.series-modal .view-mode::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
+.series-modal .view-mode::-webkit-scrollbar       { width: 6px; }
+.series-modal .view-mode::-webkit-scrollbar-track { background: transparent; }
 .series-modal .view-mode::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.2)) !important;
-  border-radius: 10px !important;
+  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.2));
+  border-radius: 10px;
 }
-
 .series-modal .view-mode::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4)) !important;
+  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4));
 }
 
-/* Container unifié - PAS de scroll propre, le scroll est sur view-mode */
+/* unified-content : grandit pour permettre le scroll */
 .series-modal .unified-content {
-  display: flex !important;
-  gap: 40px !important;
-  padding: 20px 10px 20px 0 !important;
-  max-width: 100% !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
+  display: flex;
+  gap: 40px;
+  max-width: 100%;
+  width: 100%;
+  min-height: 100%;
+  align-items: flex-start;
+  box-sizing: border-box;
 }
 
-/* Sidebar - scroll unique avec le contenu (comme movie-modal) */
+/* Sidebar : sticky → poster toujours visible au scroll */
 .series-modal .modal-sidebar {
-  width: 350px !important;
-  flex-shrink: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 20px !important;
-  align-self: flex-start !important;
+  width: 350px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  overflow: visible;
 }
 
 /* Poster de la série */
 .series-modal .modal-poster {
-  position: relative !important;
-  width: 100% !important;
-  height: 520px !important;
-  overflow: hidden !important;
-  border-radius: 16px !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
-  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
-  border: 3px solid rgba(255, 255, 255, 0.1) !important;
+  position: relative;
+  width: 100%;
+  height: 520px;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6));
+  transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
+  border: 3px solid rgba(255, 255, 255, 0.1);
 }
 
 .series-modal .modal-poster img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  display: block !important;
-  transition: transform 0.5s ease !important;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
 }
 
 .series-modal .modal-poster:hover {
-  transform: translateY(-5px) !important;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-5px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.8));
 }
 
 .series-modal .modal-poster:hover img {
-  transform: scale(1.05) !important;
+  transform: scale(1.05);
 }
 
 /* Overlay sur le poster */
@@ -255,11 +257,14 @@
 }
 
 .series-modal .rating-title {
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: var(--modal-star-color);
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .series-modal .rating-controls {
@@ -270,8 +275,8 @@
 
 .series-modal .progressive-stars {
   position: relative;
-  width: 210px;
-  height: 36px;
+  width: 148px;
+  height: 26px;
   cursor: pointer;
   user-select: none;
   flex: 0 0 auto;
@@ -284,8 +289,8 @@
   top: 0;
   left: 0;
   display: flex;
-  gap: 8px;
-  font-size: 32px;
+  gap: 4px;
+  font-size: 22px;
   pointer-events: none;
 }
 
@@ -312,21 +317,18 @@
 }
 
 .series-modal .rating-input {
-  width: 60px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
+  background: transparent;
+  border: none;
+  color: var(--modal-star-color);
+  font-size: 18px;
+  width: 48px;
   text-align: center;
-  transition: all 0.3s;
+  align-self: flex-end;
+  margin-bottom: 2px;
 }
 
 .series-modal .rating-input:focus {
   outline: none;
-  border-color: var(--color-primary);
-  background: rgba(255, 255, 255, 0.15);
 }
 
 /* Section Avis */
@@ -334,14 +336,19 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--modal-blue-primary-08), var(--modal-blue-primary-subtle));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--modal-blue-secondary-02);
+  backdrop-filter: blur(10px);
 }
 
 .series-modal .review-title {
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: var(--modal-blue-primary);
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 .series-modal .review-input {
@@ -364,40 +371,55 @@
 }
 
 .series-modal .review-save-btn {
-  padding: 8px 16px;
-  background: rgba(52, 116, 219, 0.2);
-  border: 1px solid var(--color-primary);
-  border-radius: 6px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--color-primary-light), #42a5f5);
   color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.series-modal .review-save-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
+}
+
+.series-modal .review-save-btn:hover::before {
+  left: 100%;
 }
 
 .series-modal .review-save-btn:hover {
-  background: rgba(52, 116, 219, 0.3);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #74c5f6, #52b5f6);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-primary);
 }
 
-/* Contenu principal - PAS de scroll propre, le scroll est sur view-mode */
+/* Contenu principal - colonne flex, pas de scroll propre (scroll sur view-mode) */
 .series-modal .modal-content {
-  flex: 1 !important;
-  padding: 40px 50px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  position: relative !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  padding-bottom: 20px;
 }
 
-.series-modal .modal-content > * {
-  margin-bottom: 28px !important;
-}
-
-.series-modal .modal-content > *:last-child {
-  margin-bottom: 0 !important;
-}
+.series-modal .modal-content > *          { margin-bottom: 28px; }
+.series-modal .modal-content > *:last-child { margin-bottom: 0; }
 
 /* En-tête avec titre et bouton édition */
 .series-modal .modal-header {
@@ -408,7 +430,6 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 20px;
-  padding-bottom: 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -420,7 +441,7 @@
   font-size: 42px;
   font-weight: 800;
   color: var(--text-primary);
-  margin: 0 0 8px 0;
+  margin: 0 0 16px 0;
   line-height: 1.2;
 }
 
@@ -447,16 +468,17 @@
 }
 
 .series-modal .meta-separator {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 24px;
-  font-weight: 300;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
   margin: 0 2px;
 }
 
 .series-modal .movie-year {
   color: var(--text-tertiary);
   font-weight: 500;
-  font-size: 32px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -471,46 +493,58 @@
 .series-modal .edit-button,
 .series-modal .edit-cancel-btn,
 .series-modal .edit-save-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  font-size: 16px;
+  border: 2px solid;
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
 }
 
 .series-modal .edit-button {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: linear-gradient(135deg, var(--modal-blue-primary-02), var(--modal-blue-primary-01));
+  border-color: var(--modal-blue-primary-04);
+  color: var(--modal-blue-primary);
 }
 
 .series-modal .edit-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: rotate(15deg);
+  background: linear-gradient(135deg, var(--modal-blue-primary-03), var(--modal-blue-primary-02));
+  border-color: var(--modal-blue-primary-06);
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: var(--shadow-primary-lg);
+  color: var(--text-primary);
 }
 
 .series-modal .edit-cancel-btn {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: var(--color-error);
+  background: linear-gradient(135deg, var(--modal-red-02), var(--modal-red-01));
+  border-color: var(--modal-red-04);
   color: var(--color-error);
 }
 
 .series-modal .edit-cancel-btn:hover {
-  background: rgba(244, 67, 54, 0.3);
+  background: linear-gradient(135deg, var(--modal-red-04), var(--modal-red-02));
+  border-color: var(--modal-red-06);
+  box-shadow: 0 4px 16px var(--modal-red-03);
+  color: var(--text-primary);
 }
 
 .series-modal .edit-save-btn {
-  background: rgba(76, 175, 80, 0.2);
-  border-color: var(--color-success);
+  background: linear-gradient(135deg, var(--modal-green-secondary-02), var(--modal-green-secondary-01));
+  border-color: var(--modal-green-secondary-04);
   color: var(--color-success);
 }
 
 .series-modal .edit-save-btn:hover {
-  background: rgba(76, 175, 80, 0.3);
+  background: linear-gradient(135deg, var(--modal-green-secondary-04), var(--modal-green-secondary-02));
+  border-color: var(--modal-green-secondary-06);
+  box-shadow: 0 4px 16px var(--modal-green-secondary-03);
+  color: var(--text-primary);
 }
 
 /* Métadonnées */
@@ -532,17 +566,21 @@
 
 /* Synopsis */
 .series-modal .synopsis {
-  background: rgba(255, 255, 255, 0.03);
-  border-left: 3px solid var(--color-primary);
-  padding: 20px 25px;
-  border-radius: 8px;
+  margin: 0;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .series-modal .synopsis-title {
-  color: var(--text-primary);
-  font-size: 18px;
+  color: var(--text-secondary);
+  font-size: 11px;
   font-weight: 600;
-  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .series-modal .synopsis-content {
@@ -560,25 +598,26 @@
 }
 
 .series-modal .tag-category {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  padding: 15px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  border: none;
 }
 
 .series-modal .tag-category-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
+  gap: 8px;
+  margin-bottom: 8px;
+  position: relative;
 }
 
 .series-modal .tag-category-header i {
-  font-size: 16px;
-  color: var(--color-primary);
+  color: var(--color-primary-light);
+  font-size: 13px;
+  width: 16px;
+  text-align: center;
+  filter: drop-shadow(0 0 6px var(--modal-blue-primary-04));
 }
 
 .series-modal .tag-chips {
@@ -595,29 +634,7 @@
   transition: all 0.2s;
 }
 
-.series-modal .tag-chip.genre {
-  background: rgba(52, 116, 219, 0.2);
-  border: 1px solid rgba(52, 116, 219, 0.4);
-  color: #5fa3ff;
-}
-
-.series-modal .tag-chip.mood {
-  background: rgba(233, 30, 99, 0.2);
-  border: 1px solid rgba(233, 30, 99, 0.4);
-  color: #f06292;
-}
-
-.series-modal .tag-chip.technical {
-  background: rgba(156, 39, 176, 0.2);
-  border: 1px solid rgba(156, 39, 176, 0.4);
-  color: #ba68c8;
-}
-
-.series-modal .tag-chip.personal {
-  background: rgba(255, 152, 0, 0.2);
-  border: 1px solid rgba(255, 152, 0, 0.4);
-  color: #ffb74d;
-}
+/* Les couleurs genre/mood/technical/personal sont héritées de modal.css (même palette que les films) */
 
 /* Crédits */
 .series-modal .movie-credits {
@@ -885,79 +902,68 @@
 .series-modal .floating-watch-btn {
   position: sticky;
   bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 40px);
-  max-width: 400px;
-  padding: 16px 32px;
+  align-self: center;
+  width: fit-content;
+  padding: 9px 18px;
   background: var(--gradient-accent);
   border: none;
-  border-radius: 50px;
+  border-radius: 8px;
   color: var(--text-primary);
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  box-shadow: 0 8px 30px rgba(52, 116, 219, 0.5);
-  transition: all 0.3s ease;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(52, 116, 219, 0.3);
+  transition: all 0.2s ease;
   z-index: 5;
 }
 
 .series-modal .floating-watch-btn:hover {
-  background: var(--gradient-accent-hover);
-  transform: translateX(-50%) translateY(-3px);
-  box-shadow: 0 12px 40px rgba(52, 116, 219, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(52, 116, 219, 0.45);
 }
 
 .series-modal .floating-watch-btn i {
-  font-size: 18px;
+  font-size: 13px;
 }
 
 /* Responsive pour les séries */
 @media (max-width: 1200px) {
-  .series-modal .unified-content {
-    gap: 30px !important;
-  }
-
-  .series-modal .modal-sidebar {
-    width: 320px !important;
-  }
-
-  .series-modal .modal-poster {
-    height: 480px !important;
-  }
+  .series-modal .unified-content { gap: 30px; }
+  .series-modal .modal-sidebar   { width: 320px; }
+  .series-modal .modal-poster    { height: 480px; }
 }
 
 @media (max-width: 900px) {
   .series-modal {
-    width: 98vw !important;
-    max-width: none !important;
-    min-height: 90vh !important;
-    padding: 20px !important;
+    width: 98vw;
+    max-width: none;
+    min-height: 90vh;
+    padding: 20px;
   }
 
   .series-modal .unified-content {
-    flex-direction: column !important;
-    gap: 20px !important;
+    flex-direction: column;
+    gap: 20px;
   }
 
   .series-modal .modal-sidebar {
-    width: 100% !important;
-    flex-direction: row !important;
-    gap: 20px !important;
+    width: 100%;
+    flex-direction: row;
+    gap: 20px;
   }
 
   .series-modal .modal-poster {
-    width: 200px !important;
-    height: 300px !important;
-    flex-shrink: 0 !important;
+    width: 200px;
+    height: 300px;
+    flex-shrink: 0;
   }
 
   .series-modal .modal-content {
-    padding: 30px 20px !important;
+    padding: 30px 20px;
   }
 
   .series-modal .modal-title {
@@ -1016,13 +1022,13 @@
 
 /* Bordure bleue subtile - même style que movie-modal */
 #series-modal-overlay.edit-mode-active .series-modal {
-  border: 1px solid rgba(100, 181, 246, 0.25) !important;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(100, 181, 246, 0.15) !important;
-  background: linear-gradient(135deg, #020a14 0%, #03101e 50%, #020a14 100%) !important;
+  border: 1px solid rgba(100, 181, 246, 0.25);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(100, 181, 246, 0.15);
+  background: var(--bg-primary);
 }
 
 #series-modal-overlay.edit-mode-active {
-  background-color: rgba(5, 15, 35, 0.95);
+  background-color: var(--modal-bg-edit-mode);
 }
 
 /* Champs éditables - mêmes classes que movie-modal */
@@ -1033,9 +1039,9 @@
   transition: all 0.3s ease;
   outline: none;
   font-family: inherit;
-  box-sizing: border-box !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   animation: seriesFieldAppear 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -1202,15 +1208,43 @@
   transform: translateY(-2px);
 }
 
+/* Input inline pour l'ajout de tags */
+.tag-inline-input-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tag-inline-input {
+  background: rgba(100, 181, 246, 0.08);
+  border: 1px solid rgba(100, 181, 246, 0.5);
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 5px 12px;
+  width: 130px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tag-inline-input:focus {
+  border-color: var(--modal-blue-primary);
+  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.15);
+}
+
+.tag-inline-input::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Bouton TMDB (remplace le bouton play en mode édition) */
 .series-modal .series-tmdb-btn {
-  background: linear-gradient(135deg, rgba(1, 180, 228, 0.8), rgba(144, 206, 161, 0.8)) !important;
-  box-shadow: 0 8px 30px rgba(1, 180, 228, 0.4) !important;
+  background: var(--gradient-tmdb);
+  box-shadow: var(--shadow-tmdb);
 }
 
 .series-modal .series-tmdb-btn:hover {
-  background: linear-gradient(135deg, rgba(1, 180, 228, 1), rgba(144, 206, 161, 1)) !important;
-  box-shadow: 0 12px 40px rgba(1, 180, 228, 0.5) !important;
+  background: var(--gradient-tmdb-hover);
+  box-shadow: var(--shadow-tmdb-hover);
 }
 
 /* Overlay d'édition sur le poster */
@@ -1262,7 +1296,7 @@
 #series-modal-overlay .edit-cancel-btn.show,
 #series-modal-overlay .edit-save-btn.show {
   opacity: 1;
-  width: 44px;
+  width: 36px;
   border-width: 2px;
 }
 
@@ -1288,4 +1322,197 @@
 #series-modal-overlay.edit-mode-active .technical-info {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════════════
+   MODE ÉDITION — GESTION SAISONS & ÉPISODES
+   ══════════════════════════════════════════════════════ */
+
+/* Barre de contrôle en haut de la zone saisons */
+.seasons-edit-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 16px 0;
+}
+
+.btn-manage-seasons-modal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--modal-blue-primary-08);
+  border: 1px solid var(--modal-blue-primary-05);
+  border-radius: var(--radius-md);
+  color: var(--modal-blue-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-manage-seasons-modal:hover {
+  background: var(--modal-blue-primary-02);
+  border-color: var(--modal-blue-primary);
+  box-shadow: 0 0 12px var(--modal-blue-primary-05);
+}
+
+/* ── Bloc saison éditables ────────────────────────── */
+.edit-season-section {
+  margin-bottom: 24px;
+}
+
+.season-header-edit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.season-header-edit .season-label {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.season-header-edit .season-ep-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Liste d'épisodes éditables ─────────────────── */
+.episodes-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.episode-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s;
+}
+
+.episode-edit-row:hover {
+  border-color: var(--modal-blue-primary-05);
+}
+
+.ep-edit-thumb {
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--bg-primary);
+}
+
+.ep-edit-fields {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ep-edit-title {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 5px 8px;
+  min-width: 0;
+}
+
+.ep-edit-title:focus {
+  outline: none;
+  border-color: var(--modal-blue-primary);
+}
+
+.ep-edit-numbers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ep-edit-numbers label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ep-edit-sn,
+.ep-edit-en {
+  width: 44px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 5px 4px;
+  text-align: center;
+}
+
+.ep-edit-sn:focus,
+.ep-edit-en:focus {
+  outline: none;
+  border-color: var(--modal-blue-primary);
+}
+
+.btn-ep-delete {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: var(--radius-md);
+  color: #e74c3c;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.btn-ep-delete:hover {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: #e74c3c;
+}
+
+.ep-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  font-style: italic;
+}
+
+.seasons-empty-edit {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+}
+
+.seasons-empty-edit i {
+  font-size: 36px;
+  margin-bottom: 12px;
+  display: block;
+  opacity: 0.4;
 }

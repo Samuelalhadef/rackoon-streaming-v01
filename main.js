@@ -279,6 +279,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -294,6 +295,14 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 }
+
+// Contrôles de fenêtre
+ipcMain.on('window:minimize', () => mainWindow.minimize());
+ipcMain.on('window:maximize', () => {
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+});
+ipcMain.on('window:close', () => mainWindow.close());
 
 // Vérifier si ffmpeg est disponible
 function checkFfmpegInstalled() {

@@ -24,39 +24,39 @@
      ARRIÈRE-PLANS
      ======================================== */
 
-  /* Arrière-plans principaux */
-  --bg-primary: #0e2356;
-  --bg-secondary: #1e3a6d;
-  --bg-tertiary: #132b4c;
+  /* Arrière-plans principaux — aplat sombre neutre à légère teinte froide */
+  --bg-primary: #0d0f14;
+  --bg-secondary: #141820;
+  --bg-tertiary: #0f1219;
 
   /* Arrière-plans pour cartes et panneaux */
-  --bg-card: #1d3b5f;
-  --bg-card-hover: #2a4a6b;
-  --bg-card-active: #355a8a;
-  --bg-card-alt: #1e3a5f;
-  --bg-card-alt-hover: #2a4d7a;
+  --bg-card: #1c1f28;
+  --bg-card-hover: #242835;
+  --bg-card-active: #2c3040;
+  --bg-card-alt: #1e2130;
+  --bg-card-alt-hover: #252840;
 
   /* Arrière-plans sombres */
   --bg-dark: var(--bg-primary);
-  --bg-darker: var(--bg-primary);
+  --bg-darker: #0a0c10;
 
   /* Arrière-plans pour modales et overlays */
-  --bg-modal: var(--bg-primary);
+  --bg-modal: var(--bg-secondary);
   --bg-modal-dark: var(--bg-primary);
   --bg-modal-content: var(--bg-secondary);
   --bg-modal-hover: var(--bg-card-hover);
-  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-overlay: rgba(0, 0, 0, 0.75);
   --bg-thumbnail: var(--bg-card);
 
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-  --gradient-primary-hover: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card-hover) 100%);
+  /* Gradients — aplat pour les fonds, gradient conservé pour les accents UI */
+  --gradient-primary: var(--bg-primary);
+  --gradient-primary-hover: var(--bg-secondary);
   --gradient-accent: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   --gradient-accent-hover: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary-darker) 100%);
   --gradient-fade: linear-gradient(90deg, var(--color-primary) 0%, transparent 100%);
 
-  /* Gradients pour les stats */
-  --gradient-stats-bg: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-card) 100%);
+  /* Stats */
+  --gradient-stats-bg: var(--bg-card);
   --gradient-stats-blue: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
   --gradient-stats-green: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
   --gradient-stats-orange: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
@@ -341,7 +341,7 @@
   /* Couleurs additionnelles pour modal */
   --modal-white-25: rgba(255, 255, 255, 0.25);
   --modal-white-60: rgba(255, 255, 255, 0.6);
-  --modal-blue-primary-04: rgba(100, 181, 246, 0.04);
+  --modal-blue-primary-subtle: rgba(100, 181, 246, 0.04);
   --modal-blue-primary-15: rgba(100, 181, 246, 0.15);
   --modal-blue-secondary-06: rgba(52, 116, 219, 0.6);
   --modal-gold-01: rgba(255, 215, 0, 0.1);
@@ -349,6 +349,16 @@
   --modal-gold-04: rgba(255, 215, 0, 0.4);
   --modal-gold-bright: rgba(241, 196, 15, 0.5);
   --modal-red-bright: rgba(231, 76, 60, 0.5);
+
+  /* ========================================
+     TMDB
+     ======================================== */
+  --color-tmdb: #01b4e4;
+  --color-tmdb-secondary: #90cea1;
+  --gradient-tmdb: linear-gradient(135deg, rgba(1, 180, 228, 0.8), rgba(144, 206, 161, 0.8));
+  --gradient-tmdb-hover: linear-gradient(135deg, #01b4e4, #90cea1);
+  --shadow-tmdb: 0 8px 30px rgba(1, 180, 228, 0.4);
+  --shadow-tmdb-hover: 0 12px 40px rgba(1, 180, 228, 0.5);
 }
 
 /* ========================================
@@ -366,4 +376,61 @@ body.theme-changing * {
   transition: background-color var(--transition-normal),
               color var(--transition-normal),
               border-color var(--transition-normal) !important;
+}
+
+/* ========================================
+   SCROLLBARS GLOBALES
+   ======================================== */
+/* Pas de scrollbar sur la page elle-même */
+html, body {
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* Scrollbar fine uniquement dans les zones de contenu */
+.tab-section,
+.import-modal-body,
+.gallery-container,
+.floating-menu-content,
+.filter-sidebar,
+.seasons-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
+}
+
+.tab-section::-webkit-scrollbar,
+.import-modal-body::-webkit-scrollbar,
+.gallery-container::-webkit-scrollbar,
+.floating-menu-content::-webkit-scrollbar,
+.filter-sidebar::-webkit-scrollbar,
+.seasons-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tab-section::-webkit-scrollbar-track,
+.import-modal-body::-webkit-scrollbar-track,
+.gallery-container::-webkit-scrollbar-track,
+.floating-menu-content::-webkit-scrollbar-track,
+.filter-sidebar::-webkit-scrollbar-track,
+.seasons-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-section::-webkit-scrollbar-thumb,
+.import-modal-body::-webkit-scrollbar-thumb,
+.gallery-container::-webkit-scrollbar-thumb,
+.floating-menu-content::-webkit-scrollbar-thumb,
+.filter-sidebar::-webkit-scrollbar-thumb,
+.seasons-container::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 4px;
+}
+
+.tab-section::-webkit-scrollbar-thumb:hover,
+.import-modal-body::-webkit-scrollbar-thumb:hover,
+.gallery-container::-webkit-scrollbar-thumb:hover,
+.floating-menu-content::-webkit-scrollbar-thumb:hover,
+.filter-sidebar::-webkit-scrollbar-thumb:hover,
+.seasons-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }

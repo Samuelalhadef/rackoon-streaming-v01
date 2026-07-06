@@ -658,14 +658,21 @@
 }
 
 .btn-primary {
-  background: var(--color-primary) !important;
+  background: var(--color-primary);
   color: var(--text-primary);
-  border: 1px solid #007acc;
 }
 
 .btn-primary:hover {
-  background: var(--color-primary-dark) !important;
+  background: var(--color-primary-dark);
   transform: translateY(-1px);
+}
+
+/* Bordure bleue uniquement pour les boutons du gestionnaire de fichiers */
+#section-gestion-fichiers .btn-primary,
+#delete-modal .btn-primary,
+#details-modal .btn-primary,
+#clear-all-modal .btn-primary {
+  border: 1px solid var(--color-primary-dark);
 }
 
 .btn-secondary {
@@ -900,17 +907,15 @@
    MODALES
    ======================================== */
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+/* Modales file manager (affichage via display:none/flex par le JS, pas via .active) */
+#delete-modal,
+#details-modal,
+#clear-all-modal {
+  background: var(--bg-overlay);
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .modal-content.large {
@@ -968,6 +973,18 @@
   color: var(--color-warning);
   font-size: 14px;
   margin-top: 10px;
+}
+
+.confirmation-input {
+  margin: 20px 0;
+}
+
+#clear-confirmation {
+  margin-top: 10px;
+  padding: 8px;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
 .file-details-grid {
@@ -1057,7 +1074,7 @@
    ANIMATIONS
    ======================================== */
 
-@keyframes fadeIn {
+@keyframes rowFadeIn {
   from {
     opacity: 0;
     transform: translateY(10px);
@@ -1091,7 +1108,7 @@
 }
 
 .file-row {
-  animation: fadeIn 0.3s ease-out;
+  animation: rowFadeIn 0.3s ease-out;
 }
 
 /* ========================================

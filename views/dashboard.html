@@ -21,6 +21,25 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+  <!-- Titlebar custom -->
+  <div id="titlebar">
+    <div id="titlebar-logo">
+      <span class="titlebar-icon">🦝</span>
+      <span class="titlebar-text">Rackoon Streaming</span>
+    </div>
+    <div id="titlebar-controls">
+      <button id="btn-minimize">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><line fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" x1="21.14" y1="12" x2="3.78" y2="12"/></svg>
+      </button>
+      <button id="btn-maximize">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12"><rect fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x="3.27" y="3.32" width="17.45" height="17.45"/></svg>
+      </button>
+      <button id="btn-close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14"><line fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" x1="5.86" y1="5.86" x2="18.14" y2="18.14"/><line fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" x1="18.14" y1="5.86" x2="5.86" y2="18.14"/></svg>
+      </button>
+    </div>
+  </div>
+
   <!-- Barre de navigation -->
   <nav class="navbar">
     <div class="navbar-left">
@@ -766,9 +785,9 @@
           <li>⭐ Toutes les notes et statuts</li>
         </ul>
         <p class="warning-text">⚠️ Cette action ne supprimera que les données de l'application, pas les fichiers physiques sur votre disque.</p>
-        <div class="confirmation-input" style="margin: 20px 0;">
+        <div class="confirmation-input">
           <label for="clear-confirmation">Tapez "CLEAR ALL" pour confirmer :</label>
-          <input type="text" id="clear-confirmation" placeholder="CLEAR ALL" style="margin-top: 10px; padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+          <input type="text" id="clear-confirmation" placeholder="CLEAR ALL">
         </div>
       </div>
       <div class="modal-footer">
@@ -1110,7 +1129,7 @@
   </div>
 
   <!-- Modal de présentation des séries -->
-  <div class="modal-overlay" id="series-modal-overlay" style="display: none;">
+  <div class="modal-overlay" id="series-modal-overlay">
     <div class="series-modal" id="series-modal">
       <button class="modal-close" id="series-modal-close">×</button>
 
@@ -1123,11 +1142,6 @@
             <!-- Affiche -->
             <div class="modal-poster">
               <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0NTAiIGZpbGw9IiMxYTFhMWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0cHgiPvCfk7o8L3RleHQ+PC9zdmc+" alt="Poster de la série" id="series-poster">
-              <!-- Info saison/épisodes en haut à gauche -->
-              <div class="poster-info-overlay">
-                <div class="poster-season-info" id="series-season-info">S1</div>
-                <div class="poster-episode-info" id="series-episode-info-overlay">12 ép.</div>
-              </div>
               <div class="poster-overlay">
                 <div class="poster-quick-info">Note : <span id="series-rating-quick">★★★★☆</span></div>
                 <div class="poster-quick-info">Saisons : <span id="series-seasons-quick">1</span></div>
@@ -1219,44 +1233,74 @@
           <!-- Tags déplacés avant les crédits -->
           <div class="tags-container">
             <!-- Genres -->
-            <div class="tag-category" id="series-genres-category" style="display: none;">
+            <div class="tag-category" id="series-genres-category" style="display: block;">
               <div class="tag-category-header">
                 <i class="fas fa-film"></i>
                 <span class="tag-category-title">Genres</span>
               </div>
-              <div class="tag-chips" id="series-genres-container"></div>
+              <div class="tag-chips" id="series-genres-container"><span class="empty-tags-message">Aucun tag ajouté</span></div>
             </div>
 
             <!-- Ambiance/Mood -->
-            <div class="tag-category" id="series-mood-category" style="display: none;">
+            <div class="tag-category" id="series-mood-category" style="display: block;">
               <div class="tag-category-header">
                 <i class="fas fa-heart"></i>
                 <span class="tag-category-title">Ambiance</span>
               </div>
-              <div class="tag-chips" id="series-mood-container"></div>
+              <div class="tag-chips" id="series-mood-container"><span class="empty-tags-message">Aucun tag ajouté</span></div>
             </div>
 
             <!-- Technique -->
-            <div class="tag-category" id="series-technical-category" style="display: none;">
+            <div class="tag-category" id="series-technical-category" style="display: block;">
               <div class="tag-category-header">
                 <i class="fas fa-cog"></i>
                 <span class="tag-category-title">Technique</span>
               </div>
-              <div class="tag-chips" id="series-technical-container"></div>
+              <div class="tag-chips" id="series-technical-container"><span class="empty-tags-message">Aucun tag ajouté</span></div>
             </div>
 
             <!-- Personnel -->
-            <div class="tag-category" id="series-personal-category" style="display: none;">
+            <div class="tag-category" id="series-personal-category" style="display: block;">
               <div class="tag-category-header">
                 <i class="fas fa-user"></i>
                 <span class="tag-category-title">Personnel</span>
               </div>
-              <div class="tag-chips" id="series-personal-container"></div>
+              <div class="tag-chips" id="series-personal-container"><span class="empty-tags-message">Aucun tag ajouté</span></div>
             </div>
           </div>
 
           <!-- Crédits après les tags -->
           <div class="movie-credits">
+            <!-- Section Équipe -->
+            <div class="credits-section" id="series-crew-section" style="display: none;">
+              <div class="credits-section-title"><i class="fas fa-film"></i> Équipe</div>
+              <div class="credits-departments">
+                <div class="credits-department" id="series-crew-creator" style="display: none;">
+                  <div class="credits-dept-label">Créateur</div>
+                  <div class="credits-persons-grid" data-department="creator"></div>
+                </div>
+                <div class="credits-department" id="series-crew-producer" style="display: none;">
+                  <div class="credits-dept-label">Producteur</div>
+                  <div class="credits-persons-grid" data-department="producer"></div>
+                </div>
+                <div class="credits-department" id="series-crew-writer" style="display: none;">
+                  <div class="credits-dept-label">Scénariste</div>
+                  <div class="credits-persons-grid" data-department="writer"></div>
+                </div>
+                <div class="credits-department" id="series-crew-composer" style="display: none;">
+                  <div class="credits-dept-label">Compositeur</div>
+                  <div class="credits-persons-grid" data-department="composer"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section Casting -->
+            <div class="credits-section" id="series-cast-section" style="display: none;">
+              <div class="credits-section-title"><i class="fas fa-users"></i> Casting</div>
+              <div class="credits-persons-grid" id="series-cast-persons-grid" data-department="actor"></div>
+            </div>
+
+            <!-- Fallback texte (actuel, conservé pour compatibilité JS) -->
             <div class="director-section" id="series-director-section" style="display: none;">
               <span class="credit-label">Créateur :</span>
               <span class="director-name" id="series-director-name"></span>
@@ -1265,6 +1309,8 @@
               <span class="credit-label">Acteurs principaux :</span>
               <span class="actors-list" id="series-actors-list"></span>
             </div>
+
+            <!-- Infos spécifiques séries -->
             <div class="platform-section" id="series-platform-section" style="display: none;">
               <span class="credit-label">Plateforme :</span>
               <span class="platform-name" id="series-platform-name"></span>
@@ -1285,7 +1331,7 @@
           </div>
 
           <!-- Section Visionnage -->
-          <div class="viewing-stats">
+          <div class="viewing-stats" style="display: none;">
             <h3 class="viewing-stats-title">Historique de Visionnage</h3>
             <div class="viewing-stats-content">
               <div class="stat-item" id="series-stat-watch-count" style="display: none;">
@@ -1296,6 +1342,13 @@
                 <span class="stat-label">Dernier visionnage :</span>
                 <span class="stat-value" id="series-stat-last-watched-value"></span>
               </div>
+              <div class="stat-item" id="series-stat-progress" style="display: none;">
+                <span class="stat-label">Progression :</span>
+                <span class="stat-value" id="series-stat-progress-value"></span>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" id="series-progress-bar-fill"></div>
+                </div>
+              </div>
               <div class="stat-item" id="series-stat-rating-personal" style="display: none;">
                 <span class="stat-label">Ma note :</span>
                 <span class="stat-value" id="series-stat-rating-personal-value"></span>
@@ -1303,7 +1356,7 @@
             </div>
           </div>
 
-          <!-- Informations techniques (déplacées en bas) -->
+          <!-- Informations techniques -->
           <div class="technical-info">
             <h3 class="technical-info-title">Informations Techniques</h3>
             <div class="technical-info-content">
@@ -1314,6 +1367,22 @@
               <div class="tech-item" id="series-tech-seasons" style="display: none;">
                 <span class="tech-label">Saisons :</span>
                 <span class="tech-value" id="series-tech-seasons-value"></span>
+              </div>
+              <div class="tech-item" id="series-tech-codec" style="display: none;">
+                <span class="tech-label">Codec :</span>
+                <span class="tech-value" id="series-tech-codec-value"></span>
+              </div>
+              <div class="tech-item" id="series-tech-audio" style="display: none;">
+                <span class="tech-label">Audio :</span>
+                <span class="tech-value" id="series-tech-audio-value"></span>
+              </div>
+              <div class="tech-item" id="series-tech-language" style="display: none;">
+                <span class="tech-label">Langue :</span>
+                <span class="tech-value" id="series-tech-language-value"></span>
+              </div>
+              <div class="tech-item" id="series-tech-subtitles" style="display: none;">
+                <span class="tech-label">Sous-titres :</span>
+                <span class="tech-value" id="series-tech-subtitles-value"></span>
               </div>
               <div class="tech-item" id="series-tech-date-added" style="display: none;">
                 <span class="tech-label">Ajouté le :</span>
@@ -1425,7 +1494,7 @@
           <div class="triage-search-input-wrap">
             <i class="fas fa-search triage-search-icon"></i>
             <input type="text" id="triage-search-input" class="triage-search-input" placeholder="Rechercher par nom...">
-            <button class="triage-search-clear" id="triage-search-clear" title="Effacer" style="display:none">×</button>
+            <button class="triage-search-clear" id="triage-search-clear" title="Effacer" style="display: none;">×</button>
           </div>
           <select id="triage-filter-type" class="triage-filter-select">
             <option value="">Tous les types</option>
@@ -1851,26 +1920,87 @@
   </div>
 
   <div id="new-series-modal" class="import-modal" style="display: none;">
-    <div class="import-modal-content small-modal">
+    <div class="import-modal-content series-create-modal">
       <div class="import-modal-header">
-        <h3>Créer une nouvelle série</h3>
+        <h3><i class="fas fa-tv"></i> Créer une nouvelle série</h3>
       </div>
-      
+
       <div class="import-modal-body">
+        <!-- Nom -->
         <div class="form-group">
-          <label for="new-series-name">Nom de la série *</label>
+          <label for="new-series-name">Nom de la série <span class="field-required">*</span></label>
           <input type="text" id="new-series-name" class="form-control" placeholder="Ex: Breaking Bad" required>
         </div>
+
+        <!-- Année · Statut · Pays -->
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label for="new-series-year">Année de début</label>
+            <input type="number" id="new-series-year" class="form-control" placeholder="2024" min="1900" max="2099">
+          </div>
+          <div class="form-group">
+            <label for="new-series-status">Statut</label>
+            <select id="new-series-status" class="form-control">
+              <option value="unknown">—</option>
+              <option value="ongoing">En cours</option>
+              <option value="ended">Terminée</option>
+              <option value="cancelled">Annulée</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="new-series-country">Pays</label>
+            <input type="text" id="new-series-country" class="form-control" placeholder="USA, France…">
+          </div>
+        </div>
+
+        <!-- Créateur · Plateforme -->
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label for="new-series-creator">Créateur</label>
+            <input type="text" id="new-series-creator" class="form-control" placeholder="Ex: Vince Gilligan">
+          </div>
+          <div class="form-group">
+            <label for="new-series-platform">Plateforme / Chaîne</label>
+            <input type="text" id="new-series-platform" class="form-control" placeholder="Ex: Netflix, HBO…">
+          </div>
+        </div>
+
+        <!-- Genres -->
         <div class="form-group">
-          <label for="new-series-description">Description</label>
-          <textarea id="new-series-description" class="form-control" rows="2" placeholder="Description de la série (optionnel)"></textarea>
+          <label>Genres</label>
+          <div class="genre-chip-picker" id="new-series-genres">
+            <span class="genre-chip" data-genre="Action">Action</span>
+            <span class="genre-chip" data-genre="Aventure">Aventure</span>
+            <span class="genre-chip" data-genre="Animation">Animation</span>
+            <span class="genre-chip" data-genre="Comédie">Comédie</span>
+            <span class="genre-chip" data-genre="Crime">Crime</span>
+            <span class="genre-chip" data-genre="Documentaire">Documentaire</span>
+            <span class="genre-chip" data-genre="Drame">Drame</span>
+            <span class="genre-chip" data-genre="Fantasy">Fantasy</span>
+            <span class="genre-chip" data-genre="Histoire">Histoire</span>
+            <span class="genre-chip" data-genre="Horreur">Horreur</span>
+            <span class="genre-chip" data-genre="Musique">Musique</span>
+            <span class="genre-chip" data-genre="Mystère">Mystère</span>
+            <span class="genre-chip" data-genre="Romance">Romance</span>
+            <span class="genre-chip" data-genre="Science-fiction">Science-fiction</span>
+            <span class="genre-chip" data-genre="Thriller">Thriller</span>
+            <span class="genre-chip" data-genre="Western">Western</span>
+          </div>
+        </div>
+
+        <!-- Synopsis -->
+        <div class="form-group">
+          <label for="new-series-description">Synopsis</label>
+          <textarea id="new-series-description" class="form-control" rows="3" placeholder="Description de la série (optionnel)"></textarea>
         </div>
       </div>
-      
+
       <div class="import-modal-footer">
         <div class="import-actions">
           <button class="btn-secondary" id="cancel-series-btn">Annuler</button>
-          <button class="btn-primary" id="create-series-btn">Créer</button>
+          <button class="btn-primary" id="create-series-btn">
+            <i class="fas fa-plus"></i> Créer la série
+          </button>
         </div>
       </div>
     </div>
@@ -2272,5 +2402,11 @@
       <div class="drop-overlay-sub">Fichiers vidéo ou dossiers</div>
     </div>
   </div>
+
+  <script>
+    document.getElementById('btn-minimize').addEventListener('click', () => window.electronAPI.minimize());
+    document.getElementById('btn-maximize').addEventListener('click', () => window.electronAPI.maximize());
+    document.getElementById('btn-close').addEventListener('click', () => window.electronAPI.close());
+  </script>
 </body>
 </html>

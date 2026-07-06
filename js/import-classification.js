@@ -110,6 +110,26 @@ class ImportClassificationSystem {
       if (cancelBtn) {
         cancelBtn.addEventListener('click', () => this.hideNewSeriesModal());
       }
+
+      // Chips de genres — toggle sélection
+      const genrePicker = document.getElementById('new-series-genres');
+      if (genrePicker) {
+        genrePicker.addEventListener('click', (e) => {
+          const chip = e.target.closest('.genre-chip');
+          if (chip) chip.classList.toggle('selected');
+        });
+      }
+
+      // Fermer avec Escape
+      this.seriesModal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') this.hideNewSeriesModal();
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') this.createNewSeries();
+      });
+
+      // Fermer en cliquant sur l'overlay
+      this.seriesModal.addEventListener('click', (e) => {
+        if (e.target === this.seriesModal) this.hideNewSeriesModal();
+      });
     }
 
     // Boutons d'annulation de Phase 2 (Classification)
@@ -529,14 +549,25 @@ class ImportClassificationSystem {
       this.renderSeasonZone(seasonsContainer, season, assignedEpisodes[season.number] || [], seriesData.seriesId);
     });
 
-    // 3. Bouton "Ajouter une saison"
+    // 3. Boutons d'action bas de série
+    const seriesActions = document.createElement('div');
+    seriesActions.className = 'series-bottom-actions';
+
+    const autoSortBtn = document.createElement('button');
+    autoSortBtn.className = 'btn-auto-sort';
+    autoSortBtn.innerHTML = '<i class="fas fa-magic"></i> Tri auto';
+    autoSortBtn.dataset.seriesId = seriesData.seriesId;
+    autoSortBtn.addEventListener('click', () => this.autoSortSeries(seriesData.seriesId));
+    seriesActions.appendChild(autoSortBtn);
+
     const addSeasonBtn = document.createElement('button');
     addSeasonBtn.className = 'btn-add-season';
     addSeasonBtn.innerHTML = '<i class="fas fa-plus"></i> Ajouter une saison';
     addSeasonBtn.dataset.seriesId = seriesData.seriesId;
     addSeasonBtn.addEventListener('click', () => this.quickAddSeason(seriesData.seriesId));
-    seasonsContainer.appendChild(addSeasonBtn);
+    seriesActions.appendChild(addSeasonBtn);
 
+    seasonsContainer.appendChild(seriesActions);
     groupElement.appendChild(seasonsContainer);
   }
 
@@ -1031,6 +1062,8 @@ class ImportClassificationSystem {
   populateSeriesSelect(seriesSelect = null) {
     if (!seriesSelect) return;
 
+    const previousValue = seriesSelect.value;
+
     seriesSelect.innerHTML = '<option value="">Sélectionner une série</option>';
 
     if (this.series && Array.isArray(this.series)) {
@@ -1041,6 +1074,8 @@ class ImportClassificationSystem {
         seriesSelect.appendChild(option);
       });
     }
+
+    if (previousValue) seriesSelect.value = previousValue;
   }
 
   async saveGalleryCard(card) {
@@ -1326,11 +1361,8 @@ class ImportClassificationSystem {
       finishBtn.textContent = 'Sauvegarde en cours...';
     }
 
-    // Afficher l'overlay de progression si des fichiers restent à sauvegarder
-    let progressOverlay = null;
-    if (total > 0) {
-      progressOverlay = this.showSavingOverlay(total);
-    }
+    // Afficher l'overlay de progression
+    const progressOverlay = this.showSavingOverlay(total);
 
     let savedCount = 0;
 
@@ -1376,33 +1408,28 @@ class ImportClassificationSystem {
       }
     }
 
-    if (progressOverlay) progressOverlay.remove();
     if (finishBtn) finishBtn.disabled = false;
 
-    console.log(`✅ ${savedCount}/${total} fichiers sauvegardés séquentiellement.`);
-
-    console.log('🎉 Classification galerie terminée!');
+    // Transition vers la phase d'intégration (garde l'overlay visible)
+    this.transitionOverlayToIntegrating(progressOverlay);
 
     // Marquer la fin de l'import
     this.isImporting = false;
 
-    // Fermer la modal
+    // Fermer la modal pendant le reload
     this.galleryModal.style.display = 'none';
 
-    // Afficher les résultats
-    const classifiedCount = this.classifiedFiles.length;
-    const totalCount = this.currentFiles.length;
-    const skippedCount = this.currentFiles.filter(f => f.skipped).length;
-
-    let message = `Classification terminée!\n`;
-    message += `📁 ${classifiedCount} fichiers classifiés\n`;
-    if (skippedCount > 0) {
-      message += `⏭️ ${skippedCount} fichiers passés\n`;
-    }
-    message += `\nLes fichiers ont été ajoutés à votre bibliothèque.`;
-
-    // Recharger les films AVANT d'afficher la notification
+    // Recharger les films (phase d'intégration)
     await this.forceReloadMovies();
+
+    // Retirer l'overlay avec fondu
+    if (progressOverlay) {
+      progressOverlay.classList.remove('visible');
+      setTimeout(() => progressOverlay.remove(), 400);
+    }
+
+    const classifiedCount = this.classifiedFiles.length;
+    const skippedCount = this.currentFiles.filter(f => f.skipped).length;
 
     window.showNotification(
       'Classification terminée',
@@ -1580,21 +1607,29 @@ class ImportClassificationSystem {
   }
 
   showNewSeriesModal() {
+    window._newSeriesCallback = null;
+    this._resetNewSeriesForm();
     this.seriesModal.style.display = 'flex';
-    
-    // Focus sur le champ nom
-    const nameInput = document.getElementById('new-series-name');
-    if (nameInput) {
-      setTimeout(() => nameInput.focus(), 100);
-    }
+    setTimeout(() => document.getElementById('new-series-name')?.focus(), 100);
   }
 
   hideNewSeriesModal() {
     this.seriesModal.style.display = 'none';
+    this._resetNewSeriesForm();
+    window._newSeriesCallback = null;
+  }
 
-    // Nettoyer les champs
-    document.getElementById('new-series-name').value = '';
-    document.getElementById('new-series-description').value = '';
+  _resetNewSeriesForm() {
+    ['new-series-name', 'new-series-year', 'new-series-country',
+     'new-series-creator', 'new-series-platform', 'new-series-description'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const statusEl = document.getElementById('new-series-status');
+    if (statusEl) statusEl.value = 'unknown';
+    document.querySelectorAll('#new-series-genres .genre-chip').forEach(chip => {
+      chip.classList.remove('selected');
+    });
   }
 
   showCancelConfirmation() {
@@ -1747,56 +1782,53 @@ class ImportClassificationSystem {
 
   async createNewSeries() {
     const name = document.getElementById('new-series-name')?.value?.trim();
-    const description = document.getElementById('new-series-description')?.value?.trim();
-
     if (!name) {
       window.showNotification('Nom requis', 'Le nom de la série est obligatoire.', 'warning');
+      document.getElementById('new-series-name')?.focus();
       return;
     }
 
+    const description = document.getElementById('new-series-description')?.value?.trim() || '';
+    const startYear   = parseInt(document.getElementById('new-series-year')?.value) || null;
+    const status      = document.getElementById('new-series-status')?.value || 'unknown';
+    const country     = document.getElementById('new-series-country')?.value?.trim() || '';
+    const creator     = document.getElementById('new-series-creator')?.value?.trim() || '';
+    const platform    = document.getElementById('new-series-platform')?.value?.trim() || '';
+    const genres      = [...document.querySelectorAll('#new-series-genres .genre-chip.selected')]
+                          .map(chip => chip.dataset.genre);
+
     try {
       console.log('📺 Création de la série:', name);
-      
+
       const result = await window.electronAPI.createSeries({
-        name: name,
-        description: description
+        name, description, startYear, status, country, creator, platform, genres
       });
 
       if (result.success) {
         console.log('✅ Série créée avec succès, ID:', result.series.id);
 
-        // Ajouter la série à la liste locale
-        const newSeries = {
-          id: result.series.id,
-          name: name,
-          description: description
-        };
+        const newSeries = { id: result.series.id, name, description };
         this.series.push(newSeries);
-        
-        // Mettre à jour les selects des séries (modal détails + contrôles globaux)
+
+        // Mettre à jour tous les selects
         this.populateSeriesSelect();
         this.populateSeriesSelect(document.getElementById('global-series-select'));
-
-        // Mettre à jour aussi tous les selects des cartes galerie
-        const allSeriesSelects = document.querySelectorAll('.gallery-card .series-select');
-
-        // Notifier le système de triage de la nouvelle série (si disponible)
-        if (window.importTriageSystem) {
-          window.importTriageSystem.series.push(newSeries);
-          window.importTriageSystem.updateAllSeriesSelectors();
-        }
-        allSeriesSelects.forEach(select => {
+        document.querySelectorAll('.gallery-card .series-select').forEach(select => {
           this.populateSeriesSelect(select);
         });
 
-
-        // Sélectionner aussi dans les contrôles globaux
         const globalSeriesSelect = document.getElementById('global-series-select');
         if (globalSeriesSelect) {
           globalSeriesSelect.value = result.series.id;
         }
-        
-        // Fermer la modal
+
+        // Appeler le callback spécifique à l'appelant (ex: sélection dans ligne triage)
+        // Le callback gère lui-même la synchro triage si nécessaire
+        if (typeof window._newSeriesCallback === 'function') {
+          window._newSeriesCallback(result.series);
+          window._newSeriesCallback = null;
+        }
+
         this.hideNewSeriesModal();
       } else {
         console.error('❌ Erreur lors de la création de la série:', result.message);
@@ -1847,7 +1879,8 @@ class ImportClassificationSystem {
     overlay.className = 'saving-overlay';
     overlay.innerHTML = `
       <div class="saving-overlay-box">
-        <div class="saving-overlay-title">Sauvegarde en cours...</div>
+        <div class="saving-spinner"></div>
+        <div class="saving-overlay-title">Sauvegarde en cours…</div>
         <div class="saving-overlay-bar-track">
           <div class="saving-overlay-bar-fill" style="width:0%"></div>
         </div>
@@ -1856,6 +1889,7 @@ class ImportClassificationSystem {
       </div>
     `;
     document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
     return overlay;
   }
 
@@ -1865,6 +1899,19 @@ class ImportClassificationSystem {
     overlay.querySelector('.saving-overlay-bar-fill').style.width = `${pct}%`;
     overlay.querySelector('.saving-overlay-label').textContent = `${done} / ${total}`;
     overlay.querySelector('.saving-overlay-file').textContent = currentFile;
+  }
+
+  transitionOverlayToIntegrating(overlay) {
+    if (!overlay) return;
+    const title = overlay.querySelector('.saving-overlay-title');
+    const barTrack = overlay.querySelector('.saving-overlay-bar-track');
+    const label = overlay.querySelector('.saving-overlay-label');
+    const fileEl = overlay.querySelector('.saving-overlay-file');
+    if (title) title.textContent = 'Intégration à la bibliothèque…';
+    if (barTrack) { barTrack.querySelector('.saving-overlay-bar-fill').style.width = '100%'; }
+    if (label) label.textContent = '';
+    if (fileEl) fileEl.textContent = '';
+    overlay.classList.add('integrating');
   }
 
   async forceReloadMovies() {
@@ -2027,6 +2074,55 @@ class ImportClassificationSystem {
       console.error('❌ SeasonsManager non disponible');
       alert('Le gestionnaire de saisons n\'est pas disponible. Veuillez utiliser le bouton "Gérer les saisons".');
     }
+  }
+
+  async autoSortSeries(seriesId) {
+    const files = this.currentFiles.filter(f => f.seriesId === seriesId);
+
+    // Group files by detected season number (ignore nulls)
+    const detectedSeasons = new Map();
+    files.forEach(file => {
+      const sNum = file.seasonNumber ?? null;
+      if (sNum !== null) {
+        if (!detectedSeasons.has(sNum)) detectedSeasons.set(sNum, []);
+        detectedSeasons.get(sNum).push(file);
+      }
+    });
+
+    if (detectedSeasons.size === 0) {
+      window.showNotification('Tri automatique', 'Aucun numéro de saison détecté dans les noms de fichiers.', 'warning');
+      return;
+    }
+
+    // Compare with existing DB seasons
+    const existingSeasons = await this.getSeasonsForSeries(seriesId);
+    const knownNumbers = new Set(existingSeasons.map(s => s.number));
+    const newSeasonNumbers = [...detectedSeasons.keys()].filter(n => !knownNumbers.has(n));
+
+    if (newSeasonNumbers.length === 0) {
+      // Seasons already exist, just refresh to place episodes
+      await this.refreshSeriesDisplay(seriesId);
+      window.showNotification('Tri automatique', 'Les saisons existent déjà. Épisodes replacés.', 'info');
+      return;
+    }
+
+    // Build new season entries: use max detected episode number as episode count
+    const newSeasons = newSeasonNumbers.map(n => {
+      const seasonFiles = detectedSeasons.get(n);
+      const maxEpisode = Math.max(...seasonFiles.map(f => f.episodeNumber ?? 0), seasonFiles.length);
+      return { number: n, episodeCount: maxEpisode, name: `Saison ${n}` };
+    });
+
+    const allSeasons = [...existingSeasons, ...newSeasons].sort((a, b) => a.number - b.number);
+
+    const saved = await this.saveSeasonsForSeries(seriesId, allSeasons);
+    if (!saved) {
+      window.showNotification('Erreur', 'Impossible de créer les saisons automatiquement.', 'error');
+      return;
+    }
+
+    await this.refreshSeriesDisplay(seriesId);
+    window.showNotification('Tri automatique', `${newSeasonNumbers.length} saison(s) créée(s), épisodes placés automatiquement.`, 'success');
   }
 
   async addSlotToSeason(seriesId, seasonNumber) {

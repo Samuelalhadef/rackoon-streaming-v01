@@ -36,7 +36,7 @@ h1, h2, h3 {
 }
 
 a {
-  color: #3474db;
+  color: var(--color-primary);
   text-decoration: none;
   transition: color 0.2s;
 }
@@ -60,7 +60,7 @@ a:hover {
 }
 
 .auth-container h1 {
-  color: #3474db;
+  color: var(--color-primary);
   margin-bottom: 10px;
   font-size: 28px;
   letter-spacing: 1px;
@@ -102,7 +102,7 @@ a:hover {
 
 .form-group input:focus {
   outline: none;
-  border-color: #3474db;
+  border-color: var(--color-primary);
   background-color: rgba(19, 43, 76, 0.8);
   box-shadow: 0 0 0 2px rgba(52, 116, 219, 0.25);
 }
@@ -160,13 +160,13 @@ a:hover {
 }
 
 .btn-primary {
-  background-color: #3474db;
+  background-color: var(--color-primary);
   color: white;
   width: 100%;
 }
 
 .btn-primary:hover {
-  background-color: #2a5db3;
+  background-color: var(--color-primary-dark);
 }
 
 /* Logo en haut de page */

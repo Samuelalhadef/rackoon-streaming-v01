@@ -102,12 +102,12 @@
 /* Système de tags modernisé et élégant */
 .tags-container {
   margin: 0;
-  margin-top: 15px;
-  padding-bottom: 15px;
+  margin-top: 10px;
+  padding-bottom: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .tag-category {
@@ -125,29 +125,25 @@
 .tag-category-header {
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
-  gap: 12px;
+  margin-bottom: 8px;
+  gap: 8px;
   position: relative;
 }
 
 .tag-category-header i {
   color: var(--color-primary-light);
-  font-size: 18px;
-  width: 20px;
+  font-size: 13px;
+  width: 16px;
   text-align: center;
-  filter: drop-shadow(0 0 8px rgba(100, 181, 246, 0.4));
+  filter: drop-shadow(0 0 6px rgba(100, 181, 246, 0.4));
 }
 
 .tag-category-title {
-  font-weight: 700;
-  color: var(--text-primary);
-  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
-  background: linear-gradient(135deg, #ffffff, #e3f2fd);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: 1px;
 }
 
 .tag-chips {
@@ -160,9 +156,9 @@
 .tag-chip {
   display: inline-flex;
   align-items: center;
-  padding: 10px 16px;
-  border-radius: 25px;
-  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 16px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: capitalize;
   position: relative;
@@ -274,17 +270,15 @@
 }
 
 .synopsis-title {
-  font-size: 20px;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #ffffff, #e3f2fd);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .synopsis-title::before {
@@ -307,29 +301,29 @@
 .synopsis-content.synopsis-empty,
 .synopsis-content[style*="font-style: italic"],
 .synopsis-content[style*="font-style:italic"] {
-  background: transparent !important;
-  background-image: none !important;
-  border: none !important;
-  padding: 0 !important;
-  backdrop-filter: none !important;
-  animation: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  overflow: visible !important;
-  position: static !important;
+  background: transparent;
+  background-image: none;
+  border: none;
+  padding: 0;
+  backdrop-filter: none;
+  animation: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+  position: static;
 }
 
 .synopsis-content.synopsis-empty::before,
 .synopsis-content[style*="font-style: italic"]::before,
 .synopsis-content[style*="font-style:italic"]::before {
-  display: none !important;
+  display: none;
 }
 
 .synopsis-content.synopsis-empty:hover,
 .synopsis-content[style*="font-style: italic"]:hover,
 .synopsis-content[style*="font-style:italic"]:hover {
-  background: transparent !important;
-  border: none !important;
+  background: transparent;
+  border: none;
 }
 
 /* Système d'étoiles modernisé et interactif */
@@ -355,13 +349,15 @@
 }
 
 .rating-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
   color: #ffd700;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Emoji étoile retiré
@@ -413,8 +409,8 @@
 
 .progressive-stars {
   position: relative;
-  height: 36px;
-  width: 210px; /* Ajusté pour que 5.0 remplisse complètement la 5ème étoile */
+  height: 26px;
+  width: 148px;
   cursor: pointer;
   user-select: none;
   flex: 0 0 auto;
@@ -423,8 +419,8 @@
 .stars-background,
 .stars-fill {
   display: flex;
-  gap: 8px;
-  font-size: 32px;
+  gap: 5px;
+  font-size: 22px;
   position: absolute;
   top: 0;
   left: 0;
@@ -555,53 +551,7 @@
   pointer-events: auto;
 }
 
-/* Container de la modal - VERSION AGRANDIE CORRIGÉE */
-.movie-modal {
-  background: var(--gradient-primary);
-  width: 95vw;
-  max-width: 1400px;
-  min-height: 80vh;
-  max-height: 90vh;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: var(--shadow-xl);
-  display: flex;
-  position: relative;
-  transform: translateY(30px);
-  opacity: 0;
-  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.4s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.modal-overlay.active .movie-modal {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-/* Bouton de fermeture */
-.modal-close {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  font-size: 18px;
-  z-index: 10;
-  transition: all 0.2s;
-}
-
-.modal-close:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  transform: rotate(90deg);
-}
+/* .movie-modal et .modal-close définis en section DESIGN MODERNE (plus bas) */
 
 /* Layout de la modal en deux colonnes - VERSION CORRIGÉE */
 .modal-poster {
@@ -612,8 +562,9 @@
   border-radius: 16px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.7));
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.4s ease, box-shadow 0.4s ease;
   z-index: 5;
   margin: 0 auto 20px auto;
   aspect-ratio: 2/3;
@@ -623,7 +574,8 @@
 
 .modal-poster:hover {
   transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+  filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.8));
 }
 
 .modal-poster img {
@@ -641,16 +593,14 @@
 
 .modal-content {
   flex: 1;
-  padding: 0;
+  padding: 0 10px 0 0;
   display: flex;
   flex-direction: column;
   position: relative;
-  min-height: 100%;
   min-width: 0;
   max-width: 100%;
   justify-content: flex-start;
   align-items: stretch;
-  height: 100%;
   animation: slideInRight 0.8s ease-out 0.4s both;
 }
 
@@ -689,9 +639,9 @@
 /* Nouvelle ligne meta (Catégorie • Année) */
 .media-meta-line {
   display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-top: 0;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
   margin-bottom: 0;
 }
 
@@ -699,21 +649,21 @@
   color: var(--color-primary-light);
   font-weight: 600;
   text-transform: capitalize;
-  font-size: 40px;
+  font-size: 13px;
   line-height: 1;
 }
 
 .meta-separator {
   color: var(--text-muted);
   font-weight: 400;
-  font-size: 40px;
+  font-size: 13px;
   line-height: 1;
 }
 
 .movie-year {
   color: var(--text-tertiary);
   font-weight: 500;
-  font-size: 32px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -750,13 +700,13 @@
 .edit-button {
   background: linear-gradient(135deg, rgba(100, 181, 246, 0.2), rgba(100, 181, 246, 0.1));
   border: 2px solid rgba(100, 181, 246, 0.4);
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
   color: var(--color-primary-light);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  padding: 12px 16px;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  padding: 8px 10px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -764,8 +714,8 @@
   position: relative;
   overflow: hidden;
   z-index: 3;
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
 }
 
 .edit-button::before {
@@ -794,12 +744,12 @@
 /* Boutons d'extension (save/cancel) */
 .edit-cancel-btn,
 .edit-save-btn {
-  height: 48px;
-  width: 48px;
+  height: 36px;
+  width: 36px;
   border: 2px solid;
-  border-radius: 12px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -823,8 +773,8 @@
 
 .edit-cancel-btn.show {
   opacity: 1;
-  width: 48px;
-  padding: 12px 16px;
+  width: 36px;
+  padding: 8px 10px;
   border-width: 2px;
 }
 
@@ -849,8 +799,8 @@
 
 .edit-save-btn.show {
   opacity: 1;
-  width: 48px;
-  padding: 12px 16px;
+  width: 36px;
+  padding: 8px 10px;
   border-width: 2px;
 }
 
@@ -876,10 +826,10 @@
 
 /* Bouton crayon en mode édition actif - glow pour indiquer l'état */
 .modal-overlay.edit-mode-active .edit-button {
-  background: linear-gradient(135deg, rgba(100, 181, 246, 0.35), rgba(100, 181, 246, 0.2)) !important;
-  border-color: rgba(100, 181, 246, 0.7) !important;
-  box-shadow: 0 0 15px rgba(100, 181, 246, 0.3), 0 0 30px rgba(100, 181, 246, 0.1) !important;
-  color: #fff !important;
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.35), rgba(100, 181, 246, 0.2));
+  border-color: rgba(100, 181, 246, 0.7);
+  box-shadow: 0 0 15px rgba(100, 181, 246, 0.3), 0 0 30px rgba(100, 181, 246, 0.1);
+  color: #fff;
 }
 
 /* Bandeau "Mode édition" en haut de la modale */
@@ -913,18 +863,18 @@
 .movie-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 15px;
-  margin-bottom: 75px;
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 16px;
   align-items: center;
 }
 
 .movie-meta > * {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--text-primary);
-  padding: 10px 16px;
+  padding: 5px 10px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08));
-  border-radius: 20px;
+  border-radius: 12px;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
@@ -1029,7 +979,7 @@
 }
 
 .tag-selection-content {
-  background: linear-gradient(135deg, #1a1f3a 0%, #0d1117 100%);
+  background: var(--bg-secondary);
   border: 1px solid rgba(100, 181, 246, 0.3);
   border-radius: 16px;
   padding: 24px;
@@ -1269,19 +1219,19 @@
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: var(--text-primary);
   border: none;
-  padding: 14px 28px;
-  border-radius: 12px;
+  padding: 9px 18px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 10px;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   border: 2px solid transparent;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(52, 116, 219, 0.3);
+  box-shadow: 0 4px 14px rgba(52, 116, 219, 0.3);
 }
 
 .btn-watch-film::before {
@@ -1307,17 +1257,17 @@
 }
 
 .btn-watch-film i {
-  font-size: 18px;
+  font-size: 14px;
 }
 
 .btn-watch-toggle-modal {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.1));
   color: var(--text-primary);
   border: 2px solid rgba(255, 255, 255, 0.2);
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: 7px 14px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   backdrop-filter: blur(10px);
@@ -1348,14 +1298,13 @@
 }
 
 .btn-watch-toggle-modal.watched {
-  background: linear-gradient(135deg, #27ae60, #219653);
-  border-color: rgba(39, 174, 96, 0.5);
-  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.3);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.2));
+  border-color: rgba(76, 175, 80, 0.5);
 }
 
 .btn-watch-toggle-modal.watched:hover {
-  background: linear-gradient(135deg, var(--color-success), #27ae60);
-  box-shadow: 0 12px 40px rgba(39, 174, 96, 0.5);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.3));
+  border-color: rgba(76, 175, 80, 0.6);
 }
 
 /* Animation d'entrée globale modernisée */
@@ -1438,138 +1387,88 @@
 
 
 
-/* Mode édition - couleurs plus sombres et dimensions identiques */
+/* ── MODE ÉDITION — FILM MODAL ────────────────────────────────────────────
+   Sélecteurs plus spécifiques → gagnent sans !important.
+   .movie-modal edit-mode (bg/border/shadow) défini en section DESIGN MODERNE.
+   ─────────────────────────────────────────────────────────────────────── */
+
 .modal-overlay.edit-mode-active {
   background-color: rgba(5, 15, 35, 0.95);
 }
 
-/* Mode édition - modal principale avec exactement les mêmes dimensions + débordement contrôlé */
-.modal-overlay.edit-mode-active .movie-modal {
-  width: 95vw !important;
-  max-width: 1600px !important;
-  min-height: 85vh !important;
-  max-height: 90vh !important;
-  overflow: hidden !important;
-  padding: 30px !important;
-  border: 1px solid rgba(100, 181, 246, 0.25) !important;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(100, 181, 246, 0.15) !important;
-  background: linear-gradient(135deg, #020a14 0%, #03101e 50%, #020a14 100%) !important;
-}
-
-/* Mode édition - view-mode avec contraintes strictes */
+/* Hauteur réduite en mode édition : bandeau de 80px au lieu de 100px */
 .modal-overlay.edit-mode-active .view-mode {
-  height: calc(85vh - 80px) !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  max-width: 100% !important;
-  /* Scrollbar ultra-fine et moderne */
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(100, 181, 246, 0.3) transparent !important;
+  height: calc(85vh - 80px);
 }
 
-.modal-overlay.edit-mode-active .view-mode::-webkit-scrollbar {
-  width: 6px !important;
-}
-
-.modal-overlay.edit-mode-active .view-mode::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.modal-overlay.edit-mode-active .view-mode::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.2)) !important;
-  border-radius: 10px !important;
-  border: none !important;
-}
-
-.modal-overlay.edit-mode-active .view-mode::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4)) !important;
-}
-
-/* Mode édition - unified-content avec contraintes strictes */
 .modal-overlay.edit-mode-active .unified-content {
-  max-width: 100% !important;
-  overflow: visible !important;
+  display: flex;
+  gap: 40px;
+  padding: 20px 0;
+  max-width: 100%;
+  align-items: flex-start;
+  overflow: visible;
 }
-
-
 
 .modal-overlay.edit-mode-active .modal-content input,
 .modal-overlay.edit-mode-active .modal-content textarea,
 .modal-overlay.edit-mode-active .modal-content select {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  box-sizing: border-box !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .modal-overlay.edit-mode-active .modal-content {
-  flex: 1 !important;
-  padding: 0 !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  height: auto !important;
-  min-height: auto !important;
+  flex: 1;
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: auto;
 }
 
 .modal-overlay.edit-mode-active .modal-sidebar {
-  background: linear-gradient(135deg, rgba(5, 19, 38, 0.9) 0%, rgba(10, 27, 61, 0.9) 100%) !important;
-  border-right: 1px solid rgba(40, 80, 150, 0.2) !important;
-  /* Même largeur qu'en mode lecture pour éviter les décalages */
-  width: 350px !important;
-  flex-shrink: 0 !important;
+  width: 350px;
+  flex-shrink: 0;
 }
 
 .modal-overlay.edit-mode-active .modal-poster {
-  border-color: rgba(40, 80, 150, 0.3) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(100, 181, 246, 0.2) !important;
+  border-color: rgba(40, 80, 150, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(100, 181, 246, 0.2);
 }
 
-/* Mode édition - unified-content avec même layout optimisé */
-.modal-overlay.edit-mode-active .unified-content {
-  display: flex !important;
-  gap: 40px !important;
-  padding: 20px 0 !important;
-  max-width: 100% !important;
-  align-items: flex-start !important;
-}
-
-/* Mode édition - espacement interne optimisé comme en mode lecture + contraintes */
 .modal-overlay.edit-mode-active .modal-content > * {
-  margin-bottom: 28px !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
+  margin-bottom: 28px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .modal-overlay.edit-mode-active .modal-content > *:last-child {
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
 
 .modal-overlay.edit-mode-active .tags-container {
-  margin: 20px 0 !important;
-  flex-grow: 0 !important;
-  min-height: auto !important;
+  margin: 20px 0;
+  flex-grow: 0;
+  min-height: auto;
 }
 
 .modal-overlay.edit-mode-active .tag-category {
-  margin-bottom: 18px !important;
+  margin-bottom: 18px;
 }
 
 .modal-overlay.edit-mode-active .synopsis {
-  margin: 24px 0 !important;
+  margin: 24px 0;
 }
 
 .modal-overlay.edit-mode-active .synopsis-content {
-  padding: 2px !important;
-  line-height: 1.6 !important;
+  padding: 2px;
+  line-height: 1.6;
 }
 
-.modal-overlay.edit-mode-active .modal-info h2 {
-  color: #e8f0ff;
-}
-
-.modal-overlay.edit-mode-active .modal-info p {
-  color: rgba(232, 240, 255, 0.8);
-}
+.modal-overlay.edit-mode-active .modal-info h2 { color: #e8f0ff; }
+.modal-overlay.edit-mode-active .modal-info p  { color: rgba(232, 240, 255, 0.8); }
 
 .modal-overlay.edit-mode-active .genre-tag {
   background-color: rgba(30, 60, 120, 0.4);
@@ -1577,135 +1476,62 @@
   color: #e8f0ff;
 }
 
-/* Mode édition - zones éditables clairement identifiées */
+/* Zones éditables — bordure bleue */
 .modal-overlay.edit-mode-active .synopsis,
 .modal-overlay.edit-mode-active .movie-credits,
 .modal-overlay.edit-mode-active .movie-meta {
-  background: rgba(100, 181, 246, 0.04) !important;
-  border: 1px solid rgba(100, 181, 246, 0.15) !important;
-  border-left: 3px solid rgba(100, 181, 246, 0.4) !important;
-  border-radius: 8px !important;
-  padding: 12px 16px !important;
-  transition: all 0.3s ease !important;
+  background: rgba(100, 181, 246, 0.04);
+  border: 1px solid rgba(100, 181, 246, 0.15);
+  border-left: 3px solid rgba(100, 181, 246, 0.4);
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: all 0.3s ease;
 }
 
 .modal-overlay.edit-mode-active .synopsis:hover,
 .modal-overlay.edit-mode-active .movie-credits:hover,
 .modal-overlay.edit-mode-active .movie-meta:hover {
-  background: rgba(100, 181, 246, 0.08) !important;
-  border-color: rgba(100, 181, 246, 0.3) !important;
-  border-left-color: rgba(100, 181, 246, 0.6) !important;
+  background: rgba(100, 181, 246, 0.08);
+  border-color: rgba(100, 181, 246, 0.3);
+  border-left-color: rgba(100, 181, 246, 0.6);
 }
 
-/* Mode édition - sections non-éditables (style plus discret) */
+/* Sections lecture seule — discret */
 .modal-overlay.edit-mode-active .tags-container,
 .modal-overlay.edit-mode-active .tag-category,
 .modal-overlay.edit-mode-active .technical-info,
 .modal-overlay.edit-mode-active .viewing-stats,
 .modal-overlay.edit-mode-active .evaluation-section {
-  border-color: rgba(40, 80, 150, 0.2) !important;
-  background: transparent !important;
-  flex-grow: 0 !important;
-  min-height: auto !important;
+  border-color: rgba(40, 80, 150, 0.2);
+  background: transparent;
+  flex-grow: 0;
+  min-height: auto;
 }
 
 .modal-overlay.edit-mode-active .tag-category:hover,
 .modal-overlay.edit-mode-active .technical-info:hover,
 .modal-overlay.edit-mode-active .viewing-stats:hover {
-  border-color: rgba(100, 181, 246, 0.4) !important;
+  border-color: rgba(100, 181, 246, 0.4);
 }
 
 .modal-overlay.edit-mode-active .tech-item,
 .modal-overlay.edit-mode-active .stat-item {
-  border-color: rgba(40, 80, 150, 0.2) !important;
+  border-color: rgba(40, 80, 150, 0.2);
 }
 
 .modal-overlay.edit-mode-active .tech-item:hover,
 .modal-overlay.edit-mode-active .stat-item:hover {
-  border-color: rgba(100, 181, 246, 0.3) !important;
+  border-color: rgba(100, 181, 246, 0.3);
 }
 
-.modal-overlay.edit-mode-active .movie-meta > * {
-  border-color: rgba(40, 80, 150, 0.3) !important;
-}
+.modal-overlay.edit-mode-active .movie-meta > *       { border-color: rgba(40, 80, 150, 0.3); }
+.modal-overlay.edit-mode-active .movie-meta > *:hover { border-color: rgba(100, 181, 246, 0.4); }
+.modal-overlay.edit-mode-active .modal-close          { border-color: rgba(220, 53, 69, 0.3); }
+.modal-overlay.edit-mode-active .review-input         { border-color: rgba(40, 80, 150, 0.3); }
+.modal-overlay.edit-mode-active .review-input:focus   { border-color: rgba(100, 181, 246, 0.5); }
+.modal-overlay.edit-mode-active .btn-watch-toggle-modal { border-color: rgba(255, 255, 255, 0.2); }
 
-.modal-overlay.edit-mode-active .movie-meta > *:hover {
-  border-color: rgba(100, 181, 246, 0.4) !important;
-}
-
-.modal-overlay.edit-mode-active .modal-close {
-  border-color: rgba(220, 53, 69, 0.3) !important;
-}
-
-.modal-overlay.edit-mode-active .review-input {
-  border-color: rgba(40, 80, 150, 0.3) !important;
-}
-
-.modal-overlay.edit-mode-active .review-input:focus {
-  border-color: rgba(100, 181, 246, 0.5) !important;
-}
-
-.modal-overlay.edit-mode-active .btn-watch-toggle-modal {
-  border-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Popup de confirmation dynamique (créée par JS) */
-.confirmation-popup-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 20000;
-}
-
-.confirmation-popup-content {
-  background: linear-gradient(135deg, #1e3a6d 0%, #2a4a7a 100%);
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  max-width: 450px;
-  width: 90%;
-  text-align: center;
-}
-
-.confirmation-popup-content h3 {
-  color: #fff;
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0 0 12px 0;
-}
-
-.confirmation-popup-content p {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 15px;
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-}
-
-.confirmation-popup-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.confirmation-btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-/* Popup de confirmation (ancien système) */
+/* Popup de confirmation (système actif — utilisé par movie-modal.js) */
 .edit-confirmation-popup {
   position: fixed;
   top: 0;
@@ -1729,7 +1555,7 @@
 }
 
 .popup-content {
-  background: linear-gradient(135deg, #1e3a6d 0%, #2a4a7a 100%);
+  background: var(--bg-secondary);
   padding: 30px;
   border-radius: 12px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
@@ -1799,7 +1625,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: var(--bg-overlay);
   backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
@@ -1816,7 +1642,7 @@
 }
 
 .advanced-confirmation-popup .popup-content {
-  background: linear-gradient(135deg, #1e3a6d 0%, #2a4a7a 100%);
+  background: var(--bg-secondary);
   padding: 35px;
   border-radius: 16px;
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.7);
@@ -2454,7 +2280,7 @@
 }
 
 .new-series-modal {
-  background: linear-gradient(135deg, #0e2356 0%, #1e3a6d 100%);
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 30px;
   width: 90%;
@@ -2465,8 +2291,9 @@
 
 .new-series-modal h3 {
   color: var(--text-primary);
-  margin: 0 0 20px 0;
-  font-size: 24px;
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -2535,79 +2362,96 @@
 /* DESIGN MODERNE ET AMÉLIORÉ - UI/UX OPTIMISÉE */
 /* ============================================ */
 
-/* Modal principale avec design responsive et moderne - largeur optimisée */
+/* ── Conteneur principal film ────────────────────────────────────────────
+   Définition canonique. Pas de !important : aucune règle concurrente.
+   Les overrides edit-mode (sélecteur plus spécifique) gagnent naturellement.
+   ─────────────────────────────────────────────────────────────────────── */
 .movie-modal {
-  width: 95vw !important;
-  max-width: 1600px !important;
-  min-height: 85vh !important;
-  max-height: 90vh !important;
-  overflow: hidden !important;
-  display: block !important;
-  background: linear-gradient(135deg, #0a1b42 0%, #1a2b5d 50%, #0f1f4a 100%) !important;
-  border-radius: 20px !important;
-  position: relative !important;
-  padding: 30px !important;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  width: 95vw;
+  max-width: 1600px;
+  min-height: 85vh;
+  max-height: 90vh;
+  overflow: clip;
+  display: block;
+  background: linear-gradient(135deg, #0a1b42 0%, #1a2b5d 50%, #0f1f4a 100%);
+  border-radius: 20px;
+  position: relative;
+  padding: 30px;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: translateY(30px);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), opacity 0.4s ease;
 }
 
-/* MODE ÉDITION - Changement du fond de la modale (DOIT ÊTRE APRÈS .movie-modal pour override) */
+.modal-overlay.active .movie-modal {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* MODE ÉDITION — Différences visuelles (plus spécifique, gagne sans !important) */
 .modal-overlay.edit-mode-active .movie-modal {
-  background: linear-gradient(135deg, #020a14 0%, #03101e 50%, #020a14 100%) !important;
-  border-color: rgba(100, 181, 246, 0.25) !important;
+  background: var(--bg-primary);
+  border-color: rgba(100, 181, 246, 0.25);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(100, 181, 246, 0.15);
 }
 
-/* Layout unifié avec scroll unique */
+/* ── Layout partagé (film + série) ───────────────────────────────────────
+   Pas de !important : les overrides .modal-overlay.edit-mode-active .view-mode
+   et .series-modal .view-mode gagnent par spécificité plus élevée.
+   ─────────────────────────────────────────────────────────────────────── */
+/* ── view-mode : scroll global — les deux colonnes scrollent ensemble ─── */
 .view-mode {
-  height: calc(85vh - 100px) !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  margin-top: 20px !important;
-  /* Scrollbar ultra-fine et moderne */
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(100, 181, 246, 0.3) transparent !important;
-  position: relative !important;
-  z-index: 1 !important;
+  height: calc(85vh - 100px);
+  display: flex;
+  align-items: stretch;
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+  overflow-y: auto;
+  overflow-x: clip;
+  padding-left: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 181, 246, 0.3) transparent;
 }
 
-.view-mode::-webkit-scrollbar {
-  width: 6px !important;
-}
-
-.view-mode::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
+.view-mode::-webkit-scrollbar       { width: 6px; }
+.view-mode::-webkit-scrollbar-track { background: transparent; }
 .view-mode::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.2)) !important;
-  border-radius: 10px !important;
-  border: none !important;
+  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.4), rgba(100, 181, 246, 0.2));
+  border-radius: 10px;
 }
-
 .view-mode::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4)) !important;
+  background: linear-gradient(to bottom, rgba(100, 181, 246, 0.6), rgba(100, 181, 246, 0.4));
 }
 
-/* Container unifié avec layout flex optimisé */
 .unified-content {
-  display: flex !important;
-  gap: 40px !important;
-  padding: 20px 10px 20px 0 !important;
-  max-width: 100% !important;
-  width: 100% !important;
+  display: flex;
+  gap: 40px;
+  padding: 20px 10px 20px 0;
+  max-width: 100%;
+  width: 100%;
+  min-height: 100%;
+  align-items: flex-start;
+}
+
+.modal-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  overflow: visible;
 }
 
 .modal-poster img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  object-position: center !important;
-  transition: transform 0.4s ease !important;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transition: transform 0.4s ease;
 }
 
 .modal-poster:hover img {
-  transform: scale(1.05) !important;
+  transform: scale(1.05);
 }
 
 /* Mode édition - overlay pour changer le poster */
@@ -2717,14 +2561,15 @@
 }
 
 .evaluation-section .btn-watch-toggle-modal.watched {
-  background: linear-gradient(135deg, #27ae60, #219653);
-  border-color: rgba(39, 174, 96, 0.5);
-  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.3);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(76, 175, 80, 0.2));
+  border-color: rgba(76, 175, 80, 0.5);
+  box-shadow: none;
 }
 
 .evaluation-section .btn-watch-toggle-modal.watched:hover {
-  background: linear-gradient(135deg, var(--color-success), #27ae60);
-  box-shadow: 0 12px 40px rgba(39, 174, 96, 0.5);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.3));
+  border-color: rgba(76, 175, 80, 0.6);
+  box-shadow: none;
 }
 
 /* Système d'étoiles dans la sidebar */
@@ -2892,44 +2737,41 @@
   box-shadow: none;
 }
 
-/* Overlay d'informations rapides sur l'affiche */
 .poster-overlay {
-  position: absolute !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9)) !important;
-  padding: 20px 15px 15px !important;
-  color: white !important;
-  opacity: 0 !important;
-  transition: opacity 0.3s ease !important;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+  padding: 20px 15px 15px;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .modal-poster:hover .poster-overlay {
-  opacity: 1 !important;
+  opacity: 1;
 }
 
 .poster-quick-info {
-  font-size: 12px !important;
-  margin-bottom: 5px !important;
-  opacity: 0.9 !important;
+  font-size: 12px;
+  margin-bottom: 5px;
+  opacity: 0.9;
 }
 
 
-/* Forcer les nouvelles sections à occuper plus d'espace vertical */
+/* Flex-grow par défaut (mode lecture) — les overrides edit-mode gagnent par spécificité */
 .technical-info, .viewing-stats {
-  flex-grow: 1 !important;
-  min-height: 200px !important;
+  flex-grow: 1;
 }
 
-/* Assurer que les tags occupent l'espace restant si disponible */
 .tags-container {
-  flex-grow: 2 !important;
-  min-height: auto !important;
+  flex-grow: 2;
+  min-height: auto;
 }
 
 .tag-category {
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
 
 /* ============================================ */
@@ -2946,7 +2788,6 @@
   border: 1px solid rgba(76, 175, 80, 0.2);
   backdrop-filter: blur(10px);
   position: relative;
-  overflow: hidden;
   animation: technicalEntrance 0.8s ease-out 0.6s both;
 }
 
@@ -3165,126 +3006,88 @@
 }
 
 .synopsis-content {
-  padding: 2px !important;
-  line-height: 1.6 !important;
+  padding: 2px;
+  line-height: 1.6;
 }
 
-/* Bouton fermer modernisé */
+/* Bouton fermer — définition canonique (pas de !important, aucune règle concurrente) */
 .modal-close {
-  position: absolute !important;
-  top: 20px !important;
-  right: 20px !important;
-  z-index: 9999 !important;
-  background: rgba(0, 0, 0, 0.8) !important;
-  backdrop-filter: blur(10px) !important;
-  color: white !important;
-  border: 2px solid rgba(255, 255, 255, 0.3) !important;
-  border-radius: 50% !important;
-  width: 44px !important;
-  height: 44px !important;
-  font-size: 20px !important;
-  cursor: pointer !important;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  pointer-events: auto !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
 }
 
 .modal-close:hover {
-  background: rgba(220, 53, 69, 0.8) !important;
-  border-color: rgba(220, 53, 69, 0.5) !important;
-  transform: rotate(90deg) scale(1.1) !important;
-  box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4) !important;
+  background: rgba(220, 53, 69, 0.8);
+  border-color: rgba(220, 53, 69, 0.5);
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4);
 }
 
-/* Responsive design pour le layout unifié */
+/* Responsive — film modal */
 @media (max-width: 1200px) {
-  .movie-modal {
-    padding: 25px !important;
-  }
-
-  .unified-content {
-    gap: 30px !important;
-  }
-
-  .modal-sidebar {
-    width: 320px !important;
-  }
-
-  .modal-poster {
-    height: 480px !important;
-  }
+  .movie-modal    { padding: 25px; }
+  .unified-content { gap: 30px; }
+  .modal-sidebar  { width: 320px; }
+  .modal-poster   { height: 480px; }
 }
 
 @media (max-width: 900px) {
   .movie-modal {
-    padding: 25px !important;
-    height: 95vh !important;
-    max-height: 95vh !important;
+    padding: 25px;
+    height: 95vh;
+    max-height: 95vh;
   }
-
   .unified-content {
-    flex-direction: column !important;
-    gap: 20px !important;
+    flex-direction: column;
+    gap: 20px;
   }
-
   .modal-sidebar {
-    width: 100% !important;
-    flex-direction: row !important;
-    gap: 20px !important;
+    width: 100%;
+    flex-direction: row;
+    gap: 20px;
   }
-
   .modal-poster {
-    width: 200px !important;
-    height: 300px !important;
-    flex-shrink: 0 !important;
+    width: 200px;
+    height: 300px;
+    flex-shrink: 0;
   }
-
   .evaluation-section {
-    flex: 1 !important;
-    min-width: 250px !important;
+    flex: 1;
+    min-width: 250px;
   }
 }
 
 @media (max-width: 600px) {
   .movie-modal {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    border-radius: 0 !important;
-    padding: 20px !important;
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 20px;
   }
-
-  .modal-sidebar {
-    flex-direction: column !important;
-    align-items: center !important;
-  }
-
-  .modal-poster {
-    width: 160px !important;
-    height: 240px !important;
-  }
-
-  .evaluation-section {
-    width: 100% !important;
-    max-width: 300px !important;
-    min-width: auto !important;
-  }
-
-  .rating-compact .modal-stars {
-    gap: 6px;
-  }
-
-  .rating-compact .modal-star {
-    font-size: 20px;
-  }
-
-  .review-input {
-    min-height: 50px;
-    font-size: 13px;
-  }
+  .modal-sidebar        { flex-direction: column; align-items: center; }
+  .modal-poster         { width: 160px; height: 240px; }
+  .evaluation-section   { width: 100%; max-width: 300px; min-width: auto; }
+  .rating-compact .modal-stars { gap: 6px; }
+  .rating-compact .modal-star  { font-size: 20px; }
+  .review-input                { min-height: 50px; font-size: 13px; }
 }
 
 /* ============================================ */
@@ -3342,43 +3145,43 @@
 
 /* États verrouillés des éléments */
 .modal-star.locked {
-  cursor: not-allowed !important;
-  filter: grayscale(50%) !important;
-  transform: none !important;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+  transform: none;
 }
 
 .modal-star.locked:hover {
-  transform: none !important;
-  color: rgba(255, 255, 255, 0.3) !important;
+  transform: none;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .btn-watch-toggle-modal.locked {
-  cursor: not-allowed !important;
-  filter: grayscale(50%) !important;
-  transform: none !important;
+  cursor: not-allowed;
+  filter: grayscale(50%);
+  transform: none;
 }
 
 .btn-watch-toggle-modal.locked:hover {
-  transform: none !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  transform: none;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .review-input:disabled {
-  cursor: not-allowed !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: rgba(255, 255, 255, 0.5) !important;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .review-save-btn:disabled {
-  cursor: not-allowed !important;
-  filter: grayscale(70%) !important;
-  transform: none !important;
+  cursor: not-allowed;
+  filter: grayscale(70%);
+  transform: none;
 }
 
 .review-save-btn:disabled:hover {
-  transform: none !important;
-  background: linear-gradient(135deg, var(--color-primary-light), #42a5f5) !important;
+  transform: none;
+  background: linear-gradient(135deg, var(--color-primary-light), #42a5f5);
 }
 
 /* Animation de verrouillage */
@@ -3431,9 +3234,9 @@
   transition: all 0.3s ease;
   outline: none;
   font-family: inherit;
-  box-sizing: border-box !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Focus states avec animations */
@@ -3471,10 +3274,10 @@
 }
 
 .modal-overlay.edit-mode-active .edit-title-field:focus {
-  border-color: var(--color-films) !important;
-  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2) !important;
+  border-color: var(--color-films);
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
   background: transparent;
-  color: #fff !important;
+  color: #fff;
 }
 
 /* Champ année - compact */
@@ -3586,53 +3389,39 @@
   font-style: italic;
 }
 
-/* Mode édition - responsive design cohérent avec le mode lecture */
+/* Responsive — edit-mode film modal */
 @media (max-width: 1200px) {
-  .modal-overlay.edit-mode-active .movie-modal {
-    padding: 30px !important;
-  }
-
-  .modal-overlay.edit-mode-active .unified-content {
-    gap: 25px !important;
-  }
-
-  .modal-overlay.edit-mode-active .modal-sidebar {
-    width: 270px !important;
-  }
+  .modal-overlay.edit-mode-active .movie-modal   { padding: 30px; }
+  .modal-overlay.edit-mode-active .unified-content { gap: 25px; }
+  .modal-overlay.edit-mode-active .modal-sidebar  { width: 270px; }
 }
 
 @media (max-width: 900px) {
   .modal-overlay.edit-mode-active .movie-modal {
-    padding: 25px !important;
-    height: 95vh !important;
-    max-height: 95vh !important;
+    padding: 25px;
+    height: 95vh;
+    max-height: 95vh;
   }
-
   .modal-overlay.edit-mode-active .unified-content {
-    flex-direction: column !important;
-    gap: 20px !important;
+    flex-direction: column;
+    gap: 20px;
   }
-
   .modal-overlay.edit-mode-active .modal-sidebar {
-    width: 100% !important;
-    flex-direction: row !important;
-    gap: 20px !important;
+    width: 100%;
+    flex-direction: row;
+    gap: 20px;
   }
 }
 
 @media (max-width: 600px) {
   .modal-overlay.edit-mode-active .movie-modal {
-    width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    border-radius: 0 !important;
-    padding: 20px !important;
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 20px;
   }
-
-  .modal-overlay.edit-mode-active .modal-sidebar {
-    flex-direction: column !important;
-    align-items: center !important;
-  }
+  .modal-overlay.edit-mode-active .modal-sidebar { flex-direction: column; align-items: center; }
 }
 
 /* Style responsive pour mobile - champs d'édition */
@@ -3658,67 +3447,67 @@
 
 /* Tags avec boutons de suppression en mode édition */
 .modal-overlay.edit-mode-active .tag-chip.editable {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  padding: 6px 4px 6px 12px !important;
-  position: relative !important;
-  background: linear-gradient(135deg, rgba(100, 181, 246, 0.15), rgba(100, 181, 246, 0.08)) !important;
-  border: 1px solid rgba(100, 181, 246, 0.3) !important;
-  transition: all 0.3s ease !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 6px 12px;
+  position: relative;
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.15), rgba(100, 181, 246, 0.08));
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  transition: all 0.3s ease;
 }
 
 .modal-overlay.edit-mode-active .tag-chip.editable:hover {
-  background: linear-gradient(135deg, rgba(100, 181, 246, 0.25), rgba(100, 181, 246, 0.15)) !important;
-  border-color: rgba(100, 181, 246, 0.5) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 12px rgba(100, 181, 246, 0.2) !important;
+  background: linear-gradient(135deg, rgba(100, 181, 246, 0.25), rgba(100, 181, 246, 0.15));
+  border-color: rgba(100, 181, 246, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(100, 181, 246, 0.2);
 }
 
 /* Texte du tag */
 .modal-overlay.edit-mode-active .tag-chip .tag-text {
-  flex: 1 !important;
-  font-size: inherit !important;
-  color: inherit !important;
+  flex: 1;
+  font-size: inherit;
+  color: inherit;
 }
 
 /* Bouton de suppression */
 .modal-overlay.edit-mode-active .tag-remove-btn {
-  background: rgba(220, 53, 69, 0.8) !important;
-  border: none !important;
-  color: white !important;
-  width: 20px !important;
-  height: 20px !important;
-  border-radius: 50% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  font-size: 10px !important;
-  transition: all 0.2s ease !important;
-  opacity: 0.7 !important;
-  margin-left: 4px !important;
+  background: rgba(220, 53, 69, 0.8);
+  border: none;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  margin-left: 4px;
 }
 
 .modal-overlay.edit-mode-active .tag-remove-btn:hover {
-  background: rgba(220, 53, 69, 1) !important;
-  opacity: 1 !important;
-  transform: scale(1.1) !important;
-  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4) !important;
+  background: rgba(220, 53, 69, 1);
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
 }
 
 .modal-overlay.edit-mode-active .tag-remove-btn i {
-  font-size: 8px !important;
-  pointer-events: none !important;
+  font-size: 8px;
+  pointer-events: none;
 }
 
 /* Animation de suppression */
 .modal-overlay.edit-mode-active .tag-chip.removing {
-  opacity: 0.5 !important;
-  background: rgba(220, 53, 69, 0.1) !important;
-  border-color: rgba(220, 53, 69, 0.3) !important;
-  transform: scale(0.95) !important;
-  transition: all 0.3s ease !important;
+  opacity: 0.5;
+  background: rgba(220, 53, 69, 0.1);
+  border-color: rgba(220, 53, 69, 0.3);
+  transform: scale(0.95);
+  transition: all 0.3s ease;
 }
 
 /* ============================================ */
@@ -3731,59 +3520,52 @@
 /* ============================================ */
 
 .floating-watch-btn {
-  position: sticky !important;
-  bottom: 30px !important;
-  align-self: flex-end !important;
-  margin-top: auto !important;
-  background: linear-gradient(135deg, var(--color-films), #c0392b) !important;
-  color: white !important;
-  border: none !important;
-  border-radius: 60px !important;
-  padding: 28px 38px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 16px !important;
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  cursor: pointer !important;
-  box-shadow: 0 12px 48px rgba(231, 76, 60, 0.5) !important;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-  z-index: 1000 !important;
-  backdrop-filter: blur(10px) !important;
-  animation: floatIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-  letter-spacing: 0.5px !important;
+  position: sticky;
+  bottom: 30px;
+  align-self: flex-end;
+  margin-top: auto;
+  background: linear-gradient(135deg, var(--color-films), #c0392b);
+  color: white;
+  border: none;
+  border-radius: 60px;
+  padding: 28px 38px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 48px rgba(231, 76, 60, 0.5);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  animation: floatIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  letter-spacing: 0.5px;
 }
 
 .floating-watch-btn:hover {
-  background: linear-gradient(135deg, #c0392b, #a93226) !important;
-  transform: translateY(-4px) scale(1.05) !important;
-  box-shadow: 0 12px 40px rgba(231, 76, 60, 0.6) !important;
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 12px 40px rgba(231, 76, 60, 0.6);
 }
 
 .floating-watch-btn:active {
-  transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 8px 25px rgba(231, 76, 60, 0.5) !important;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(231, 76, 60, 0.5);
 }
 
-.floating-watch-btn i {
-  font-size: 26px !important;
-  color: white !important;
-}
-
-.floating-watch-btn span {
-  white-space: nowrap !important;
-  font-family: inherit !important;
-}
+.floating-watch-btn i    { font-size: 26px; color: white; }
+.floating-watch-btn span { white-space: nowrap; font-family: inherit; }
 
 /* Transformation du bouton en mode édition */
 .modal-overlay.edit-mode-active .floating-watch-btn {
-  background: linear-gradient(135deg, #01d277, #00b568) !important;
-  box-shadow: 0 12px 48px rgba(1, 210, 119, 0.5) !important;
+  background: linear-gradient(135deg, #01d277, #00b568);
+  box-shadow: 0 12px 48px rgba(1, 210, 119, 0.5);
 }
 
 .modal-overlay.edit-mode-active .floating-watch-btn:hover {
-  background: linear-gradient(135deg, #00f587, #01d277) !important;
-  box-shadow: 0 12px 40px rgba(1, 210, 119, 0.6) !important;
+  background: linear-gradient(135deg, #00f587, #01d277);
+  box-shadow: 0 12px 40px rgba(1, 210, 119, 0.6);
 }
 
 /* Animation d'apparition du bouton */
@@ -3823,27 +3605,18 @@
   }
 }
 
-/* Responsive pour mobile */
 @media (max-width: 768px) {
-  .floating-watch-btn {
-    bottom: 20px !important;
-    right: 20px !important;
-    padding: 14px 20px !important;
-    font-size: 14px !important;
-  }
-
-  .floating-watch-btn i {
-    font-size: 16px !important;
-  }
+  .floating-watch-btn   { bottom: 20px; right: 20px; padding: 14px 20px; font-size: 14px; }
+  .floating-watch-btn i { font-size: 16px; }
 }
 
 
 /* Petit modal (pour les confirmations rapides) */
 .small-modal {
-  max-width: 550px !important;
-  width: 90% !important;
-  max-height: 80vh !important;
-  margin: auto !important;
+  max-width: 550px;
+  width: 90%;
+  max-height: 80vh;
+  margin: auto;
 }
 
 /* ============================================ */
@@ -4289,11 +4062,6 @@
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .person-search-modal {

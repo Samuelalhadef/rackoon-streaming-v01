@@ -18,6 +18,8 @@ class SeriesModal {
     this.isEditMode = false;
     this.originalValues = null; // Sauvegarde des valeurs avant édition
     this.pendingPosterUrl = null; // URL du poster TMDB en attente
+    this._episodeEdits = {};
+    this._deletedEpisodeIds = [];
     this.attachEventListeners();
   }
 
@@ -282,7 +284,7 @@ class SeriesModal {
       }
 
       this.currentSeries = result.series;
-      this.populateModal(this.currentSeries);
+      await this.populateModal(this.currentSeries);
       this.loadUserPreferences();
 
       // Réinitialiser complètement l'état de la modale
@@ -382,7 +384,7 @@ class SeriesModal {
     }
   }
 
-  populateModal(series) {
+  async populateModal(series) {
     // Titre et métadonnées
     const titleElement = document.getElementById('series-title');
     const yearElement = document.getElementById('series-year');
@@ -415,22 +417,7 @@ class SeriesModal {
       episodesQuick.textContent = totalEpisodes;
     }
 
-    // Mise à jour de l'overlay saison/épisodes en haut à gauche de l'affiche
-    const seasonInfoElement = document.getElementById('series-season-info');
-    const episodeInfoOverlay = document.getElementById('series-episode-info-overlay');
     const seasonsQuick = document.getElementById('series-seasons-quick');
-
-    if (seasonInfoElement) {
-      if (totalSeasons === 1) {
-        seasonInfoElement.textContent = 'S1';
-      } else {
-        seasonInfoElement.textContent = `${totalSeasons} saisons`;
-      }
-    }
-
-    if (episodeInfoOverlay) {
-      episodeInfoOverlay.textContent = `${totalEpisodes} ép.`;
-    }
 
     if (seasonsQuick) {
       seasonsQuick.textContent = totalSeasons;
@@ -463,7 +450,7 @@ class SeriesModal {
     this.displayTags(series);
 
     // Afficher les crédits
-    this.displayCredits(series);
+    await this.displayCredits(series);
 
     // Afficher les informations techniques
     this.displayTechnicalInfo(series);
@@ -510,10 +497,66 @@ class SeriesModal {
     }
   }
 
-  displayCredits(series) {
-    // Créateur
+  async displayCredits(series) {
+    const CREW_ROLES = ['creator', 'producer', 'writer', 'composer'];
+    const crewSection = document.getElementById('series-crew-section');
+    const castSection = document.getElementById('series-cast-section');
+    const castGrid   = document.getElementById('series-cast-persons-grid');
+
+    // Vider les grilles
+    CREW_ROLES.forEach(role => {
+      const dept = document.getElementById(`series-crew-${role}`);
+      if (dept) {
+        const grid = dept.querySelector('.credits-persons-grid');
+        if (grid) grid.innerHTML = '';
+        dept.style.display = 'none';
+      }
+    });
+    if (castGrid) castGrid.innerHTML = '';
+
+    let persons = [];
+    try {
+      const result = await window.electronAPI.getPersonsForMedia(series.id);
+      if (result && result.success) persons = result.persons || [];
+    } catch (e) {
+      console.warn('getPersonsForMedia non disponible pour la série:', e);
+    }
+
+    if (persons.length > 0 && typeof window.createPersonAvatarCard === 'function') {
+      let hasAnyCrewPerson = false;
+      let hasCast = false;
+
+      persons.forEach(person => {
+        const role = (person.role || '').toLowerCase();
+        if (role === 'actor') {
+          if (castGrid) {
+            castGrid.appendChild(window.createPersonAvatarCard(person, () => window.openPersonMiniPopup && window.openPersonMiniPopup(person)));
+            hasCast = true;
+          }
+        } else if (CREW_ROLES.includes(role)) {
+          const dept = document.getElementById(`series-crew-${role}`);
+          if (dept) {
+            const grid = dept.querySelector('.credits-persons-grid');
+            if (grid) {
+              grid.appendChild(window.createPersonAvatarCard(person, () => window.openPersonMiniPopup && window.openPersonMiniPopup(person)));
+              dept.style.display = '';
+              hasAnyCrewPerson = true;
+            }
+          }
+        }
+      });
+
+      if (crewSection) crewSection.style.display = hasAnyCrewPerson ? '' : 'none';
+      if (castSection) castSection.style.display = hasCast ? '' : 'none';
+    } else {
+      // Fallback : masquer les grilles, afficher les sections texte
+      if (crewSection) crewSection.style.display = 'none';
+      if (castSection) castSection.style.display = 'none';
+    }
+
+    // Sections texte fallback (créateur, acteurs, plateforme, statut, pays)
     const directorSection = document.getElementById('series-director-section');
-    const directorName = document.getElementById('series-director-name');
+    const directorName    = document.getElementById('series-director-name');
     if (directorSection && directorName) {
       if (series.creator && series.creator.trim()) {
         directorName.textContent = series.creator;
@@ -523,22 +566,20 @@ class SeriesModal {
       }
     }
 
-    // Acteurs principaux
     const actorsSection = document.getElementById('series-actors-section');
-    const actorsList = document.getElementById('series-actors-list');
+    const actorsList    = document.getElementById('series-actors-list');
     if (actorsSection && actorsList) {
-      if (series.actors && series.actors.length > 0) {
-        const actorsText = series.actors.slice(0, 3).join(', ');
-        actorsList.textContent = actorsText;
+      if (persons.length === 0 && series.actors && series.actors.length > 0) {
+        actorsList.textContent = series.actors.slice(0, 3).join(', ');
         actorsSection.style.display = 'flex';
       } else {
         actorsSection.style.display = 'none';
       }
     }
 
-    // Plateforme
+    // Plateforme, statut, pays (toujours affichés indépendamment des persons)
     const platformSection = document.getElementById('series-platform-section');
-    const platformName = document.getElementById('series-platform-name');
+    const platformName    = document.getElementById('series-platform-name');
     if (platformSection && platformName) {
       if (series.platform && series.platform.trim()) {
         platformName.textContent = series.platform;
@@ -548,9 +589,8 @@ class SeriesModal {
       }
     }
 
-    // Statut
     const statusSection = document.getElementById('series-status-section');
-    const statusName = document.getElementById('series-status-name');
+    const statusName    = document.getElementById('series-status-name');
     if (statusSection && statusName) {
       if (series.status && series.status.trim()) {
         statusName.textContent = series.status;
@@ -560,9 +600,8 @@ class SeriesModal {
       }
     }
 
-    // Pays
     const countrySection = document.getElementById('series-country-section');
-    const countryName = document.getElementById('series-country-name');
+    const countryName    = document.getElementById('series-country-name');
     if (countrySection && countryName) {
       if (series.country && series.country.trim()) {
         countryName.textContent = series.country;
@@ -574,48 +613,117 @@ class SeriesModal {
   }
 
   displayTechnicalInfo(series) {
+    const show = (id, valueId, text) => {
+      const el = document.getElementById(id);
+      const val = document.getElementById(valueId);
+      if (!el || !val) return;
+      el.style.display = text !== null ? 'flex' : 'none';
+      if (text !== null) val.textContent = text;
+    };
+
     // Qualité vidéo
-    const techQuality = document.getElementById('series-tech-quality');
-    const techQualityValue = document.getElementById('series-tech-quality-value');
-    if (series.videoQuality) {
-      techQualityValue.textContent = series.videoQuality;
-      techQuality.style.display = 'flex';
-    } else {
-      techQuality.style.display = 'none';
+    show('series-tech-quality', 'series-tech-quality-value',
+      series.videoQuality || null);
+
+    // Codec
+    show('series-tech-codec', 'series-tech-codec-value',
+      series.codec || null);
+
+    // Audio
+    show('series-tech-audio', 'series-tech-audio-value',
+      series.audioFormat || null);
+
+    // Langue (défaut : Français)
+    show('series-tech-language', 'series-tech-language-value',
+      series.language || 'Français');
+
+    // Sous-titres
+    const subsEl    = document.getElementById('series-tech-subtitles');
+    const subsValEl = document.getElementById('series-tech-subtitles-value');
+    if (subsEl && subsValEl) {
+      subsEl.style.display = 'flex';
+      if (series.subtitles && series.subtitles.trim()) {
+        subsValEl.textContent = series.subtitles;
+        subsValEl.style.fontStyle = 'normal';
+      } else {
+        subsValEl.textContent = 'Aucun';
+        subsValEl.style.fontStyle = 'italic';
+      }
     }
 
     // Nombre de saisons
-    const techSeasons = document.getElementById('series-tech-seasons');
-    const techSeasonsValue = document.getElementById('series-tech-seasons-value');
-    if (series.seasons && series.seasons.length > 0) {
-      techSeasonsValue.textContent = `${series.seasons.length} saison${series.seasons.length > 1 ? 's' : ''}`;
-      techSeasons.style.display = 'flex';
-    } else {
-      techSeasons.style.display = 'none';
-    }
+    const nbSaisons = series.seasons ? series.seasons.length : 0;
+    show('series-tech-seasons', 'series-tech-seasons-value',
+      nbSaisons > 0 ? `${nbSaisons} saison${nbSaisons > 1 ? 's' : ''}` : null);
 
     // Date d'ajout
-    const techDateAdded = document.getElementById('series-tech-date-added');
-    const techDateAddedValue = document.getElementById('series-tech-date-added-value');
-    if (series.dateAdded) {
-      const date = new Date(series.dateAdded);
-      techDateAddedValue.textContent = date.toLocaleDateString('fr-FR');
-      techDateAdded.style.display = 'flex';
-    } else {
-      techDateAdded.style.display = 'none';
-    }
+    show('series-tech-date-added', 'series-tech-date-added-value',
+      series.dateAdded ? new Date(series.dateAdded).toLocaleDateString('fr-FR') : null);
   }
 
   displayViewingStats(series) {
-    // Statistiques de visionnage (à implémenter avec les données réelles)
-    const statWatchCount = document.getElementById('series-stat-watch-count');
-    const statLastWatched = document.getElementById('series-stat-last-watched');
-    const statRating = document.getElementById('series-stat-rating-personal');
+    const userPrefs   = this.getUserPrefs();
+    const seriesId    = series.id;
+    const statsSection = this.modal.querySelector('.viewing-stats');
 
-    // Pour l'instant, masquer ces sections
-    if (statWatchCount) statWatchCount.style.display = 'none';
-    if (statLastWatched) statLastWatched.style.display = 'none';
-    if (statRating) statRating.style.display = 'none';
+    const watchedEpisodes = userPrefs.watchedEpisodes ? (userPrefs.watchedEpisodes[seriesId] || 0) : 0;
+    const totalEpisodes   = series.episodeCount || 0;
+    const lastWatched     = userPrefs.lastWatched  ? userPrefs.lastWatched[seriesId]  : null;
+    const rating          = userPrefs.seriesRatings ? (userPrefs.seriesRatings[seriesId] || 0) : 0;
+
+    const hasAnyStats = watchedEpisodes > 0 || lastWatched || rating > 0;
+    if (statsSection) statsSection.style.display = hasAnyStats ? '' : 'none';
+
+    // Épisodes vus
+    const statWatchCount      = document.getElementById('series-stat-watch-count');
+    const statWatchCountValue = document.getElementById('series-stat-watch-count-value');
+    if (statWatchCount) {
+      if (totalEpisodes > 0) {
+        if (statWatchCountValue) statWatchCountValue.textContent = `${watchedEpisodes} / ${totalEpisodes}`;
+        statWatchCount.style.display = 'flex';
+      } else {
+        statWatchCount.style.display = 'none';
+      }
+    }
+
+    // Progression
+    const statProgress      = document.getElementById('series-stat-progress');
+    const statProgressValue = document.getElementById('series-stat-progress-value');
+    const progressFill      = document.getElementById('series-progress-bar-fill');
+    if (statProgress) {
+      if (totalEpisodes > 0) {
+        const pct = Math.round((watchedEpisodes / totalEpisodes) * 100);
+        if (statProgressValue) statProgressValue.textContent = `${pct} %`;
+        if (progressFill) progressFill.style.width = `${pct}%`;
+        statProgress.style.display = 'flex';
+      } else {
+        statProgress.style.display = 'none';
+      }
+    }
+
+    // Dernier visionnage
+    const statLastWatched      = document.getElementById('series-stat-last-watched');
+    const statLastWatchedValue = document.getElementById('series-stat-last-watched-value');
+    if (statLastWatched) {
+      if (lastWatched) {
+        if (statLastWatchedValue) statLastWatchedValue.textContent = new Date(lastWatched).toLocaleDateString('fr-FR');
+        statLastWatched.style.display = 'flex';
+      } else {
+        statLastWatched.style.display = 'none';
+      }
+    }
+
+    // Note personnelle
+    const statRating      = document.getElementById('series-stat-rating-personal');
+    const statRatingValue = document.getElementById('series-stat-rating-personal-value');
+    if (statRating) {
+      if (rating > 0) {
+        if (statRatingValue) statRatingValue.textContent = `${rating.toFixed(1)} / 5`;
+        statRating.style.display = 'flex';
+      } else {
+        statRating.style.display = 'none';
+      }
+    }
   }
 
   populateSeasons(seasons) {
@@ -869,6 +977,9 @@ class SeriesModal {
     // Détection des changements
     this.setupChangeDetection();
 
+    // Mode édition saisons/épisodes
+    this.activateEditModeSeasons();
+
     console.log('✏️ Mode édition série activé');
   }
 
@@ -905,6 +1016,9 @@ class SeriesModal {
 
     // Restaurer les champs en mode lecture
     this.restoreReadOnlyFields();
+
+    // Restaurer la vue saisons/épisodes
+    this.deactivateEditModeSeasons();
 
     console.log('✏️ Mode édition série désactivé');
   }
@@ -1181,22 +1295,55 @@ class SeriesModal {
   }
 
   promptAddTag(chipClass, categoryId) {
-    const tagText = prompt('Nouveau tag :');
-    if (!tagText || !tagText.trim()) return;
+    const containerElement = document.getElementById(`${categoryId}-container`);
+    if (!containerElement) return;
 
-    const series = this.currentSeries;
-    if (!series) return;
+    // Éviter les doublons si un input est déjà ouvert
+    if (containerElement.querySelector('.tag-inline-input')) return;
 
-    const fieldMap = { genre: 'genres', mood: 'mood', technical: 'technical', personal: 'personalTags' };
-    const field = fieldMap[chipClass];
-    if (field) {
-      if (!series[field]) series[field] = [];
-      if (!series[field].includes(tagText.trim())) {
-        series[field].push(tagText.trim());
-        this.displayEditableTagCategory(categoryId, series[field], chipClass);
-        this.hasUnsavedChanges = true;
+    // Masquer le bouton + temporairement
+    const addBtn = containerElement.querySelector('.tag-add-btn');
+    if (addBtn) addBtn.style.display = 'none';
+
+    // Créer l'input inline
+    const wrapper = document.createElement('span');
+    wrapper.className = 'tag-inline-input-wrapper';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tag-inline-input';
+    input.placeholder = 'Nouveau tag…';
+    input.maxLength = 50;
+    wrapper.appendChild(input);
+    containerElement.appendChild(wrapper);
+    input.focus();
+
+    const confirm = () => {
+      const tagText = input.value.trim();
+      wrapper.remove();
+      if (addBtn) addBtn.style.display = '';
+      if (!tagText) return;
+
+      const series = this.currentSeries;
+      if (!series) return;
+      const fieldMap = { genre: 'genres', mood: 'mood', technical: 'technical', personal: 'personalTags' };
+      const field = fieldMap[chipClass];
+      if (field) {
+        if (!series[field]) series[field] = [];
+        if (!series[field].includes(tagText)) {
+          series[field].push(tagText);
+          this.displayEditableTagCategory(categoryId, series[field], chipClass);
+          this.hasUnsavedChanges = true;
+        }
       }
-    }
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+      if (e.key === 'Escape') { wrapper.remove(); if (addBtn) addBtn.style.display = ''; }
+    });
+    input.addEventListener('blur', () => {
+      setTimeout(() => { if (wrapper.isConnected) confirm(); }, 150);
+    });
   }
 
   // ---- Bouton play ↔ TMDB ----
@@ -1328,10 +1475,20 @@ class SeriesModal {
 
     try {
       console.log('💾 Sauvegarde des modifications série:', updates);
+
+      // Sauvegarder les épisodes modifiés/supprimés
+      await this.saveEpisodeEdits();
+
       const result = await window.electronAPI.updateSeries(this.currentSeriesId, updates);
 
       if (result.success) {
-        Object.assign(this.currentSeries, updates);
+        // Recharger les données fraîches (incl. saisons mises à jour)
+        const reloaded = await window.electronAPI.getSeriesById(this.currentSeriesId);
+        if (reloaded.success) {
+          this.currentSeries = reloaded.series;
+        } else {
+          Object.assign(this.currentSeries, updates);
+        }
         this.deactivateEditMode();
         console.log('✅ Série mise à jour avec succès');
       } else {
@@ -1587,6 +1744,181 @@ class SeriesModal {
     overlay.addEventListener('click', () => this.openTMDBSearch());
     posterContainer.appendChild(overlay);
   }
+  // ============================================
+  // GESTION SAISONS/ÉPISODES EN MODE ÉDITION
+  // ============================================
+
+  activateEditModeSeasons() {
+    const container = document.getElementById('seasons-container');
+    if (!container || !this.currentSeries) return;
+
+    this._episodeEdits = {};
+    this._deletedEpisodeIds = [];
+
+    const seasons = this.currentSeries.seasons || [];
+    container.innerHTML = '';
+
+    // Barre de contrôle
+    const controlBar = document.createElement('div');
+    controlBar.className = 'seasons-edit-controls';
+    controlBar.innerHTML = `
+      <button class="btn-manage-seasons-modal" id="btn-open-seasons-manager">
+        <i class="fas fa-layer-group"></i> Gérer les saisons
+      </button>
+    `;
+    container.appendChild(controlBar);
+
+    if (seasons.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'seasons-empty-edit';
+      empty.innerHTML = `<i class="fas fa-tv"></i><p>Aucun épisode — utilisez "Gérer les saisons" pour en ajouter.</p>`;
+      container.appendChild(empty);
+    } else {
+      seasons.forEach(season => container.appendChild(this._renderEditableSeason(season)));
+    }
+
+    document.getElementById('btn-open-seasons-manager')
+      ?.addEventListener('click', () => this.openSeasonsManager());
+  }
+
+  deactivateEditModeSeasons() {
+    this._episodeEdits = {};
+    this._deletedEpisodeIds = [];
+    this.populateSeasons(this.currentSeries?.seasons || []);
+  }
+
+  _renderEditableSeason(season) {
+    const div = document.createElement('div');
+    div.className = 'edit-season-section';
+    div.dataset.seasonNumber = season.number;
+
+    const header = document.createElement('div');
+    header.className = 'season-header-edit';
+    header.innerHTML = `
+      <h3 class="season-label">Saison ${season.number}</h3>
+      <span class="season-ep-count">${(season.episodes || []).length} ép.</span>
+    `;
+    div.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'episodes-edit-list';
+
+    if (season.episodes && season.episodes.length > 0) {
+      season.episodes.forEach(ep => list.appendChild(this._renderEditableEpisodeRow(ep)));
+    } else {
+      list.innerHTML = `<p class="ep-empty">Aucun épisode dans cette saison.</p>`;
+    }
+
+    div.appendChild(list);
+    return div;
+  }
+
+  _renderEditableEpisodeRow(episode) {
+    const row = document.createElement('div');
+    row.className = 'episode-edit-row';
+    row.dataset.episodeId = episode.id;
+
+    let thumbSrc = '';
+    if (episode.thumbnail) {
+      const thumbName = episode.thumbnail.split('\\').pop().split('/').pop();
+      thumbSrc = `http://localhost:3001/thumbnails/${thumbName}`;
+    }
+
+    const sn = episode.season_number || 1;
+    const en = episode.episode_number || '';
+    const title = episode.title || '';
+
+    row.innerHTML = `
+      <img class="ep-edit-thumb" src="${thumbSrc}" alt="" onerror="this.style.display='none'">
+      <div class="ep-edit-fields">
+        <input class="ep-edit-title" type="text" value="${title.replace(/"/g, '&quot;')}" placeholder="Titre de l'épisode">
+        <div class="ep-edit-numbers">
+          <label>S<input class="ep-edit-sn" type="number" value="${sn}" min="1" max="99"></label>
+          <label>E<input class="ep-edit-en" type="number" value="${en}" min="1" max="9999" placeholder="—"></label>
+        </div>
+      </div>
+      <button class="btn-ep-delete" title="Supprimer l'épisode">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    `;
+
+    row.dataset.origTitle = title;
+    row.dataset.origSn = String(sn);
+    row.dataset.origEn = String(en);
+
+    row.querySelector('.btn-ep-delete')
+      .addEventListener('click', () => this._confirmDeleteEpisode(episode.id, title || `S${sn}E${en}`, row));
+
+    return row;
+  }
+
+  _confirmDeleteEpisode(episodeId, label, row) {
+    if (!confirm(`Supprimer "${label}" de la bibliothèque ?\n\nCette action est irréversible.`)) return;
+    this._deletedEpisodeIds.push(episodeId);
+    row.style.opacity = '0.4';
+    row.style.pointerEvents = 'none';
+    const btn = row.querySelector('.btn-ep-delete');
+    btn.innerHTML = '<i class="fas fa-check"></i>';
+    btn.style.background = 'rgba(231,76,60,0.2)';
+  }
+
+  async saveEpisodeEdits() {
+    const rows = document.querySelectorAll('#seasons-container .episode-edit-row');
+
+    for (const row of rows) {
+      const episodeId = row.dataset.episodeId;
+      if (this._deletedEpisodeIds.includes(episodeId)) continue;
+
+      const title = row.querySelector('.ep-edit-title')?.value?.trim() ?? '';
+      const sn    = parseInt(row.querySelector('.ep-edit-sn')?.value) || 1;
+      const en    = parseInt(row.querySelector('.ep-edit-en')?.value) || null;
+
+      const changed =
+        title !== row.dataset.origTitle ||
+        String(sn) !== row.dataset.origSn ||
+        String(en ?? '') !== row.dataset.origEn;
+
+      if (changed) {
+        try {
+          await window.electronAPI.updateMedia(episodeId, { title, season_number: sn, episode_number: en });
+          console.log(`✅ Épisode mis à jour: ${title}`);
+        } catch (err) {
+          console.error(`❌ Erreur mise à jour épisode ${episodeId}:`, err);
+        }
+      }
+    }
+
+    for (const epId of this._deletedEpisodeIds) {
+      try {
+        await window.electronAPI.deleteMedia(epId);
+        console.log(`🗑️ Épisode supprimé: ${epId}`);
+      } catch (err) {
+        console.error(`❌ Erreur suppression épisode ${epId}:`, err);
+      }
+    }
+  }
+
+  async openSeasonsManager() {
+    if (!window.seasonsManager || !this.currentSeriesId) return;
+
+    // Sauvegarder les épisodes en cours d'édition avant d'ouvrir le gestionnaire
+    await this.saveEpisodeEdits();
+
+    window.seasonsManager._onFinishCallback = async () => {
+      const result = await window.electronAPI.getSeriesById(this.currentSeriesId);
+      if (result.success) {
+        this.currentSeries = result.series;
+        if (this.isEditMode) {
+          this.activateEditModeSeasons();
+        } else {
+          this.populateSeasons(result.series.seasons || []);
+        }
+      }
+    };
+
+    window.seasonsManager.openModal(this.currentSeriesId, this.currentSeries.name);
+  }
+
 }
 
 // Initialiser le gestionnaire de modale série

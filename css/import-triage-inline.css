@@ -9,7 +9,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: var(--bg-overlay);
   z-index: 2000;
   display: flex;
   justify-content: center;
@@ -790,20 +790,21 @@
   white-space: nowrap;
 }
 
-.category-badge.series {
+/* Couleurs scoped au triage — évite d'écraser les variantes de import-classification.css */
+#import-triage-modal .category-badge.series {
   background-color: rgba(220, 53, 69, 0.9);
 }
 
-.category-badge.film {
+#import-triage-modal .category-badge.film {
   background-color: rgba(40, 167, 69, 0.9);
 }
 
-.category-badge.short {
+#import-triage-modal .category-badge.short {
   background-color: rgba(255, 193, 7, 0.9);
   color: var(--text-on-light);
 }
 
-.category-badge.other {
+#import-triage-modal .category-badge.other {
   background-color: rgba(108, 117, 125, 0.9);
 }
 

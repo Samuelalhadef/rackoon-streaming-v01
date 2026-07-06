@@ -43,7 +43,7 @@
 
 /* Header du sidebar */
 .filters-sidebar-header {
-  padding: 25px 25px 20px 25px;
+  padding: 14px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
@@ -53,8 +53,10 @@
 
 .filters-sidebar-header h3 {
   color: var(--text-primary);
-  font-size: 22px;
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   margin: 0;
 }
 
@@ -80,7 +82,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 25px;
+  padding: 14px 20px;
 }
 
 /* Custom scrollbar */
@@ -108,20 +110,20 @@
 
 .sort-toggle-btn {
   width: 100%;
-  padding: 14px 18px;
+  padding: 8px 14px;
   background: var(--gradient-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(52, 116, 219, 0.3);
+  gap: 8px;
+  transition: all 0.2s;
+  box-shadow: 0 3px 10px rgba(52, 116, 219, 0.3);
 }
 
 .sort-toggle-btn:hover {
@@ -134,7 +136,7 @@
 }
 
 .sort-toggle-btn i {
-  font-size: 18px;
+  font-size: 13px;
   transition: transform 0.3s;
 }
 
@@ -151,22 +153,24 @@
 
 /* Section de filtre */
 .filter-section {
-  margin-bottom: 25px;
+  margin-bottom: 16px;
 }
 
 .filter-section-title {
-  color: var(--text-primary);
-  font-size: 15px;
+  color: var(--text-secondary);
+  font-size: 11px;
   font-weight: 600;
-  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .filter-section-title i {
   color: var(--color-primary);
-  font-size: 16px;
+  font-size: 12px;
 }
 
 /* Options de tri (radio buttons) */
@@ -179,7 +183,7 @@
 .sort-option {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 7px 10px;
   background-color: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
@@ -224,7 +228,7 @@
 .filter-checkbox {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 7px 10px;
   background-color: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
@@ -304,7 +308,7 @@
 
 .year-range-values span {
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -383,7 +387,7 @@
 }
 
 .rating-star {
-  font-size: 28px;
+  font-size: 18px;
   color: #4a4a5a;
   cursor: pointer;
   transition: all 0.2s;
@@ -412,19 +416,19 @@
 
 /* Footer du sidebar */
 .filters-sidebar-footer {
-  padding: 20px 25px;
+  padding: 12px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.02) 100%);
 }
 
 .filters-reset-btn {
   width: 100%;
-  padding: 12px 18px;
+  padding: 8px 14px;
   background-color: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;

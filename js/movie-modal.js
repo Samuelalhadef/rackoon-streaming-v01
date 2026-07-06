@@ -161,6 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   console.log('✅ window.openMovieModal exposée');
 
+  // Exposer les utilitaires partagés (utilisés par series-modal.js)
+  window.createPersonAvatarCard = createPersonAvatarCard;
+  window.openPersonMiniPopup    = openPersonMiniPopup;
+
   // Fonction utilitaire pour forcer la restauration du scroll
   window.forceRestoreBodyScroll = function() {
     document.body.style.overflow = '';

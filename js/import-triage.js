@@ -565,6 +565,13 @@ class ImportTriageSystem {
   }
 
   async saveTriageCategories(filesToClassify) {
+    const validateBtn = document.getElementById('validate-triage-btn');
+    if (validateBtn) {
+      validateBtn.disabled = true;
+      validateBtn.textContent = 'Enregistrement…';
+    }
+    this.showProgress(`Enregistrement de ${filesToClassify.length} fichier${filesToClassify.length > 1 ? 's' : ''}…`);
+
     try {
       console.log(`📋 Sauvegarde immédiate des catégories Phase 1 pour ${filesToClassify.length} fichiers`);
       console.log(`⚡ Sauvegarde SÉQUENTIELLE avec délai minimal...`);
@@ -575,6 +582,8 @@ class ImportTriageSystem {
 
       for (let i = 0; i < filesToClassify.length; i++) {
         const file = filesToClassify[i];
+        const pct = Math.round(((i + 1) / filesToClassify.length) * 100);
+        this.updateProgress(pct, `${i + 1} / ${filesToClassify.length} — ${file.title || file.name}`);
         console.log(`📦 ${i + 1}/${filesToClassify.length}: ${file.title || file.name}`);
 
         try {
@@ -621,6 +630,12 @@ class ImportTriageSystem {
 
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde des catégories Phase 1:', error);
+    } finally {
+      this.hideProgress();
+      if (validateBtn) {
+        validateBtn.disabled = false;
+        validateBtn.textContent = 'Valider et continuer';
+      }
     }
   }
 
@@ -967,6 +982,8 @@ class ImportTriageSystem {
   populateSeriesSelector(seriesSelector) {
     if (!seriesSelector) return;
 
+    const previousValue = seriesSelector.value;
+
     seriesSelector.innerHTML = '<option value="">Sélectionner une série</option>';
 
     this.series.forEach(serie => {
@@ -975,6 +992,8 @@ class ImportTriageSystem {
       option.textContent = serie.name;
       seriesSelector.appendChild(option);
     });
+
+    if (previousValue) seriesSelector.value = previousValue;
   }
 
   updateSortMode(row, fileIndex, mediaType) {
@@ -1032,115 +1051,26 @@ class ImportTriageSystem {
   }
 
   showNewSeriesModal(fileIndex, row) {
-    // Créer un modal personnalisé pour la saisie du nom de série
-    const modal = document.createElement('div');
-    modal.className = 'new-series-modal-overlay';
-    modal.innerHTML = `
-      <div class="new-series-modal">
-        <h3>Nouvelle série</h3>
-        <input type="text" id="newSeriesName" placeholder="Nom de la série..." maxlength="100">
-        <div class="modal-buttons">
-          <button type="button" class="btn-cancel">Annuler</button>
-          <button type="button" class="btn-create">Créer</button>
-        </div>
-      </div>
-    `;
-
-    // Ajouter le modal au document
-    document.body.appendChild(modal);
-
-    // Focus sur l'input
-    const input = modal.querySelector('#newSeriesName');
-    input.focus();
-
-    // Gérer les événements
-    const btnCancel = modal.querySelector('.btn-cancel');
-    const btnCreate = modal.querySelector('.btn-create');
-
-    const closeModal = () => {
-      document.body.removeChild(modal);
+    // Callback : après création, tracker + sélectionner dans la ligne
+    window._newSeriesCallback = (newSeries) => {
+      // Tracker pour nettoyage si annulation
+      if (!this.newlyCreatedSeriesIds.includes(newSeries.id)) {
+        this.newlyCreatedSeriesIds.push(newSeries.id);
+      }
+      // Ajouter à la liste locale et rafraîchir les sélecteurs
+      this.series.push({ id: newSeries.id, name: newSeries.name, description: newSeries.description || '' });
+      this.updateAllSeriesSelectors();
+      // Sélectionner dans la ligne concernée
+      const seriesSelector = row.querySelector('.series-name-selector');
+      if (seriesSelector) seriesSelector.value = newSeries.id;
+      this.currentFiles[fileIndex].seriesId   = newSeries.id;
+      this.currentFiles[fileIndex].seriesName = newSeries.name;
+      this.hideValidationError(row);
     };
 
-    const createSeries = () => {
-      const seriesName = input.value.trim();
-      if (seriesName) {
-        this.createNewSeries(seriesName, fileIndex, row);
-        closeModal();
-      } else {
-        input.focus();
-        input.style.borderColor = '#e74c3c';
-        setTimeout(() => {
-          input.style.borderColor = '';
-        }, 2000);
-      }
-    };
-
-    btnCancel.addEventListener('click', closeModal);
-    btnCreate.addEventListener('click', createSeries);
-
-    // Fermer avec Escape
-    modal.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeModal();
-      } else if (e.key === 'Enter') {
-        createSeries();
-      }
-    });
-
-    // Fermer en cliquant sur l'overlay
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeModal();
-      }
-    });
+    this._openSharedSeriesModal();
   }
 
-  async createNewSeries(seriesName, fileIndex, row) {
-    try {
-      console.log('📺 Création de la série:', seriesName);
-
-      const result = await window.electronAPI.createSeries({
-        name: seriesName,
-        description: ''
-      });
-
-      if (result.success) {
-        console.log('✅ Série créée avec succès, ID:', result.series.id);
-
-        // Tracker l'ID de la série pour pouvoir la supprimer si annulé
-        if (!this.newlyCreatedSeriesIds.includes(result.series.id)) {
-          this.newlyCreatedSeriesIds.push(result.series.id);
-          console.log('📋 Série trackée pour nettoyage éventuel:', result.series.id);
-        }
-
-        // Ajouter la série à la liste locale
-        const newSeries = {
-          id: result.series.id,
-          name: seriesName,
-          description: ''
-        };
-        this.series.push(newSeries);
-
-        // Mettre à jour TOUS les sélecteurs de série
-        this.updateAllSeriesSelectors();
-
-        // Sélectionner automatiquement la nouvelle série dans ce sélecteur
-        const seriesSelector = row.querySelector('.series-name-selector');
-        seriesSelector.value = result.series.id;
-        this.currentFiles[fileIndex].seriesId = result.series.id;
-        this.currentFiles[fileIndex].seriesName = seriesName;
-
-        this.hideValidationError(row);
-        console.log('📺 Nouvelle série sélectionnée automatiquement');
-      } else {
-        console.error('❌ Erreur lors de la création de la série:', result.message);
-        window.showNotification('Erreur', result.message, 'error');
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors de la création de la série:', error);
-      window.showNotification('Erreur', error.message, 'error');
-    }
-  }
 
   validateTriageData() {
     let hasErrors = false;
@@ -1405,8 +1335,8 @@ class ImportTriageSystem {
       return;
     }
 
-    // Trouver la série sélectionnée
-    const selectedSeries = this.series.find(s => s.id === selectedSeriesId);
+    // Trouver la série sélectionnée (selector.value est toujours une string, s.id peut être un nombre)
+    const selectedSeries = this.series.find(s => String(s.id) === selectedSeriesId);
     if (!selectedSeries) {
       console.error('❌ Série non trouvée:', selectedSeriesId);
       return;
@@ -1473,18 +1403,42 @@ class ImportTriageSystem {
     console.log('🔄 Tous les sélecteurs de série mis à jour');
   }
 
-  // Méthode pour afficher la modale de création de série (batch - sans fileIndex/row)
+  // Méthode pour afficher la modale de création de série (batch)
   showBatchNewSeriesModal() {
-    const modal = document.getElementById('new-series-modal');
-    if (modal) {
-      modal.style.display = 'flex';
-
-      // Focus sur le champ nom
-      const nameInput = document.getElementById('new-series-name');
-      if (nameInput) {
-        setTimeout(() => nameInput.focus(), 100);
+    window._newSeriesCallback = (newSeries) => {
+      // Tracker pour nettoyage si annulation
+      if (!this.newlyCreatedSeriesIds.includes(newSeries.id)) {
+        this.newlyCreatedSeriesIds.push(newSeries.id);
       }
-    }
+      this.series.push({ id: newSeries.id, name: newSeries.name, description: newSeries.description || '' });
+      this.updateAllSeriesSelectors();
+      // Sélectionner dans le sélecteur batch
+      const batchSelector = document.getElementById('batch-series-selector');
+      if (batchSelector) batchSelector.value = newSeries.id;
+    };
+
+    this._openSharedSeriesModal();
+  }
+
+  // Ouvre le modal partagé #new-series-modal et réinitialise le formulaire
+  _openSharedSeriesModal() {
+    const modal = document.getElementById('new-series-modal');
+    if (!modal) return;
+
+    // Réinitialiser tous les champs
+    ['new-series-name', 'new-series-year', 'new-series-country',
+     'new-series-creator', 'new-series-platform', 'new-series-description'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const statusEl = document.getElementById('new-series-status');
+    if (statusEl) statusEl.value = 'unknown';
+    document.querySelectorAll('#new-series-genres .genre-chip').forEach(chip => {
+      chip.classList.remove('selected');
+    });
+
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('new-series-name')?.focus(), 100);
   }
 }
 
