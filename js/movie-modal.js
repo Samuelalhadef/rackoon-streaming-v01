@@ -1374,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (finalImageUrl && finalImageUrl.includes('image.tmdb.org')) {
         try {
           console.log('🔄 Téléchargement de l\'image TMDB...');
-          const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, title);
+          const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, currentMovieId);
           if (downloadResult.success) {
             const filename = downloadResult.localPath.split(/[\\/]/).pop();
             finalImageUrl = `http://localhost:3001/tmdb-images/${filename}`;
@@ -1603,15 +1603,14 @@ document.addEventListener('DOMContentLoaded', () => {
         synopsisContent.style.color = '#888';
       }
       
-      // Configurer l'état "vu/à voir"
-      const userPrefs = loadUserPreferences();
-      const isWatched = userPrefs.watchedMovies[movieId] === true;
-      
+      // Configurer l'état "vu/à voir" — source de vérité : DB (lastWatched)
+      const isWatched = !!movie.lastWatched;
+
       if (isWatched) {
-        watchToggleModal.textContent = 'Vu !';
+        watchToggleModal.textContent = 'vu !';
         watchToggleModal.classList.add('watched');
       } else {
-        watchToggleModal.textContent = 'À voir';
+        watchToggleModal.textContent = 'à voir';
         watchToggleModal.classList.remove('watched');
       }
       
@@ -2062,37 +2061,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Gérer le bouton "Vu/À voir"
   watchToggleModal.addEventListener('click', () => {
     if (!currentMovieId) return;
-    
-    const userPrefs = loadUserPreferences();
-    
-    if (userPrefs.watchedMovies[currentMovieId]) {
-      // Film déjà vu, le marquer comme "à voir"
-      delete userPrefs.watchedMovies[currentMovieId];
-      watchToggleModal.textContent = 'À voir';
-      watchToggleModal.classList.remove('watched');
-    } else {
-      // Film pas encore vu, le marquer comme "vu"
-      userPrefs.watchedMovies[currentMovieId] = true;
-      watchToggleModal.textContent = 'Vu !';
+
+    const nowWatched = !watchToggleModal.classList.contains('watched');
+
+    // Mettre à jour la modal
+    if (nowWatched) {
+      watchToggleModal.textContent = 'vu !';
       watchToggleModal.classList.add('watched');
+    } else {
+      watchToggleModal.textContent = 'à voir';
+      watchToggleModal.classList.remove('watched');
     }
-    
-    saveUserPreferences(userPrefs);
-    
-    // Mettre à jour les boutons dans la carte
+
+    // Mettre à jour la carte correspondante sur le dashboard
     const card = document.querySelector(`.media-card[data-id="${currentMovieId}"]`);
     if (card) {
-      const buttons = card.querySelectorAll('.btn-watch-toggle');
-      buttons.forEach(btn => {
-        if (userPrefs.watchedMovies[currentMovieId]) {
-          btn.textContent = 'vu !';
-          btn.classList.add('watched');
-        } else {
-          btn.textContent = 'à voir';
-          btn.classList.remove('watched');
-        }
+      card.querySelectorAll('.btn-watch-toggle').forEach(btn => {
+        btn.textContent = nowWatched ? 'vu !' : 'à voir';
+        btn.classList.toggle('watched', nowWatched);
       });
     }
+
+    // Persister en DB
+    window.electronAPI.updateWatchStatus(currentMovieId, nowWatched);
   });
   
   // Gérer le bouton "Regarder le film"
@@ -2554,7 +2545,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Télécharger l'image localement
         try {
           console.log('Téléchargement du poster TMDB...');
-          const downloadResult = await window.electronAPI.downloadTMDBImage(posterPath, title);
+          const downloadResult = await window.electronAPI.downloadTMDBImage(posterPath, currentMovieId);
 
           if (downloadResult.success) {
             const filename = downloadResult.localPath.split(/[\\/]/).pop();
@@ -2700,7 +2691,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (finalImageUrl && finalImageUrl.includes('image.tmdb.org')) {
         try {
           console.log('🔄 Téléchargement de l\'image TMDB lors de la sauvegarde...');
-          const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, title);
+          const downloadResult = await window.electronAPI.downloadTMDBImage(finalImageUrl, currentMovieId);
 
           if (downloadResult.success) {
             const filename = downloadResult.localPath.split(/[\\/]/).pop();
@@ -3078,8 +3069,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       // Si c'est un fichier local avec un path (Electron), copier vers tmdb-images
       if (file.path && window.electronAPI && window.electronAPI.savePosterLocal) {
-        const title = currentMovieData ? currentMovieData.title : 'poster';
-        const result = await window.electronAPI.savePosterLocal(file.path, title);
+        const result = await window.electronAPI.savePosterLocal(file.path, currentMovieId);
         if (result.success) {
           const newUrl = `http://localhost:3001/tmdb-images/${result.filename}`;
           const posterImg = document.getElementById('modal-poster');

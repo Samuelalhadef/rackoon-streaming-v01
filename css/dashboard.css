@@ -117,18 +117,6 @@ body {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.tab-link::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gradient-accent);
-  transform: scaleX(0);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 .tab-link.active::after {
   transform: scaleX(1);
 }
@@ -1590,11 +1578,6 @@ body {
 .categories-container {
   width: 100%;
   max-width: none;
-}
-
-.media-category {
-  margin-bottom: 24px;
-  width: 100%;
 }
 
 .media-category .category-header {

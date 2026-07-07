@@ -21,6 +21,9 @@
   // Référence aux médias originaux
   let allMedias = [];
 
+  // Cache des métadonnées séries (posterUrl, etc.) — chargé une fois au démarrage
+  let seriesMetaCache = {};
+
   // Éléments DOM - Bouton toggle de vue
   const viewToggleBtn = document.getElementById('view-toggle-btn');
 
@@ -412,6 +415,17 @@
 
       allMedias = mediasResult.medias;
 
+      // Rafraîchir le cache des métadonnées séries (posterUrl…)
+      try {
+        const seriesMetaResult = await window.electronAPI.getAllSeries();
+        if (seriesMetaResult.success && seriesMetaResult.series) {
+          seriesMetaCache = {};
+          seriesMetaResult.series.forEach(s => { seriesMetaCache[s.id] = s; });
+        }
+      } catch (e) {
+        console.warn('⚠️ Impossible de charger les métadonnées séries:', e);
+      }
+
       // 1. Filtrer les médias
       let filteredMedias = filterMedias(allMedias);
 
@@ -580,11 +594,13 @@
     episodes.forEach(episode => {
       if (episode.seriesId && episode.seriesName) {
         if (!seriesGroups[episode.seriesId]) {
+          const meta = seriesMetaCache[episode.seriesId] || {};
           seriesGroups[episode.seriesId] = {
             id: episode.seriesId,
             name: episode.seriesName,
             category: 'series',
-            thumbnail: episode.thumbnail, // Prendre la miniature du premier épisode
+            thumbnail: episode.thumbnail,
+            posterUrl: meta.posterUrl || '',
             episodes: [],
             episodeCount: 0
           };

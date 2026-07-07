@@ -413,9 +413,6 @@
   padding-bottom: 20px;
 }
 
-.series-modal .modal-content > *          { margin-bottom: 28px; }
-.series-modal .modal-content > *:last-child { margin-bottom: 0; }
-
 /* En-tête avec titre et bouton édition */
 .series-modal .modal-header {
   margin: 0;
@@ -1084,7 +1081,6 @@
 #series-modal-overlay.edit-mode-active .edit-synopsis-field {
   background: rgba(100, 181, 246, 0.06);
   border: 1px solid rgba(100, 181, 246, 0.3);
-  border-left: 3px solid rgba(100, 181, 246, 0.5);
   color: #c0c0c0;
   font-size: 15px;
   padding: 16px;

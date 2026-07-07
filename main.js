@@ -463,17 +463,10 @@ function downloadTMDBImage(imageUrl, outputPath) {
   });
 }
 
-// Générer un nom de fichier unique pour une image TMDB
-function generateTMDBImageName(mediaTitle, tmdbImageUrl) {
-  const timestamp = Date.now();
-  const extension = path.extname(tmdbImageUrl) || '.jpg';
-  // Nettoyer le titre pour le nom de fichier
-  const cleanTitle = mediaTitle
-    .replace(/[<>:"/\\|?*]/g, '') // Supprimer les caractères non valides
-    .replace(/\s+/g, '_') // Remplacer les espaces par des underscores
-    .substring(0, 50); // Limiter la longueur
-  
-  return `tmdb_${cleanTitle}_${timestamp}${extension}`;
+// Générer un nom de fichier déterministe pour un poster (écrasement garanti)
+function generatePosterName(entityId, sourceUrl) {
+  const extension = path.extname(sourceUrl || '').split('?')[0] || '.jpg';
+  return `poster_${entityId}${extension}`;
 }
 
 // Fonction helper pour formater la taille des fichiers
@@ -1050,6 +1043,19 @@ function setupIPCHandlers() {
     }
   });
 
+  // Mettre à jour le statut vu/à voir
+  ipcMain.handle('userPrefs:updateWatchStatus', async (event, mediaId, isWatched) => {
+    try {
+      const lastWatched = isWatched ? new Date().toISOString() : null;
+      const result = await db.updateLastWatched(mediaId, lastWatched);
+      console.log(`👁️ Statut vu mis à jour pour ${mediaId}: ${isWatched ? 'vu' : 'à voir'}`);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut vu:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
   // Mettre à jour une note
   ipcMain.handle('userPrefs:updateRating', async (event, mediaId, rating) => {
     try {
@@ -1502,30 +1508,27 @@ function setupIPCHandlers() {
   });
 
   // Télécharger une image TMDB et la stocker localement
-  ipcMain.handle('medias:downloadTMDBImage', async (event, imageUrl, mediaTitle) => {
+  ipcMain.handle('medias:downloadTMDBImage', async (event, imageUrl, entityId) => {
     try {
       if (!imageUrl) {
         return { success: false, message: 'URL d\'image manquante' };
       }
+      if (!entityId) {
+        return { success: false, message: 'ID entité manquant' };
+      }
 
-      // Créer le dossier d'images TMDB s'il n'existe pas
       const imagesDir = path.join(DATA_DIR, 'tmdb-images');
       fs.ensureDirSync(imagesDir);
 
-      // Générer un nom de fichier unique
-      const filename = generateTMDBImageName(mediaTitle, imageUrl);
+      // Nom déterministe — écrase l'ancien poster si déjà existant
+      const filename = generatePosterName(entityId, imageUrl);
       const outputPath = path.join(imagesDir, filename);
 
-      // Télécharger l'image
       await downloadTMDBImage(imageUrl, outputPath);
 
-      // Retourner le chemin relatif depuis le dossier data
-      const relativePath = path.relative(DATA_DIR, outputPath);
-      
       return {
         success: true,
         localPath: outputPath,
-        relativePath: relativePath,
         filename: filename
       };
 
@@ -1536,28 +1539,26 @@ function setupIPCHandlers() {
   });
 
   // Handler pour sauvegarder un poster depuis un fichier local
-  ipcMain.handle('medias:savePosterLocal', async (event, sourcePath, mediaTitle) => {
+  ipcMain.handle('medias:savePosterLocal', async (event, sourcePath, entityId) => {
     try {
       if (!sourcePath) {
         return { success: false, message: 'Chemin source manquant' };
       }
+      if (!entityId) {
+        return { success: false, message: 'ID entité manquant' };
+      }
 
-      // Vérifier que le fichier existe
       if (!fs.existsSync(sourcePath)) {
         return { success: false, message: 'Fichier introuvable' };
       }
 
-      // Créer le dossier tmdb-images s'il n'existe pas
       const imagesDir = path.join(DATA_DIR, 'tmdb-images');
       fs.ensureDirSync(imagesDir);
 
-      // Générer un nom unique
-      const ext = path.extname(sourcePath) || '.jpg';
-      const safeName = (mediaTitle || 'poster').replace(/[^a-zA-Z0-9-_]/g, '_').substring(0, 50);
-      const filename = `local_${safeName}_${Date.now()}${ext}`;
+      // Nom déterministe — écrase l'ancien poster si déjà existant
+      const filename = generatePosterName(entityId, sourcePath);
       const outputPath = path.join(imagesDir, filename);
 
-      // Copier le fichier
       fs.copySync(sourcePath, outputPath);
       console.log(`✅ Poster local copié: ${filename}`);
 

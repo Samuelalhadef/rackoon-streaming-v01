@@ -351,6 +351,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const series = Object.values(seriesGroups);
 
+      // Enrichir avec les métadonnées de la table series (posterUrl, description…)
+      try {
+        const seriesMetaResult = await window.electronAPI.getAllSeries();
+        if (seriesMetaResult.success && seriesMetaResult.series) {
+          const metaById = {};
+          seriesMetaResult.series.forEach(s => { metaById[s.id] = s; });
+          series.forEach(s => {
+            const meta = metaById[s.id];
+            if (meta && meta.posterUrl) s.posterUrl = meta.posterUrl;
+          });
+        }
+      } catch (e) {
+        console.warn('⚠️ Impossible de charger les métadonnées séries:', e);
+      }
+
       console.log(`📺 ${series.length} séries reconstituées depuis les épisodes`);
 
       if (orphanedEpisodes.length > 0) {
@@ -429,10 +444,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     card.dataset.seriesId = serie.id;
     card.dataset.title = serie.name;
 
-    // Utiliser le thumbnail du premier épisode ou une image par défaut
-    let thumbnailSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjQwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwcHgiPlPDiVJJRTwvdGV4dD48L3N2Zz4=';
+    // Utiliser le poster > thumbnail du premier épisode > image par défaut
+    const defaultSrc = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDMwMCA0MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjQwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzY2NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjIwcHgiPlPDiVJJRTwvdGV4dD48L3N2Zz4=';
+    let thumbnailSrc = defaultSrc;
 
-    if (serie.seasons && serie.seasons[0] && serie.seasons[0].episodes && serie.seasons[0].episodes[0]) {
+    if (serie.posterUrl) {
+      thumbnailSrc = serie.posterUrl;
+    } else if (serie.seasons && serie.seasons[0] && serie.seasons[0].episodes && serie.seasons[0].episodes[0]) {
       const firstEpisode = serie.seasons[0].episodes[0];
       if (firstEpisode.thumbnail) {
         const thumbnailName = firstEpisode.thumbnail.split('\\').pop().split('/').pop();
@@ -608,47 +626,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Marquer un film comme vu/à voir
   function toggleWatchStatus(movieId, button) {
-    let userPrefs = localStorage.getItem('userPrefs_global');
-    
-    if (!userPrefs) {
-      userPrefs = {
-        watchedMovies: {},
-        ratings: {}
-      };
-    } else {
-      userPrefs = JSON.parse(userPrefs);
-      if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
-      if (!userPrefs.ratings) userPrefs.ratings = {};
-    }
-    
-    if (userPrefs.watchedMovies[movieId]) {
-      // Film déjà vu, le marquer comme "à voir"
-      delete userPrefs.watchedMovies[movieId];
-      button.textContent = 'à voir';
-      button.classList.remove('watched');
-    } else {
-      // Film pas encore vu, le marquer comme "vu"
-      userPrefs.watchedMovies[movieId] = true;
-      button.textContent = 'vu !';
-      button.classList.add('watched');
-    }
-    
-    // Synchroniser tous les boutons dans la même carte si nécessaire
     const card = button.closest('.media-card');
-    const otherButtons = card.querySelectorAll('.btn-watch-toggle');
-    
-    otherButtons.forEach(otherBtn => {
-      if (otherBtn !== button) {
-        otherBtn.textContent = button.textContent;
-        if (userPrefs.watchedMovies[movieId]) {
-          otherBtn.classList.add('watched');
-        } else {
-          otherBtn.classList.remove('watched');
-        }
+    const isCurrentlyWatched = button.classList.contains('watched');
+    const nowWatched = !isCurrentlyWatched;
+
+    // Mettre à jour l'UI immédiatement
+    const allButtons = card.querySelectorAll('.btn-watch-toggle');
+    allButtons.forEach(btn => {
+      if (nowWatched) {
+        btn.textContent = 'vu !';
+        btn.classList.add('watched');
+      } else {
+        btn.textContent = 'à voir';
+        btn.classList.remove('watched');
       }
     });
-    
-    localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
+
+    // Persister en DB
+    window.electronAPI.updateWatchStatus(movieId, nowWatched);
   }
   
   // Noter un film (1-5 étoiles)
@@ -826,8 +821,8 @@ function setupMediaCard(mediaCard, movie) {
   // Configurer la durée
   mediaCard.querySelector('.duration-value').textContent = window.formatTime(movie.duration);
 
-  // Configurer l'état "vu/à voir"
-  const isWatched = userPrefs.watchedMovies[movie.id] === true;
+  // Configurer l'état "vu/à voir" — source de vérité : DB (lastWatched)
+  const isWatched = !!movie.lastWatched;
   const watchButtons = mediaCard.querySelectorAll('.btn-watch-toggle');
 
   watchButtons.forEach(button => {

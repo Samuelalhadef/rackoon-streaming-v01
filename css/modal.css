@@ -29,17 +29,6 @@
   }
 }
 
-.movie-credits::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 4px;
-  background: linear-gradient(180deg, var(--color-primary-light), #42a5f5, var(--color-series));
-  border-radius: 0 2px 2px 0;
-}
-
 .movie-credits > div {
   margin-bottom: 16px;
   transition: all 0.3s ease;
@@ -102,8 +91,8 @@
 /* Système de tags modernisé et élégant */
 .tags-container {
   margin: 0;
-  margin-top: 10px;
-  padding-bottom: 10px;
+  margin-top: 28px;
+  padding-bottom: 28px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
@@ -189,7 +178,6 @@
 .tag-chip.genre {
   background: linear-gradient(135deg, rgba(255, 107, 107, 0.8), rgba(238, 90, 36, 0.6));
   color: var(--text-primary);
-  box-shadow: 0 8px 32px rgba(255, 107, 107, 0.3);
 }
 
 .tag-chip.mood {
@@ -375,7 +363,6 @@
 
 /* Nouveau système de notation progressif */
 .rating-compact {
-  margin-top: 15px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -862,8 +849,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
-  margin-bottom: 16px;
+  margin-top: 28px;
+  margin-bottom: 28px;
   align-items: center;
 }
 
@@ -1480,7 +1467,6 @@
 .modal-overlay.edit-mode-active .movie-meta {
   background: rgba(100, 181, 246, 0.04);
   border: 1px solid rgba(100, 181, 246, 0.15);
-  border-left: 3px solid rgba(100, 181, 246, 0.4);
   border-radius: 8px;
   padding: 12px 16px;
   transition: all 0.3s ease;
@@ -2798,17 +2784,6 @@
     opacity: 1;
     transform: translateX(0);
   }
-}
-
-.technical-info::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 4px;
-  background: linear-gradient(180deg, var(--color-success), #66bb6a, #81c784);
-  border-radius: 0 2px 2px 0;
 }
 
 .technical-info-title {

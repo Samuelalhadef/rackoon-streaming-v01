@@ -145,6 +145,13 @@ class SQLiteDatabase {
   }
 
   _ensureDefaults() {
+    // Migration: ajouter poster_url à la table series si absent
+    const seriesCols = this.db.prepare("PRAGMA table_info(series)").all().map(c => c.name);
+    if (!seriesCols.includes('poster_url')) {
+      this.db.exec("ALTER TABLE series ADD COLUMN poster_url TEXT DEFAULT ''");
+      console.log('✅ Migration: colonne poster_url ajoutée à la table series');
+    }
+
     const hasVersion = this.db.prepare("SELECT value FROM app_config WHERE key='version'").get();
     if (!hasVersion) {
       const cfg = this._defaultConfig();
@@ -258,7 +265,8 @@ class SQLiteDatabase {
       actors: this._j(row.main_actors),
       creators: this._j(row.creators),
       mood: this._j(row.mood),
-      personalTags: this._j(row.personal_tags)
+      personalTags: this._j(row.personal_tags),
+      posterUrl: row.poster_url || ''
     };
   }
 
@@ -379,6 +387,13 @@ class SQLiteDatabase {
     return { success: true, media: this._mediaFromRow(this.db.prepare('SELECT * FROM medias WHERE id = ?').get(existing.id)) };
   }
 
+  async updateLastWatched(mediaId, lastWatched) {
+    const existing = this.db.prepare('SELECT id FROM medias WHERE id = ?').get(mediaId);
+    if (!existing) return { success: false, message: 'Média non trouvé' };
+    this.db.prepare('UPDATE medias SET last_watched = ? WHERE id = ?').run(lastWatched, mediaId);
+    return { success: true };
+  }
+
   async updateMediaById(mediaId, updates) {
     const existing = this.db.prepare('SELECT * FROM medias WHERE id = ?').get(mediaId);
     if (!existing) return { success: false, message: 'Média non trouvé' };
@@ -468,11 +483,11 @@ class SQLiteDatabase {
       INSERT INTO series (
         id, name, description, franchise, networks, country, status,
         date_added, episode_count, year, start_year, decade, creator, platform,
-        genres, main_actors, creators, mood, personal_tags
+        genres, main_actors, creators, mood, personal_tags, poster_url
       ) VALUES (
         @id, @name, @description, @franchise, @networks, @country, @status,
         @date_added, 0, @year, @start_year, @decade, @creator, @platform,
-        @genres, @main_actors, @creators, @mood, @personal_tags
+        @genres, @main_actors, @creators, @mood, @personal_tags, @poster_url
       )
     `).run({
       id,
@@ -492,7 +507,8 @@ class SQLiteDatabase {
       main_actors: this._s(e.mainActors),
       creators: this._s(e.creators),
       mood: this._s(e.mood),
-      personal_tags: this._s(e.personalTags)
+      personal_tags: this._s(e.personalTags),
+      poster_url: e.posterUrl || ''
     });
 
     const series = this._seriesFromRow(this.db.prepare('SELECT * FROM series WHERE id = ?').get(id));
@@ -568,7 +584,7 @@ class SQLiteDatabase {
         year = @year, start_year = @start_year, decade = @decade,
         creator = @creator, platform = @platform,
         genres = @genres, main_actors = @main_actors, creators = @creators,
-        mood = @mood, personal_tags = @personal_tags
+        mood = @mood, personal_tags = @personal_tags, poster_url = @poster_url
       WHERE id = @id
     `).run({
       id: seriesId,
@@ -587,7 +603,8 @@ class SQLiteDatabase {
       main_actors: this._s(e.mainActors),
       creators: this._s(e.creators),
       mood: this._s(e.mood),
-      personal_tags: this._s(e.personalTags)
+      personal_tags: this._s(e.personalTags),
+      poster_url: e.posterUrl || ''
     });
 
     return { success: true, series: this._seriesFromRow(this.db.prepare('SELECT * FROM series WHERE id = ?').get(seriesId)) };

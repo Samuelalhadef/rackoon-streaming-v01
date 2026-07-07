@@ -26,8 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveClassifiedFile: (fileData) => ipcRenderer.invoke('medias:saveClassified', fileData),
   openMediaFolder: (mediaPath) => ipcRenderer.invoke('medias:openFolder', mediaPath),
   checkFileExists: (filePath) => ipcRenderer.invoke('files:exists', filePath),
-  downloadTMDBImage: (imageUrl, mediaTitle) => ipcRenderer.invoke('medias:downloadTMDBImage', imageUrl, mediaTitle),
-  savePosterLocal: (sourcePath, mediaTitle) => ipcRenderer.invoke('medias:savePosterLocal', sourcePath, mediaTitle),
+  downloadTMDBImage: (imageUrl, entityId) => ipcRenderer.invoke('medias:downloadTMDBImage', imageUrl, entityId),
+  savePosterLocal: (sourcePath, entityId) => ipcRenderer.invoke('medias:savePosterLocal', sourcePath, entityId),
   generateThumbnail: (mediaId) => ipcRenderer.invoke('medias:generateThumbnail', mediaId),
 
   // APIs pour informations vidéo
@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // APIs pour les préférences utilisateur
   getUserPrefs: () => ipcRenderer.invoke('userPrefs:get'),
+  updateWatchStatus: (mediaId, isWatched) => ipcRenderer.invoke('userPrefs:updateWatchStatus', mediaId, isWatched),
   updateRating: (mediaId, rating) => ipcRenderer.invoke('userPrefs:updateRating', mediaId, rating),
 
   // APIs Watch Party

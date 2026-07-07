@@ -1489,6 +1489,17 @@ class SeriesModal {
         } else {
           Object.assign(this.currentSeries, updates);
         }
+
+        // Mettre à jour l'image de la card en temps réel si un poster a changé
+        if (this.pendingPosterUrl) {
+          const seriesCard = document.querySelector(`.media-card[data-series-id="${this.currentSeriesId}"]`);
+          if (seriesCard) {
+            const img = seriesCard.querySelector('img.media-thumbnail');
+            if (img) img.src = this.pendingPosterUrl;
+          }
+        }
+
+        this.pendingPosterUrl = null;
         this.deactivateEditMode();
         console.log('✅ Série mise à jour avec succès');
       } else {
@@ -1710,7 +1721,7 @@ class SeriesModal {
       if (details.poster_path) {
         const posterUrl = `${SERIES_TMDB_IMAGE_BASE_URL}${details.poster_path}`;
         try {
-          const downloadResult = await window.electronAPI.downloadTMDBImage(posterUrl, details.name || 'serie');
+          const downloadResult = await window.electronAPI.downloadTMDBImage(posterUrl, this.currentSeriesId);
           if (downloadResult.success) {
             const filename = downloadResult.localPath.split(/[\\/]/).pop();
             this.pendingPosterUrl = `http://localhost:3001/tmdb-images/${filename}`;
