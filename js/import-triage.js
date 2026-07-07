@@ -9,6 +9,7 @@ class ImportTriageSystem {
     this.series = []; // Liste des séries disponibles
     this.newlyScannedIds = []; // IDs des fichiers nouvellement scannés (pour nettoyage si annulé)
     this.newlyCreatedSeriesIds = []; // IDs des séries créées durant l'import (pour nettoyage si annulé)
+    this.isCancelled = false; // Flag pour interrompre la sauvegarde en cours si annulation
 
     this.init();
   }
@@ -94,7 +95,8 @@ class ImportTriageSystem {
     this.showLoadingState(`Analyse de ${files.length} fichiers...`);
     console.log('✅ Modale et état de chargement configurés');
 
-    // Réinitialiser la liste des IDs nouvellement scannés
+    // Réinitialiser pour un nouvel import
+    this.isCancelled = false;
     this.newlyScannedIds = files.map(file => file.id).filter(id => id);
     console.log('📋 IDs des fichiers existants à tracker:', this.newlyScannedIds);
 
@@ -493,6 +495,12 @@ class ImportTriageSystem {
       // NOUVEAU : Sauvegarder immédiatement la catégorie choisie en Phase 1
       await this.saveTriageCategories(filesToClassify);
 
+      // Si l'utilisateur a annulé pendant la sauvegarde, stopper ici
+      if (this.isCancelled) {
+        console.log('🚫 Import annulé pendant la sauvegarde — Phase 2 non lancée');
+        return;
+      }
+
       // Délai minimal pour laisser le système se stabiliser
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -581,6 +589,11 @@ class ImportTriageSystem {
       let savedCount = 0;
 
       for (let i = 0; i < filesToClassify.length; i++) {
+        if (this.isCancelled) {
+          console.log('🚫 Sauvegarde interrompue par annulation');
+          break;
+        }
+
         const file = filesToClassify[i];
         const pct = Math.round(((i + 1) / filesToClassify.length) * 100);
         this.updateProgress(pct, `${i + 1} / ${filesToClassify.length} — ${file.title || file.name}`);
@@ -605,13 +618,19 @@ class ImportTriageSystem {
             console.log(`✅ ${file.title || file.name} → ${file.triageType}`);
             savedCount++;
 
-            // Tracker l'ID du film nouvellement créé
-            if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
-              this.newlyScannedIds.push(result.movieId);
+            // Propager les données retournées vers l'objet file pour la Phase 2
+            if (result.movieId) {
+              file.id = result.movieId;
+              if (!this.newlyScannedIds.includes(result.movieId)) {
+                this.newlyScannedIds.push(result.movieId);
+              }
             }
+            if (result.duration) file.duration = result.duration;
+            if (result.thumbnail) file.thumbnail = result.thumbnail;
           } else if (result.duplicate) {
             console.warn(`⚠️ Doublon ignoré: "${file.title || file.name}" — déjà présent sous "${result.existingTitle}"`);
             savedCount++; // compte comme traité, pas comme erreur
+            if (result.existingId) file.id = result.existingId;
           } else {
             console.error(`❌ Erreur: ${result.message}`);
           }
@@ -717,6 +736,9 @@ class ImportTriageSystem {
 
   async cancelImportCompletely() {
     console.log('🚫 Annulation complète de l\'import');
+
+    // Signaler l'annulation pour interrompre toute boucle de sauvegarde en cours
+    this.isCancelled = true;
 
     // Nettoyer les fichiers partiellement importés (suppression de la DB)
     await this.cleanupPartialImport();

@@ -2040,23 +2040,6 @@
   opacity: 0.5;
 }
 
-.empty-slot-placeholder {
-  text-align: center;
-  color: var(--text-secondary, #aaa);
-}
-
-.empty-slot-placeholder i {
-  font-size: 32px;
-  margin-bottom: 8px;
-  display: block;
-  color: var(--border-color, #555);
-}
-
-.empty-slot-placeholder span {
-  font-size: 14px;
-  font-weight: 500;
-}
-
 .season-controls {
   display: flex;
   gap: 8px;

@@ -1292,7 +1292,7 @@ function setupIPCHandlers() {
             queueForTranscode(fileData.filePath);
           }
 
-          return { ...result, movieId: mediaData.id };
+          return { ...result, movieId: mediaData.id, duration: mediaData.duration, thumbnail: mediaData.thumbnail };
         }
 
         return result;

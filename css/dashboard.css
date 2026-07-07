@@ -664,10 +664,10 @@ body {
 
 .media-title-container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px 8px 0;
-  min-height: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 0;
 }
 
 .media-title {
@@ -675,8 +675,7 @@ body {
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-grow: 1;
-  padding-right: 10px;
+  width: 100%;
   position: relative;
   white-space: nowrap;
   color: var(--text-secondary);
@@ -687,10 +686,10 @@ body {
 /* Au survol, permettre au titre de s'afficher sur plusieurs lignes avec animation de couleur */
 .media-card:hover .media-title {
   white-space: normal;
-  text-overflow: initial;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  text-overflow: clip;
+  display: block;
+  overflow: hidden;
+  max-height: 3.6em;
   color: var(--text-primary);
   animation: colorizeText 0.5s ease forwards;
 }
@@ -700,17 +699,6 @@ body {
   100% { color: var(--text-primary); text-shadow: 0 0 2px var(--text-primary); }
 }
 
-/* Gradient sur le titre lorsque non survolé - sens inversé */
-.media-card:not(:hover) .media-title::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 45%;
-  height: 100%;
-  background: linear-gradient(to left, var(--bg-modal-dark) 70%, transparent);
-  pointer-events: none;
-}
 
 /* Bouton à voir/vu visible en haut normalement */
 .btn-watch-toggle {
@@ -724,6 +712,8 @@ body {
   font-weight: 600;
   transition: all 0.3s;
   white-space: nowrap;
+  align-self: flex-start;
+  display: block;
 }
 
 .btn-watch-toggle:hover {
@@ -1643,7 +1633,7 @@ body {
 
 .media-category .media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   padding: 0 12px;
   width: 100%;
@@ -1671,14 +1661,14 @@ body {
 /* Responsive pour les catégories */
 @media (max-width: 1200px) {
   .media-category .media-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 14px;
   }
 }
 
 @media (max-width: 768px) {
   .media-category .media-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 12px;
     padding: 0 10px;
   }
@@ -1829,10 +1819,10 @@ body {
   transform: translateX(0);
 }
 
-.toast-success { border-left: 3px solid #2ecc71; }
-.toast-error   { border-left: 3px solid #e74c3c; }
-.toast-info    { border-left: 3px solid #3474db; }
-.toast-warning { border-left: 3px solid #e8a020; }
+.toast-success { border-left: 3px solid var(--color-success); }
+.toast-error   { border-left: 3px solid var(--color-error); }
+.toast-info    { border-left: 3px solid var(--color-primary); }
+.toast-warning { border-left: 3px solid var(--color-warning); }
 
 .toast-icon {
   font-size: 16px;

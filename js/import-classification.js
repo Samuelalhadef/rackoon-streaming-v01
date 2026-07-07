@@ -704,6 +704,8 @@ class ImportClassificationSystem {
     const thumb = document.createElement('img');
     thumb.className = 'episode-chip-thumb';
     thumb.alt = file.title || file.name || '';
+    thumb.draggable = false;
+    thumb.ondragstart = (e) => e.preventDefault();
     window.setupImageWithFallback(thumb, file.id, file.posterUrl || null, file.thumbnail || null, '');
 
     // Info

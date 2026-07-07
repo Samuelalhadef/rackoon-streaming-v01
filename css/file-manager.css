@@ -19,7 +19,7 @@
 
 .child-file-row {
   background: rgba(255, 255, 255, 0.02);
-  border-left: 2px solid rgba(0, 122, 204, 0.3);
+  border-left: 2px solid rgba(var(--color-primary-rgb), 0.3);
 }
 
 .child-file-row:hover {
@@ -809,7 +809,7 @@
 }
 
 .category-row[data-category="documentaires"] {
-  border-left-color: #4caf50;
+  border-left-color: var(--color-success);
 }
 
 .category-row[data-category="documentaires"] .category-icon {
