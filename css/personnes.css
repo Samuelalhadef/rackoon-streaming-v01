@@ -499,13 +499,40 @@
   align-items: flex-start;
 }
 
+.person-photo-edit-area {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.person-photo-edit-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: white;
+  font-size: 1.4rem;
+}
+
+.person-photo-edit-area:hover .person-photo-edit-overlay {
+  opacity: 1;
+}
+
 .person-detail-photo {
   width: 120px;
   height: 120px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
 }
 
 .person-detail-photo-placeholder {
@@ -517,7 +544,6 @@
   align-items: center;
   justify-content: center;
   border: 3px solid rgba(255, 255, 255, 0.1);
-  flex-shrink: 0;
 }
 
 .person-detail-photo-placeholder i {

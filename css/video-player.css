@@ -1,5 +1,128 @@
 /* Lecteur vidéo moderne complet */
 
+/* ========= Mini lecteur ========= */
+.video-player-modal.mini-player {
+  width: 320px;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  background: #000;
+  display: flex;
+  align-items: stretch;
+  cursor: move;
+}
+
+.video-player-modal.mini-player .video-player-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.video-player-modal.mini-player .video-player-element {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-player-modal.mini-player .video-info,
+.video-player-modal.mini-player .video-controls,
+.video-player-modal.mini-player .loading-indicator,
+.video-player-modal.mini-player .speed-menu,
+.video-player-modal.mini-player .audio-menu,
+.video-player-modal.mini-player .subtitle-menu,
+.video-player-modal.mini-player > .close-btn {
+  display: none !important;
+}
+
+.video-player-modal.mini-player button {
+  cursor: pointer;
+}
+
+/* Overlay du mini lecteur (barre top + boutons) */
+.mini-player-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.video-player-modal.mini-player .mini-player-overlay {
+  display: flex;
+}
+
+.video-player-modal.mini-player:hover .mini-player-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mini-player-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 8px 8px 20px;
+  background: linear-gradient(rgba(0, 0, 0, 0.65), transparent);
+}
+
+.mini-player-title {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  margin-right: 4px;
+}
+
+.mini-ctrl-btn {
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.mini-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mini-ctrl-btn .picto-icon {
+  width: 11px;
+  height: 11px;
+}
+
+/* Pictos SVG custom */
+.picto-icon {
+  width: 1em;
+  height: 1em;
+  filter: brightness(0) invert(1);
+  display: block;
+  pointer-events: none;
+}
+
+/* Spinner de chargement (remplace fa-spinner) */
+.spinner-anim {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin-icon 0.8s linear infinite;
+}
+
 /* Modal du lecteur vidéo */
 .video-player-modal {
   position: fixed;
@@ -12,11 +135,16 @@
   display: none;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
 }
 
 .video-player-modal.active {
   display: flex;
+  animation: modalFadeIn 0.25s ease forwards;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Conteneur principal du lecteur */
@@ -39,6 +167,7 @@
 .video-player-element {
   width: 100%;
   height: auto;
+  aspect-ratio: auto 16 / 9; /* fallback 16:9 avant chargement, ratio intrinsèque ensuite */
   display: block;
   background: black;
   outline: none;
@@ -161,11 +290,16 @@
   cursor: grab;
 }
 
-.timeline-thumb:active {
+.timeline-thumb:active,
+.timeline-thumb.dragging {
   cursor: grabbing;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
 }
 
-.timeline-container:hover .timeline-thumb {
+.timeline-container:hover .timeline-thumb,
+.timeline-thumb.dragging {
   opacity: 1;
 }
 
@@ -253,19 +387,52 @@
 
 .volume-slider {
   width: 80px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+}
+
+.volume-slider:active { cursor: grabbing; }
+
+.volume-slider::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
   height: 4px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 2px;
-  position: relative;
-  cursor: pointer;
 }
 
 .volume-progress {
-  height: 100%;
+  height: 4px;
   background: white;
   border-radius: 2px;
   width: 100%;
-  transition: width 0.1s ease;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  transition: width 0.05s ease;
+}
+
+.volume-progress::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.volume-slider:hover .volume-progress::after {
+  opacity: 1;
 }
 
 /* Informations vidéo */
@@ -291,6 +458,10 @@
   font-size: 18px;
   font-weight: var(--weight-bold);
   margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .video-details {
@@ -498,6 +669,11 @@
 @keyframes spin {
   0% { transform: translate(-50%, -50%) rotate(0deg); }
   100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes spin-icon {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Responsive */

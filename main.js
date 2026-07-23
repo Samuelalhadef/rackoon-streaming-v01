@@ -1,4 +1,5 @@
 // Version avec système de stockage JSON
+require('dotenv').config();
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs-extra');
@@ -119,160 +120,9 @@ let localVideoServer; // Serveur HTTP local pour les vidéos locales
 const LOCAL_VIDEO_PORT = 3002; // Port pour le serveur local
 const remuxCache = new Map(); // Cache des fichiers remuxés (path+track -> tempFilePath)
 
-// Système de pré-transcodage en arrière-plan
-const preparedMediaCache = new Map(); // Cache: chemin original -> chemin MP4 préparé
-const transcodeQueue = []; // File d'attente des fichiers à transcoder
-let isTranscoding = false; // Flag pour éviter les transcodages simultanés
-
 // Codecs audio non supportés par les navigateurs
 const UNSUPPORTED_AUDIO = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
 
-// Vérifie si un fichier a besoin d'être pré-transcodé
-async function checkNeedsTranscode(filePath) {
-  if (!FFPROBE_PATH) return { needs: false };
-
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext !== '.mkv') return { needs: false };
-
-  return new Promise((resolve) => {
-    const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -select_streams a:0 "${filePath}"`;
-    exec(command, { encoding: 'utf8' }, (error, stdout) => {
-      if (error) return resolve({ needs: false });
-      try {
-        const data = JSON.parse(stdout);
-        const audioStream = data.streams?.[0];
-        if (audioStream) {
-          const codec = (audioStream.codec_name || '').toLowerCase();
-          const needs = UNSUPPORTED_AUDIO.some(c => codec.includes(c));
-          resolve({ needs, codec });
-        } else {
-          resolve({ needs: false });
-        }
-      } catch (e) {
-        resolve({ needs: false });
-      }
-    });
-  });
-}
-
-// Ajoute un fichier à la file d'attente de pré-transcodage
-function queueForTranscode(filePath) {
-  // Vérifier si déjà en cache ou en file d'attente
-  if (preparedMediaCache.has(filePath)) return;
-  if (transcodeQueue.includes(filePath)) return;
-
-  transcodeQueue.push(filePath);
-  console.log(`📋 Ajouté à la file de transcodage: ${path.basename(filePath)} (${transcodeQueue.length} en attente)`);
-
-  // Démarrer le traitement si pas déjà en cours
-  processTranscodeQueue();
-}
-
-// Traite la file d'attente de transcodage
-async function processTranscodeQueue() {
-  if (isTranscoding || transcodeQueue.length === 0) return;
-
-  isTranscoding = true;
-  const filePath = transcodeQueue.shift();
-
-  try {
-    // Vérifier si vraiment besoin de transcoder
-    const check = await checkNeedsTranscode(filePath);
-    if (!check.needs) {
-      console.log(`⏭️ Pas besoin de transcoder: ${path.basename(filePath)}`);
-      isTranscoding = false;
-      processTranscodeQueue();
-      return;
-    }
-
-    console.log(`🔄 Pré-transcodage en cours: ${path.basename(filePath)} (audio: ${check.codec})`);
-
-    // Notifier le front-end
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('transcode:progress', {
-        file: path.basename(filePath),
-        status: 'processing',
-        remaining: transcodeQueue.length
-      });
-    }
-
-    // Créer le fichier MP4
-    const tempDir = path.join(app.getPath('temp'), 'rackoon-prepared');
-    fs.ensureDirSync(tempDir);
-    const mp4Path = path.join(tempDir, `${path.basename(filePath, path.extname(filePath))}_prepared.mp4`);
-
-    // Si le fichier existe déjà, l'utiliser
-    if (fs.existsSync(mp4Path)) {
-      console.log(`✅ Fichier préparé existant trouvé: ${path.basename(mp4Path)}`);
-      preparedMediaCache.set(filePath, mp4Path);
-      isTranscoding = false;
-      processTranscodeQueue();
-      return;
-    }
-
-    // Lancer FFmpeg pour remux + transcode audio
-    const ffmpegArgs = [
-      '-y',
-      '-i', filePath,
-      '-map', '0:v:0',
-      '-map', '0:a:0',
-      '-c:v', 'copy',         // Copier vidéo (pas de réencodage)
-      '-c:a', 'aac',          // Transcoder audio en AAC
-      '-b:a', '192k',
-      '-ac', '2',
-      '-movflags', '+faststart',
-      mp4Path
-    ];
-
-    const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
-
-    ffmpeg.stderr.on('data', (data) => {
-      const line = data.toString();
-      // Extraire la progression
-      const timeMatch = line.match(/time=(\d+:\d+:\d+)/);
-      if (timeMatch && mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('transcode:progress', {
-          file: path.basename(filePath),
-          status: 'processing',
-          time: timeMatch[1],
-          remaining: transcodeQueue.length
-        });
-      }
-    });
-
-    ffmpeg.on('close', (code) => {
-      if (code === 0 && fs.existsSync(mp4Path)) {
-        const size = Math.round(fs.statSync(mp4Path).size / 1024 / 1024);
-        console.log(`✅ Pré-transcodage terminé: ${path.basename(mp4Path)} (${size}MB)`);
-        preparedMediaCache.set(filePath, mp4Path);
-
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('transcode:progress', {
-            file: path.basename(filePath),
-            status: 'done',
-            remaining: transcodeQueue.length
-          });
-        }
-      } else {
-        console.error(`❌ Erreur pré-transcodage: ${path.basename(filePath)}`);
-      }
-
-      isTranscoding = false;
-      processTranscodeQueue(); // Traiter le suivant
-    });
-
-    ffmpeg.on('error', (err) => {
-      console.error('❌ Erreur FFmpeg:', err);
-      isTranscoding = false;
-      processTranscodeQueue();
-    });
-
-  } catch (err) {
-    console.error('Erreur processTranscodeQueue:', err);
-    isTranscoding = false;
-    processTranscodeQueue();
-  }
-}
 
 // Créer la fenêtre principale
 function createWindow() {
@@ -289,6 +139,29 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'views', 'dashboard.html'));
+
+  // Une fois le renderer chargé, re-notifier les médias en cours de conversion
+  // (les IPC envoyés pendant le chargement initial sont perdus)
+  mainWindow.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      if (!audioQueue) return;
+      try {
+        // Notifier tous les médias pour que le renderer ait l'état à jour
+        // (les événements envoyés pendant le démarrage peuvent avoir été manqués)
+        const allStatuses = db.getAllAudioStatuses();
+        Object.entries(allStatuses).forEach(([mediaId, info]) => {
+          audioQueue._notify(mediaId, info.status || 'ok', info.convertedPath || null);
+        });
+        // Réenclencher les conversions réellement en attente
+        const pending = db.getPendingAudioMedias();
+        for (const m of pending) {
+          if (fs.existsSync(m.path)) audioQueue.enqueue(m.id, m.path);
+        }
+      } catch (e) {
+        console.error('[STARTUP-NOTIFY-ERR]', e);
+      }
+    }, 300);
+  });
 
   // Ouvrir les outils de développement en mode développement
   if (!app.isPackaged) {
@@ -777,7 +650,7 @@ async function startNgrokTunnel() {
     ngrokListener = await ngrok.forward({
       addr: 3001,
       authtoken_from_env: false,
-      authtoken: '34W5DZF9aEoPLb1T43dJkLEF0dK_3Ut4CCBA81YCc8dbnenDe'
+      authtoken: process.env.NGROK_AUTHTOKEN || ''
     });
 
     ngrokUrl = ngrokListener.url();
@@ -811,6 +684,235 @@ async function stopNgrokTunnel() {
   } catch (error) {
     console.error('❌ Erreur arrêt ngrok:', error.message);
     return { success: false, error: error.message };
+  }
+}
+
+// ── Audio Conversion Queue ────────────────────────────────────────────────────
+
+let audioQueue = null;
+
+class AudioConversionQueue {
+  constructor() {
+    this.checking = new Set();       // mediaIds en cours de détection codec
+    this.pendingCheckQueue = [];     // {mediaId, filePath} en attente de slot
+    this.activeChecks = 0;
+    this.MAX_CONCURRENT_CHECKS = 4; // max FFprobe simultanés
+    this.conversionQueue = [];       // file sérialisée pour la conversion FFmpeg
+    this.isConverting = false;
+    this.UNSUPPORTED = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
+  }
+
+  enqueue(mediaId, filePath) {
+    if (this.checking.has(mediaId)) return;
+    if (this.conversionQueue.find(j => j.mediaId === mediaId)) return;
+    this.checking.add(mediaId);
+    if (this.activeChecks < this.MAX_CONCURRENT_CHECKS) {
+      this.activeChecks++;
+      this._checkAndEnqueueConversion(mediaId, filePath);
+    } else {
+      this.pendingCheckQueue.push({ mediaId, filePath });
+    }
+  }
+
+  _drainCheckQueue() {
+    while (this.pendingCheckQueue.length > 0 && this.activeChecks < this.MAX_CONCURRENT_CHECKS) {
+      const next = this.pendingCheckQueue.shift();
+      this.activeChecks++;
+      this._checkAndEnqueueConversion(next.mediaId, next.filePath);
+    }
+  }
+
+  async _checkAndEnqueueConversion(mediaId, filePath) {
+    try {
+      if (!fs.existsSync(filePath)) {
+        db.updateAudioStatus(mediaId, 'error', null);
+        this._notify(mediaId, 'error', null);
+        return;
+      }
+      const codec = await this._detectCodec(filePath);
+      const needsConversion = codec && this.UNSUPPORTED.some(c => codec.includes(c));
+      if (!needsConversion) {
+        db.updateAudioStatus(mediaId, 'ok', null);
+        this._notify(mediaId, 'ok', null);
+      } else {
+        this.conversionQueue.push({ mediaId, filePath, codec });
+        if (!this.isConverting) this._processConversion();
+      }
+    } catch (e) {
+      console.error('Audio check error:', e);
+      try { db.updateAudioStatus(mediaId, 'error', null); } catch {}
+      this._notify(mediaId, 'error', null);
+    } finally {
+      this.checking.delete(mediaId);
+      this.activeChecks--;
+      this._drainCheckQueue();
+    }
+  }
+
+  async _detectCodec(filePath) {
+    if (!FFPROBE_PATH || !fs.existsSync(filePath)) return null;
+    return new Promise((resolve) => {
+      const proc = spawn(FFPROBE_PATH, [
+        '-v', 'quiet', '-print_format', 'json', '-show_streams', filePath
+      ]);
+      let out = '';
+      const timer = setTimeout(() => {
+        console.warn('FFprobe timeout sur:', filePath);
+        try { proc.kill(); } catch {}
+        resolve(null);
+      }, 30000);
+      proc.stdout.on('data', d => { out += d; });
+      proc.on('close', () => {
+        clearTimeout(timer);
+        try {
+          const data = JSON.parse(out);
+          const audio = (data.streams || []).find(s => s.codec_type === 'audio');
+          resolve(audio ? audio.codec_name.toLowerCase() : null);
+        } catch { resolve(null); }
+      });
+      proc.on('error', () => { clearTimeout(timer); resolve(null); });
+    });
+  }
+
+  async _convert(filePath, onProgress) {
+    if (!FFMPEG_PATH) return null;
+    const convertedDir = path.join(DATA_DIR, 'converted-audio');
+    fs.ensureDirSync(convertedDir);
+
+    const baseName = path.basename(filePath, path.extname(filePath))
+      .replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+
+    // Détecter le codec vidéo AVANT le cache check pour choisir le bon nom de fichier
+    // (HEVC → fichier _h264aac.mp4 séparé pour ne pas cacher d'anciens fichiers mal convertis)
+    let videoCodecArgs = ['-c:v', 'copy'];
+    let needsVideoTranscode = false;
+    if (FFPROBE_PATH) {
+      try {
+        const probeOut = await new Promise((res) => {
+          const p = spawn(FFPROBE_PATH, ['-v', 'quiet', '-print_format', 'json', '-show_streams', filePath]);
+          let out = '';
+          p.stdout.on('data', d => { out += d; });
+          p.on('close', () => res(out));
+          p.on('error', () => res(''));
+        });
+        const streams = JSON.parse(probeOut).streams || [];
+        const videoStream = streams.find(s => s.codec_type === 'video');
+        const videoCodec = (videoStream?.codec_name || '').toLowerCase();
+        if (videoCodec.includes('hevc') || videoCodec.includes('h265')) {
+          console.log(`⚠️ Codec vidéo HEVC détecté — transcodage en H.264`);
+          needsVideoTranscode = true;
+          videoCodecArgs = ['-c:v', 'libx264', '-preset', 'fast', '-crf', '22'];
+        }
+      } catch {}
+    }
+
+    const suffix = needsVideoTranscode ? '_h264aac' : '_aac';
+    const outputPath = path.join(convertedDir, `${baseName}${suffix}.mp4`);
+
+    if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 512 * 1024) {
+      return outputPath;
+    }
+
+    return new Promise((resolve) => {
+      const args = [
+        '-y', '-i', filePath,
+        '-map', '0:v:0', '-map', '0:a',
+        ...videoCodecArgs, '-c:a', 'aac', '-b:a', '192k',
+        '-movflags', '+faststart',
+        outputPath
+      ];
+      const proc = spawn(FFMPEG_PATH, args);
+      let lastProgress = 0;
+      let totalDuration = 0;
+      let stderrBuf = '';
+
+      proc.stderr.on('data', (data) => {
+        stderrBuf += data.toString();
+
+        // Chercher la durée dans le buffer accumulé (peut arriver en plusieurs morceaux)
+        if (totalDuration <= 0) {
+          const dm = stderrBuf.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+          if (dm) {
+            totalDuration = parseInt(dm[1]) * 3600 + parseInt(dm[2]) * 60 + parseFloat(dm[3]);
+          }
+        }
+
+        // Parser la progression une fois la durée connue
+        if (totalDuration > 0 && onProgress) {
+          const lines = stderrBuf.split(/\r\n|\r|\n/);
+          stderrBuf = lines.pop() || '';
+          for (const line of lines) {
+            const tm = line.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
+            if (tm) {
+              const cur = parseInt(tm[1]) * 3600 + parseInt(tm[2]) * 60 + parseFloat(tm[3]);
+              const pct = Math.min(99, Math.round((cur / totalDuration) * 100));
+              if (pct > lastProgress) { lastProgress = pct; onProgress(pct); }
+            }
+          }
+        }
+      });
+
+      proc.on('close', (code) => {
+        if (code === 0 && fs.existsSync(outputPath) && fs.statSync(outputPath).size > 512 * 1024) {
+          resolve(outputPath);
+        } else {
+          try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+          resolve(null);
+        }
+      });
+      proc.on('error', () => resolve(null));
+    });
+  }
+
+  _notify(mediaId, status, convertedPath, progress = null) {
+    try {
+      const payload = { mediaId, status, convertedPath };
+      if (progress !== null) payload.progress = progress;
+      const json = JSON.stringify(payload);
+      BrowserWindow.getAllWindows().forEach(w => {
+        if (!w.isDestroyed()) {
+          // IPC classique (pour le preload listener)
+          w.webContents.send('audio:statusUpdate', payload);
+          // Injection directe via executeJavaScript (contourne tout problème IPC/contextBridge)
+          w.webContents.executeJavaScript(
+            `if(typeof window.__onAudioStatus==='function')window.__onAudioStatus(${json})`
+          ).catch(() => {});
+        }
+      });
+    } catch (e) {
+      console.error('[NOTIFY-ERR]', e);
+    }
+  }
+
+  async _processConversion() {
+    if (!this.conversionQueue || this.conversionQueue.length === 0) { this.isConverting = false; return; }
+    this.isConverting = true;
+    const job = this.conversionQueue.shift();
+
+    try {
+      console.log(`Converting audio (${job.codec}) for: ${path.basename(job.filePath)}`);
+      db.updateAudioStatus(job.mediaId, 'converting', null);
+      this._notify(job.mediaId, 'converting', null);
+
+      const converted = await this._convert(job.filePath, (pct) => {
+        this._notify(job.mediaId, 'converting', null, pct);
+      });
+      if (converted) {
+        db.updateAudioStatus(job.mediaId, 'ok', converted);
+        this._notify(job.mediaId, 'ok', converted);
+        console.log(`Audio conversion done: ${path.basename(converted)}`);
+      } else {
+        db.updateAudioStatus(job.mediaId, 'error', null);
+        this._notify(job.mediaId, 'error', null);
+        console.error(`Audio conversion failed for: ${path.basename(job.filePath)}`);
+      }
+    } catch (e) {
+      console.error('AudioConversionQueue error:', e);
+      try { db.updateAudioStatus(job.mediaId, 'error', null); } catch {}
+      this._notify(job.mediaId, 'error', null);
+    }
+
+    this._processConversion();
   }
 }
 
@@ -934,6 +1036,12 @@ function setupIPCHandlers() {
     }
   });
 
+  // Statuts de conversion audio
+  ipcMain.handle('audio:getStatuses', () => {
+    try { return { success: true, statuses: db.getAllAudioStatuses() }; }
+    catch (e) { return { success: false, statuses: {} }; }
+  });
+
   // Obtenir tous les films depuis la base JSON
   ipcMain.handle('medias:getAll', async () => {
     try {
@@ -952,22 +1060,17 @@ function setupIPCHandlers() {
   // Obtenir les détails d'un film spécifique
   ipcMain.handle('medias:getDetails', async (event, mediaId) => {
     try {
-      const medias = await db.getAllMedias();
-      const media = medias.find(m => m.id === mediaId);
-      
+      const media = await db.getMediaById(mediaId);
+
       if (!media) {
         return { success: false, message: 'Film introuvable' };
-      }
-
-      // Vérifier si le fichier existe toujours
-      if (!fs.existsSync(media.path)) {
-        return { success: false, message: 'Fichier vidéo introuvable sur le disque' };
       }
 
       return {
         success: true,
         media: {
           ...media,
+          fileExists: fs.existsSync(media.path),
           description: media.description || '',
           genres: media.genres || [],
           releaseDate: media.releaseDate || '',
@@ -1043,6 +1146,18 @@ function setupIPCHandlers() {
     }
   });
 
+  // Mettre à jour le statut vu/à voir d'une série
+  ipcMain.handle('userPrefs:updateWatchedSeries', async (event, seriesId, isWatched) => {
+    try {
+      const result = await db.updateWatchedSeries(seriesId, isWatched);
+      console.log(`👁️ Série ${seriesId}: ${isWatched ? 'vu' : 'à voir'}`);
+      return result;
+    } catch (error) {
+      console.error('Erreur updateWatchedSeries:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
   // Mettre à jour le statut vu/à voir
   ipcMain.handle('userPrefs:updateWatchStatus', async (event, mediaId, isWatched) => {
     try {
@@ -1064,6 +1179,17 @@ function setupIPCHandlers() {
       return result;
     } catch (error) {
       console.error('Erreur lors de la mise à jour de la note:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
+  ipcMain.handle('series:updateRating', async (event, seriesId, rating) => {
+    try {
+      const result = await db.updateSeriesRating(seriesId, rating);
+      console.log(`⭐ Note série mise à jour pour ${seriesId}: ${rating}/5`);
+      return result;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la note série:', error);
       return { success: false, message: error.message };
     }
   });
@@ -1212,15 +1338,52 @@ function setupIPCHandlers() {
       const allMedias = await db.getAllMedias();
       let existingMedia = null;
 
-      console.log('🔍 Recherche du média avec le chemin:', fileData.filePath);
+      // Normaliser le chemin (gère les différences barres obliques Windows)
+      const normalizedFilePath = fileData.filePath.replace(/\\/g, '/');
+      console.log('🔍 Recherche du média:', normalizedFilePath);
 
       if (allMedias && Array.isArray(allMedias)) {
-        console.log('🗂️ Médias disponibles:', allMedias.map(m => m.path).slice(0, 3));
-        existingMedia = allMedias.find(m => m.path === fileData.filePath);
+        existingMedia = allMedias.find(m =>
+          m.path === fileData.filePath ||
+          m.path.replace(/\\/g, '/') === normalizedFilePath
+        );
       }
 
+      // Champs enrichis communs aux deux branches
+      const enrichedFields = {
+        title: fileData.title,
+        category: fileData.category || 'unsorted',
+        mediaType: fileData.seriesId ? 'series' : (fileData.mediaType || 'unique'),
+        description: fileData.description || '',
+        year: fileData.year || null,
+        genres: fileData.genres || [],
+        director: fileData.director || '',
+        actors: fileData.actors || [],
+        franchise: fileData.franchise || '',
+        posterUrl: fileData.posterUrl || '',
+        platform: fileData.platform || '',
+        country: fileData.country || '',
+        studios: fileData.studios || [],
+        releaseDate: fileData.releaseDate || null,
+        seriesId: fileData.seriesId || null,
+        seriesName: fileData.seriesName || null,
+        season_number: fileData.season_number || null,
+        episode_number: fileData.episode_number || null
+      };
+
       if (!existingMedia) {
-        console.log('⚠️ Média non trouvé par chemin, vérification doublons…');
+        console.log('⚠️ Média non trouvé dans la liste — tentative de mise à jour directe par chemin...');
+
+        // Tenter une mise à jour directe (au cas où le chemin est en DB mais pas dans la liste JS)
+        for (const tryPath of [...new Set([fileData.filePath, normalizedFilePath])]) {
+          const tryUpdate = await db.updateMedia({ path: tryPath, ...enrichedFields });
+          if (tryUpdate.success) {
+            console.log(`✅ Mise à jour directe réussie: ${fileData.title}`);
+            return { ...tryUpdate, movieId: tryUpdate.media.id };
+          }
+        }
+
+        console.log('⚠️ Pas encore en DB, vérification doublons et création…');
 
         const stats = fs.statSync(fileData.filePath);
 
@@ -1235,7 +1398,11 @@ function setupIPCHandlers() {
             Math.abs(m.duration - meta.duration) <= 2
           );
           if (dup) {
-            console.log(`⚠️ Doublon détecté: "${dup.title}" (même taille + durée)`);
+            console.log(`⚠️ Doublon détecté: "${dup.title}" — mise à jour avec les nouvelles infos`);
+            const dupUpdate = await db.updateMediaById(dup.id, enrichedFields);
+            if (dupUpdate.success) {
+              return { ...dupUpdate, movieId: dup.id };
+            }
             return { success: false, duplicate: true, existingId: dup.id, existingTitle: dup.title, message: `Doublon de "${dup.title}"` };
           }
         }
@@ -1256,28 +1423,8 @@ function setupIPCHandlers() {
         const mediaData = {
           id: crypto.randomUUID(),
           path: fileData.filePath,
-          title: fileData.title,
-          category: fileData.category || 'unsorted',
-          mediaType: fileData.mediaType || (fileData.category === 'series' ? 'series' : 'unique'),
+          ...enrichedFields,
           thumbnail: thumbnailName,
-
-          // Champs enrichis
-          description: fileData.description || '',
-          year: fileData.year || null,
-          genres: fileData.genres || [],
-          director: fileData.director || '',
-          actors: fileData.actors || [],
-          franchise: fileData.franchise || '',
-          posterUrl: fileData.posterUrl || '',
-
-          // Champs pour séries
-          releaseDate: fileData.releaseDate || null,
-          seriesId: fileData.seriesId || null,
-          seriesName: fileData.seriesName || null,
-          season_number: fileData.season_number || null,
-          episode_number: fileData.episode_number || null,
-
-          // Métadonnées de base + vidéo
           name: path.basename(fileData.filePath),
           size_bytes: stats.size,
           formattedSize: formatFileSize(stats.size),
@@ -1293,12 +1440,19 @@ function setupIPCHandlers() {
         if (result.success) {
           console.log(`💾 Nouveau média créé: ${mediaData.title} (catégorie: ${mediaData.category})`);
 
-          // Pré-transcoder si c'est un MKV avec audio non compatible
-          if (path.extname(fileData.filePath).toLowerCase() === '.mkv') {
-            queueForTranscode(fileData.filePath);
-          }
+          // Vérifier/convertir l'audio en arrière-plan
+          if (audioQueue) audioQueue.enqueue(mediaData.id, fileData.filePath);
 
           return { ...result, movieId: mediaData.id, duration: mediaData.duration, thumbnail: mediaData.thumbnail };
+        }
+
+        // Fallback : chemin déjà en DB mais non trouvé — mettre à jour quand même
+        if (result.message === 'Média déjà existant') {
+          console.log('⚠️ Chemin déjà en DB (fallback) — mise à jour forcée...');
+          const fallbackUpdate = await db.updateMedia({ path: fileData.filePath, ...enrichedFields });
+          if (fallbackUpdate.success) {
+            return { ...fallbackUpdate, movieId: fallbackUpdate.media.id };
+          }
         }
 
         return result;
@@ -1308,26 +1462,8 @@ function setupIPCHandlers() {
 
       // Créer l'objet complet en combinant les nouvelles données avec les métadonnées existantes
       const mediaData = {
-        ...existingMedia, // Reprendre toutes les métadonnées existantes
-        title: fileData.title,
-        category: fileData.category || 'unsorted',
-        mediaType: fileData.mediaType || (fileData.category === 'series' ? 'series' : 'unique'),
-
-        // Champs enrichis
-        description: fileData.description || '',
-        year: fileData.year || null,
-        genres: fileData.genres || [],
-        director: fileData.director || '',
-        actors: fileData.actors || [],
-        franchise: fileData.franchise || '',
-        posterUrl: fileData.posterUrl || '',
-
-        // Champs pour les séries
-        releaseDate: fileData.releaseDate || null,
-        seriesId: fileData.seriesId || null,
-        seriesName: fileData.seriesName || null,
-        season_number: fileData.season_number || null,
-        episode_number: fileData.episode_number || null
+        ...existingMedia,
+        ...enrichedFields
       };
 
       // Toujours utiliser updateMedia - ne plus supprimer puis ajouter à une série
@@ -1388,6 +1524,17 @@ function setupIPCHandlers() {
     } catch (error) {
       console.error('Erreur lors de l\'ouverture du dossier:', error);
       return { success: false, message: 'Erreur: ' + error.message };
+    }
+  });
+
+  // Ouvrir un dossier dans l'explorateur de fichiers
+  ipcMain.handle('shell:openFolder', async (event, folderPath) => {
+    try {
+      await shell.openPath(folderPath);
+      return { success: true };
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture du dossier:', error);
+      return { success: false, message: error.message };
     }
   });
 
@@ -1763,49 +1910,29 @@ function setupIPCHandlers() {
             console.log('🎬 Commande:', command);
             console.log('📊 Type codec:', codecName);
 
-            exec(command, { timeout: 30000 }, (extractError, extractStdout, extractStderr) => {
+            exec(command, { timeout: 120000 }, (extractError, extractStdout, extractStderr) => {
               if (extractError) {
                 console.error('❌ Erreur extraction sous-titres:', extractError.message);
-                console.error('❌ Stderr:', extractStderr);
-                
-                // Si c'est un sous-titre PGS/bitmap et que la conversion OCR échoue, essayer l'extraction brute
-                if (codecName === 'hdmv_pgs_subtitle' || codecName === 'pgssub') {
+
+                // Si le fichier existe malgré l'erreur (timeout arrivé pile à la fin FFmpeg), l'utiliser
+                if (fs.existsSync(subtitlePath) && fs.statSync(subtitlePath).size > 50) {
+                  console.log('⚠️ Timeout mais fichier utilisable:', subtitlePath);
+                  // pas de return : on tombe dans la vérification du fichier ci-dessous
+                } else if (codecName === 'hdmv_pgs_subtitle' || codecName === 'pgssub') {
                   console.log('🔄 Échec OCR, tentative d\'extraction PGS brute...');
-                  
-                  // Changer le chemin et la commande pour extraction SUP
                   const supPath = path.join(tempDir, `${videoName}_track_${trackIndex}.sup`);
                   const supCommand = `"${FFMPEG_PATH}" -y -i "${videoPath}" -map 0:s:${trackIndex} -c:s copy "${supPath}"`;
-                  
-                  exec(supCommand, { timeout: 30000 }, (supError, supStdout, supStderr) => {
+                  exec(supCommand, { timeout: 120000 }, (supError, supStdout, supStderr) => {
                     if (supError) {
-                      resolve({ 
-                        success: false, 
-                        message: `Impossible d'extraire les sous-titres PGS: ${supError.message}`,
-                        codecType: codecName
-                      });
+                      resolve({ success: false, message: `Impossible d'extraire les sous-titres PGS: ${supError.message}`, codecType: codecName });
                       return;
                     }
-                    
                     if (fs.existsSync(supPath)) {
-                      // Essayer de convertir le SUP en SRT avec un outil externe si possible
                       tryConvertSupToSrt(supPath, subtitlePath).then((converted) => {
                         if (converted) {
-                          console.log('✅ Sous-titre PGS converti en SRT:', subtitlePath);
-                          resolve({ 
-                            success: true, 
-                            subtitlePath: subtitlePath,
-                            codecType: codecName,
-                            format: 'srt',
-                            converted: true
-                          });
+                          resolve({ success: true, subtitlePath, codecType: codecName, format: 'srt', converted: true });
                         } else {
-                          console.log('⚠️ Sous-titre PGS extrait mais non converti:', supPath);
-                          resolve({ 
-                            success: false, 
-                            message: 'Les sous-titres PGS ont été extraits mais ne peuvent pas être convertis automatiquement en texte.\nUtilisez un lecteur externe comme VLC pour les afficher.',
-                            codecType: codecName,
-                            extractedPath: supPath
-                          });
+                          resolve({ success: false, message: 'Les sous-titres PGS ont été extraits mais ne peuvent pas être convertis automatiquement.\nUtilisez un lecteur externe comme VLC.', codecType: codecName, extractedPath: supPath });
                         }
                       });
                     } else {
@@ -1813,30 +1940,20 @@ function setupIPCHandlers() {
                     }
                   });
                   return;
-                }
-                
-                // Pour les autres types de sous-titres
-                if (codecName === 'dvd_subtitle') {
-                  resolve({ 
-                    success: false, 
-                    message: `Les sous-titres DVD sont des images et ne peuvent pas être convertis automatiquement.\nUtilisez un lecteur externe comme VLC.`,
-                    codecType: codecName
-                  });
+                } else if (codecName === 'dvd_subtitle') {
+                  resolve({ success: false, message: 'Les sous-titres DVD sont des images et ne peuvent pas être convertis automatiquement.\nUtilisez un lecteur externe comme VLC.', codecType: codecName });
+                  return;
                 } else {
-                  resolve({ success: false, message: 'Erreur d\'extraction: ' + extractError.message });
+                  const detail = extractStderr ? extractStderr.split('\n').slice(-3).join(' ').trim() : extractError.message;
+                  resolve({ success: false, message: `Erreur d'extraction (${codecName}): ${detail}` });
+                  return;
                 }
-                return;
               }
 
-              // Vérifier que le fichier a été créé
+              // Vérifier que le fichier a été créé (succès normal ou récupération après timeout)
               if (fs.existsSync(subtitlePath)) {
                 console.log('✅ Sous-titre extrait:', subtitlePath);
-                resolve({ 
-                  success: true, 
-                  subtitlePath: subtitlePath,
-                  codecType: codecName,
-                  format: path.extname(subtitlePath).slice(1)
-                });
+                resolve({ success: true, subtitlePath, codecType: codecName, format: path.extname(subtitlePath).slice(1) });
               } else {
                 resolve({ success: false, message: 'Le fichier de sous-titres n\'a pas été créé' });
               }
@@ -1865,7 +1982,21 @@ function setupIPCHandlers() {
       console.log('📖 Lecture fichier sous-titres:', subtitlePath);
       
       // Lire le contenu du fichier
-      const content = fs.readFileSync(subtitlePath, 'utf8');
+      // Essayer UTF-8 d'abord ; si on détecte du Mojibake (caractères de remplacement Latin-1
+      // courants en UTF-8), relire en latin1 et réencoder en UTF-8
+      let content;
+      const rawBuffer = fs.readFileSync(subtitlePath);
+      // Détecter BOM UTF-8
+      const hasBOM = rawBuffer[0] === 0xEF && rawBuffer[1] === 0xBB && rawBuffer[2] === 0xBF;
+      const bufferToDecode = hasBOM ? rawBuffer.slice(3) : rawBuffer;
+      const utf8Attempt = bufferToDecode.toString('utf8');
+      // Heuristique : si le décodage UTF-8 produit des caractères de remplacement (U+FFFD),
+      // le fichier est probablement Latin-1 (Windows-1252)
+      if (utf8Attempt.includes('�')) {
+        content = bufferToDecode.toString('latin1');
+      } else {
+        content = utf8Attempt;
+      }
       
       // Déterminer le type MIME selon l'extension
       const ext = path.extname(subtitlePath).toLowerCase();
@@ -1993,7 +2124,7 @@ function setupIPCHandlers() {
       console.log('🔍 Recherche conversion pour:', basename);
 
       // Vérifier d'abord la version demandée
-      const requestedSuffix = transcodeVideo ? '_h264_aac' : '_aac';
+      const requestedSuffix = transcodeVideo ? '_h264aac' : '_aac';
       const requestedPath = path.join(convertedDir, `${basename}${requestedSuffix}.mp4`);
 
       if (fs.existsSync(requestedPath)) {
@@ -2037,7 +2168,7 @@ function setupIPCHandlers() {
 
       // Si on demande audio seulement mais qu'une version vidéo+audio existe, l'utiliser
       if (!transcodeVideo) {
-        const videoTranscodePath = path.join(convertedDir, `${basename}_h264_aac.mp4`);
+        const videoTranscodePath = path.join(convertedDir, `${basename}_h264aac.mp4`);
         if (fs.existsSync(videoTranscodePath)) {
           const stat = fs.statSync(videoTranscodePath);
           console.log('✅ Version vidéo+audio trouvée:', videoTranscodePath);
@@ -2092,7 +2223,7 @@ function setupIPCHandlers() {
       basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
       // Suffixe différent si on transcode aussi la vidéo ou si plusieurs pistes audio
       const trackSuffix = audioTracks.length > 1 ? `_${audioTracks.length}audio` : '';
-      const suffix = transcodeVideo ? `_h264_aac${trackSuffix}` : `_aac${trackSuffix}`;
+      const suffix = transcodeVideo ? `_h264aac${trackSuffix}` : `_aac${trackSuffix}`;
       const convertedPath = path.join(convertedDir, `${basename}${suffix}.mp4`);
       console.log('📁 Fichier de sortie:', convertedPath);
 
@@ -2497,6 +2628,56 @@ function setupIPCHandlers() {
     }
   });
 
+  // ── Tags IPC ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle('tags:getAll', async () => {
+    try { return await db.getAllTags(); }
+    catch (error) { return { success: false, message: error.message }; }
+  });
+
+  ipcMain.handle('tags:addPredefined', async (event, category, tag) => {
+    try { return await db.addPredefinedTag(category, tag); }
+    catch (error) { return { success: false, message: error.message }; }
+  });
+
+  ipcMain.handle('tags:rename', async (event, category, oldTag, newTag) => {
+    try { return await db.renameTag(category, oldTag, newTag); }
+    catch (error) { return { success: false, message: error.message }; }
+  });
+
+  ipcMain.handle('tags:delete', async (event, category, tag) => {
+    try { return await db.deleteTag(category, tag); }
+    catch (error) { return { success: false, message: error.message }; }
+  });
+
+  // ── Progress IPC ──────────────────────────────────────────────────────────
+
+  ipcMain.handle('progress:save', async (event, mediaId, progressPct, currentTimeSec, seriesInfo) => {
+    try { return db.savePlayProgress(mediaId, progressPct, currentTimeSec, seriesInfo); }
+    catch (error) { return { success: false, message: error.message }; }
+  });
+
+  ipcMain.handle('progress:getAll', async () => {
+    try { return { success: true, ...db.getAllProgress() }; }
+    catch (error) { return { success: false, playProgress: {}, seriesProgress: {} }; }
+  });
+
+  ipcMain.handle('persons:uploadPhoto', async (event, personId, base64Data, ext) => {
+    try {
+      const photosDir = path.join(DATA_DIR, 'person-photos');
+      fs.ensureDirSync(photosDir);
+      const sanitizedId = personId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `person_${sanitizedId}_${Date.now()}${ext}`;
+      const filePath = path.join(photosDir, fileName);
+      fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+      await db.updatePerson(personId, { photo: fileName });
+      return { success: true, fileName };
+    } catch (error) {
+      console.error('Erreur uploadPersonPhoto:', error);
+      return { success: false, message: error.message };
+    }
+  });
+
   // ========================================
   // WATCH PARTY IPC HANDLERS
   // ========================================
@@ -2690,45 +2871,6 @@ function startLocalVideoServer() {
       const range = req.headers.range;
       const ext = path.extname(videoPath).toLowerCase();
 
-      // Si c'est un fichier MKV avec fichier pré-transcodé disponible
-      if (ext === '.mkv' && preparedMediaCache.has(videoPath)) {
-        const mp4Path = preparedMediaCache.get(videoPath);
-        if (fs.existsSync(mp4Path)) {
-          console.log(`✅ Utilisation du fichier pré-transcodé: ${path.basename(mp4Path)}`);
-
-          const mp4Stat = fs.statSync(mp4Path);
-          const mp4Size = mp4Stat.size;
-
-          if (range) {
-            const parts = range.replace(/bytes=/, "").split("-");
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : mp4Size - 1;
-            const chunksize = (end - start) + 1;
-            const file = fs.createReadStream(mp4Path, { start, end });
-
-            res.writeHead(206, {
-              'Content-Range': `bytes ${start}-${end}/${mp4Size}`,
-              'Accept-Ranges': 'bytes',
-              'Content-Length': chunksize,
-              'Content-Type': 'video/mp4',
-              'Access-Control-Allow-Origin': '*'
-            });
-
-            file.pipe(res);
-          } else {
-            res.writeHead(200, {
-              'Content-Length': mp4Size,
-              'Content-Type': 'video/mp4',
-              'Accept-Ranges': 'bytes',
-              'Access-Control-Allow-Origin': '*'
-            });
-
-            fs.createReadStream(mp4Path).pipe(res);
-          }
-          return;
-        }
-      }
-
       // Si transcodage audio demandé (codec non supporté comme AC3, DTS)
       if (transcode && FFMPEG_PATH) {
         const cacheKey = `${videoPath}|transcode`;
@@ -2739,7 +2881,7 @@ function startLocalVideoServer() {
         const convertedDir = path.join(DATA_DIR, 'converted-audio');
 
         // Vérifier d'abord la version avec vidéo transcodée (HEVC → H.264), puis audio seulement
-        const videoTranscodePath = path.join(convertedDir, `${basename}_h264_aac.mp4`);
+        const videoTranscodePath = path.join(convertedDir, `${basename}_h264aac.mp4`);
         const audioTranscodePath = path.join(convertedDir, `${basename}_aac.mp4`);
         const permanentPath = fs.existsSync(videoTranscodePath) ? videoTranscodePath : audioTranscodePath;
 
@@ -2873,6 +3015,13 @@ function startLocalVideoServer() {
         let conversionStarted = false;
         let streamingStarted = false;
         let headerSent = false;
+
+        // Tuer FFmpeg si le client se déconnecte pendant le streaming
+        req.on('close', () => {
+          ffmpeg.kill('SIGKILL');
+          if (ffmpeg.streamInterval) clearInterval(ffmpeg.streamInterval);
+          try { if (fs.existsSync(streamTempPath)) fs.unlinkSync(streamTempPath); } catch {}
+        });
 
         ffmpeg.stderr.on('data', (data) => {
           ffmpegError += data.toString();
@@ -3049,18 +3198,19 @@ function startLocalVideoServer() {
           // Créer un fichier temporaire pour le remux
           const tempDir = path.join(app.getPath('temp'), 'rackoon-remux');
           fs.ensureDirSync(tempDir);
-          const tempPath = path.join(tempDir, `${path.basename(videoPath, path.extname(videoPath))}_track${audioTrack}.mkv`);
+          const tempPath = path.join(tempDir, `${path.basename(videoPath, path.extname(videoPath))}_track${audioTrack}.mp4`);
 
           console.log(`🎵 Création du fichier remuxé pour piste audio ${audioTrack}: ${path.basename(videoPath)}`);
 
-          // Utiliser FFmpeg pour créer le fichier remuxé
+          // Utiliser FFmpeg pour créer le fichier remuxé (transcodage audio en AAC pour compatibilité)
           const ffmpegArgs = [
             '-i', videoPath,
-            '-map', '0:v',  // Toutes les pistes vidéo
-            '-map', `0:a:${audioTrack}`,  // Piste audio sélectionnée
-            '-map', '0:s?',  // Tous les sous-titres (optionnel)
-            '-c', 'copy',  // Copier sans réencoder
-            '-y',  // Overwrite
+            '-map', '0:v:0',
+            '-map', `0:a:${audioTrack}`,
+            '-c:v', 'copy',
+            '-c:a', 'aac', '-b:a', '192k',
+            '-movflags', '+faststart',
+            '-y',
             tempPath
           ];
 
@@ -3090,7 +3240,7 @@ function startLocalVideoServer() {
                   'Content-Range': `bytes ${start}-${end}/${tempSize}`,
                   'Accept-Ranges': 'bytes',
                   'Content-Length': chunksize,
-                  'Content-Type': 'video/x-matroska',
+                  'Content-Type': 'video/mp4',
                   'Access-Control-Allow-Origin': '*'
                 });
 
@@ -3098,7 +3248,7 @@ function startLocalVideoServer() {
               } else {
                 res.writeHead(200, {
                   'Content-Length': tempSize,
-                  'Content-Type': 'video/x-matroska',
+                  'Content-Type': 'video/mp4',
                   'Accept-Ranges': 'bytes',
                   'Access-Control-Allow-Origin': '*'
                 });
@@ -3250,6 +3400,22 @@ app.whenReady().then(async () => {
   const ffmpegInstalled = checkFfmpegInstalled();
 
   setupIPCHandlers();
+
+  // Initialiser la file de conversion audio pour les médias existants
+  audioQueue = new AudioConversionQueue();
+  try {
+    const pending = db.getPendingAudioMedias();
+    console.log(`Audio: vérification de ${pending.length} média(s) en attente`);
+    for (const m of pending) {
+      if (fs.existsSync(m.path)) {
+        audioQueue.enqueue(m.id, m.path);
+      } else {
+        db.updateAudioStatus(m.id, 'error', null);
+      }
+    }
+  } catch (e) {
+    console.error('Erreur initialisation file audio:', e);
+  }
 
   // Démarrer le serveur vidéo local pour le streaming avec sélection de piste audio
   startLocalVideoServer();

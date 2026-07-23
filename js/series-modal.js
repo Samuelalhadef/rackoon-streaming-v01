@@ -20,7 +20,42 @@ class SeriesModal {
     this.pendingPosterUrl = null; // URL du poster TMDB en attente
     this._episodeEdits = {};
     this._deletedEpisodeIds = [];
+    this._tmdbImportRunning = false;
     this.attachEventListeners();
+    this._listenAudioUpdates();
+  }
+
+  _listenAudioUpdates() {
+    if (!window.electronAPI?.onAudioStatusUpdate) return;
+    window.electronAPI.onAudioStatusUpdate(({ mediaId, status, convertedPath }) => {
+      // Update episode objects in currentSeries so click handlers use fresh data
+      if (this.currentSeries) {
+        for (const season of this.currentSeries.seasons || []) {
+          for (const ep of season.episodes || []) {
+            if (ep.id === mediaId) {
+              ep.audioStatus = status;
+              ep.audioConvertedPath = convertedPath;
+            }
+          }
+        }
+      }
+
+      // Update DOM if modal is open
+      if (!this.modal) return;
+      const card = this.modal.querySelector(`[data-episode-id="${mediaId}"]`);
+      if (!card) return;
+      card.dataset.episodeAudioStatus = status;
+      if (status === 'ok' || status === 'error') {
+        const playBtn = card.querySelector('.episode-play-btn');
+        if (playBtn) {
+          playBtn.disabled = false;
+          playBtn.classList.remove('audio-converting');
+          playBtn.title = status === 'error' ? 'Lecture (conversion audio indisponible)' : '';
+          const spinner = card.querySelector('.episode-audio-spinner');
+          if (spinner) spinner.remove();
+        }
+      }
+    });
   }
 
   // Clé de stockage pour les préférences utilisateur
@@ -72,7 +107,7 @@ class SeriesModal {
         if (this.isEditMode) {
           this.openTMDBSearch();
         } else {
-          this.playFirstEpisode();
+          this.playOrResume();
         }
       });
     }
@@ -117,7 +152,7 @@ class SeriesModal {
     }
   }
 
-  // Système d'étoiles progressif
+  // Système d'étoiles progressif : clic ou clic-glissé
   setupStarsInteraction() {
     const starsContainer = document.getElementById('series-progressive-stars');
     const starsFill = document.getElementById('series-stars-fill');
@@ -126,43 +161,43 @@ class SeriesModal {
 
     if (!starsContainer || !starsFill || !ratingInput || !starsOverlay) return;
 
-    // Interaction au survol
-    starsOverlay.addEventListener('mousemove', (e) => {
+    let isDragging = false;
+
+    const getRating = (e) => {
       const rect = starsContainer.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      starsFill.style.width = `${percentage}%`;
+      const pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      return (pct / 100) * 5;
+    };
 
-      const rating = (percentage / 100) * 5;
+    const updateDisplay = (rating) => {
+      starsFill.style.width = `${(rating / 5) * 100}%`;
       ratingInput.value = rating.toFixed(1);
+    };
+
+    starsOverlay.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      updateDisplay(getRating(e));
+      e.preventDefault();
     });
 
-    starsOverlay.addEventListener('mouseleave', () => {
-      const currentRating = parseFloat(ratingInput.value) || 0;
-      const percentage = (currentRating / 5) * 100;
-      starsFill.style.width = `${percentage}%`;
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      updateDisplay(getRating(e));
     });
 
-    // Clic pour enregistrer la note
-    starsOverlay.addEventListener('click', (e) => {
-      const rect = starsContainer.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      const rating = (percentage / 100) * 5;
-
-      ratingInput.value = rating.toFixed(1);
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      const rating = parseFloat(ratingInput.value) || 0;
       this.saveRating(rating);
     });
 
-    // Input manuel
+    // Input numérique manuel
     ratingInput.addEventListener('change', () => {
       let rating = parseFloat(ratingInput.value) || 0;
       rating = Math.max(0, Math.min(5, rating));
-      ratingInput.value = rating.toFixed(1);
-
-      const percentage = (rating / 5) * 100;
-      starsFill.style.width = `${percentage}%`;
-
+      updateDisplay(rating);
       this.saveRating(rating);
     });
   }
@@ -171,15 +206,26 @@ class SeriesModal {
   saveRating(rating) {
     if (!this.currentSeriesId) return;
 
+    // Sauvegarde en DB
+    if (window.electronAPI && window.electronAPI.updateSeriesRating) {
+      window.electronAPI.updateSeriesRating(this.currentSeriesId, rating);
+    }
+
+    // Sauvegarde en localStorage (fallback et rétrocompatibilité)
     const userPrefs = this.getUserPrefs();
     userPrefs.seriesRatings[this.currentSeriesId] = rating;
     this.saveUserPrefs(userPrefs);
 
-    // Mettre à jour l'affichage rapide sur le poster
+    // Mettre à jour toutes les cards de cette série en temps réel
+    document.querySelectorAll(`.media-card[data-series-id="${this.currentSeriesId}"]`).forEach(card => {
+      if (window.updateStarsDisplay) window.updateStarsDisplay(card, rating);
+    });
+    window.dispatchEvent(new CustomEvent('seriesRatingUpdated', {
+      detail: { seriesId: this.currentSeriesId, rating }
+    }));
+
     const ratingQuick = document.getElementById('series-rating-quick');
-    if (ratingQuick) {
-      ratingQuick.textContent = this.getStarsDisplay(rating);
-    }
+    if (ratingQuick) ratingQuick.textContent = this.getStarsDisplay(rating);
 
     console.log(`⭐ Note sauvegardée: ${rating}/5 pour la série ${this.currentSeriesId}`);
   }
@@ -212,6 +258,22 @@ class SeriesModal {
     }
 
     this.saveUserPrefs(userPrefs);
+
+    const nowWatched = !!userPrefs.watchedSeries[this.currentSeriesId];
+
+    // Persister en DB
+    window.electronAPI.updateWatchedSeries(this.currentSeriesId, nowWatched);
+
+    // Sync carte du dashboard
+    const seriesCard = document.querySelector(`.media-card[data-series-id="${this.currentSeriesId}"]`);
+    if (seriesCard) {
+      const cardBtn = seriesCard.querySelector('.btn-watch-toggle');
+      if (cardBtn) {
+        cardBtn.textContent = nowWatched ? 'vu !' : 'à voir';
+        cardBtn.classList.toggle('watched', nowWatched);
+      }
+    }
+
     console.log(`👁️ Statut de visionnage modifié pour la série ${this.currentSeriesId}`);
   }
 
@@ -284,8 +346,20 @@ class SeriesModal {
       }
 
       this.currentSeries = result.series;
+
+      // Rafraîchir la progression avant de rendre les épisodes
+      try {
+        const pr = await window.electronAPI.getAllProgress();
+        if (pr.success) {
+          if (!window.progressData) window.progressData = {};
+          window.progressData.playProgress = pr.playProgress || {};
+          window.progressData.seriesProgress = pr.seriesProgress || {};
+        }
+      } catch (e) { /* silencieux */ }
+
       await this.populateModal(this.currentSeries);
       this.loadUserPreferences();
+      this._updatePlayButton();
 
       // Réinitialiser complètement l'état de la modale
       this.modal.classList.remove('active');
@@ -359,8 +433,10 @@ class SeriesModal {
       }
     }
 
-    // Charger la note
-    const rating = userPrefs.seriesRatings[this.currentSeriesId] || 0;
+    // Charger la note : DB en priorité, localStorage en fallback
+    const dbRating = (this.currentSeries && this.currentSeries.rating) || 0;
+    const localRating = (userPrefs.seriesRatings && userPrefs.seriesRatings[this.currentSeriesId]) || 0;
+    const rating = dbRating > 0 ? dbRating : localRating;
     const ratingInput = document.getElementById('series-rating-input');
     const starsFill = document.getElementById('series-stars-fill');
     const ratingQuick = document.getElementById('series-rating-quick');
@@ -410,15 +486,17 @@ class SeriesModal {
     const totalEpisodes = series.episodeCount || 0;
     const totalSeasons = series.seasons ? series.seasons.length : 0;
 
-    if (episodeCountElement) {
-      episodeCountElement.textContent = `${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''}`;
-    }
+    // Pills séparées : saisons + épisodes
+    const seasonsEl = document.getElementById('series-seasons');
+    const episodesEl = document.getElementById('series-episodes');
+    if (seasonsEl) seasonsEl.textContent = `${totalSeasons} saison${totalSeasons > 1 ? 's' : ''}`;
+    if (episodesEl) episodesEl.textContent = `${totalEpisodes} épisode${totalEpisodes > 1 ? 's' : ''}`;
+
     if (episodesQuick) {
       episodesQuick.textContent = totalEpisodes;
     }
 
     const seasonsQuick = document.getElementById('series-seasons-quick');
-
     if (seasonsQuick) {
       seasonsQuick.textContent = totalSeasons;
     }
@@ -471,9 +549,11 @@ class SeriesModal {
     this.displayTagCategory('series-technical', series.technical, 'technical');
     // Personnel
     this.displayTagCategory('series-personal', series.personalTags, 'personal');
+    // Franchises (masquées si vides)
+    this.displayTagCategory('series-franchise', series.franchises, 'franchise', { hideWhenEmpty: true });
   }
 
-  displayTagCategory(categoryId, tags, chipClass) {
+  displayTagCategory(categoryId, tags, chipClass, options = {}) {
     const categoryElement = document.getElementById(`${categoryId}-category`);
     const containerElement = document.getElementById(`${categoryId}-container`);
 
@@ -491,20 +571,25 @@ class SeriesModal {
         }
       });
       categoryElement.style.display = 'block';
-    } else {
-      // Masquer si vide
+    } else if (options.hideWhenEmpty) {
       categoryElement.style.display = 'none';
+    } else {
+      const emptyMsg = document.createElement('span');
+      emptyMsg.className = 'empty-tags-message';
+      emptyMsg.textContent = 'Aucun tag ajouté';
+      containerElement.appendChild(emptyMsg);
+      categoryElement.style.display = 'block';
     }
   }
 
   async displayCredits(series) {
-    const CREW_ROLES = ['creator', 'producer', 'writer', 'composer'];
+    const SERIES_CREW_DEPT = ['creator', 'producer', 'writer', 'composer'];
     const crewSection = document.getElementById('series-crew-section');
     const castSection = document.getElementById('series-cast-section');
-    const castGrid   = document.getElementById('series-cast-persons-grid');
+    const castGrid    = document.getElementById('series-cast-persons-grid');
 
     // Vider les grilles
-    CREW_ROLES.forEach(role => {
+    SERIES_CREW_DEPT.forEach(role => {
       const dept = document.getElementById(`series-crew-${role}`);
       if (dept) {
         const grid = dept.querySelector('.credits-persons-grid');
@@ -513,103 +598,408 @@ class SeriesModal {
       }
     });
     if (castGrid) castGrid.innerHTML = '';
+    if (crewSection) crewSection.style.display = 'none';
+    if (castSection) castSection.style.display = 'none';
 
     let persons = [];
     try {
       const result = await window.electronAPI.getPersonsForMedia(series.id);
       if (result && result.success) persons = result.persons || [];
     } catch (e) {
-      console.warn('getPersonsForMedia non disponible pour la série:', e);
+      console.warn('getPersonsForMedia série:', e);
     }
 
-    if (persons.length > 0 && typeof window.createPersonAvatarCard === 'function') {
-      let hasAnyCrewPerson = false;
-      let hasCast = false;
+    let hasAnyCrewPerson = false;
+    let hasCast = false;
 
-      persons.forEach(person => {
-        const role = (person.role || '').toLowerCase();
+    for (const person of persons) {
+      for (const roleObj of (person.roles || [])) {
+        const role = roleObj.role;
         if (role === 'actor') {
-          if (castGrid) {
-            castGrid.appendChild(window.createPersonAvatarCard(person, () => window.openPersonMiniPopup && window.openPersonMiniPopup(person)));
+          if (castGrid && typeof window.createPersonAvatarCard === 'function') {
+            castGrid.appendChild(window.createPersonAvatarCard(person, roleObj, false));
             hasCast = true;
           }
-        } else if (CREW_ROLES.includes(role)) {
+        } else if (SERIES_CREW_DEPT.includes(role)) {
           const dept = document.getElementById(`series-crew-${role}`);
-          if (dept) {
+          if (dept && typeof window.createPersonAvatarCard === 'function') {
             const grid = dept.querySelector('.credits-persons-grid');
             if (grid) {
-              grid.appendChild(window.createPersonAvatarCard(person, () => window.openPersonMiniPopup && window.openPersonMiniPopup(person)));
+              grid.appendChild(window.createPersonAvatarCard(person, roleObj, false));
               dept.style.display = '';
               hasAnyCrewPerson = true;
             }
           }
         }
-      });
+      }
+    }
 
-      if (crewSection) crewSection.style.display = hasAnyCrewPerson ? '' : 'none';
-      if (castSection) castSection.style.display = hasCast ? '' : 'none';
+    if (crewSection) crewSection.style.display = hasAnyCrewPerson ? '' : 'none';
+    if (castSection) castSection.style.display = hasCast ? '' : 'none';
+
+    // Backfill des photos manquantes en arrière-plan
+    if (persons.length > 0 && typeof window.backfillPersonPhotos === 'function') {
+      window.backfillPersonPhotos(persons);
+    }
+
+    // Pills movie-meta : Plateforme, Statut, Pays (hidden si vide)
+    const show = (id, valueId, value) => {
+      const section = document.getElementById(id);
+      const span    = document.getElementById(valueId);
+      if (value && value.trim()) {
+        if (span) span.textContent = value;
+        if (section) section.style.display = 'block';
+      } else {
+        if (section) section.style.display = 'none';
+      }
+    };
+    show('series-platform-section', 'series-platform-name', series.platform);
+    show('series-status-section',   'series-status-name',   series.status);
+    show('series-country-section',  'series-country-name',  series.country);
+
+    // Studios
+    const studiosSection = document.getElementById('series-studios-section');
+    const studiosSpan    = document.getElementById('series-studios-name');
+    const studiosArr = series.studios || [];
+    if (studiosArr.length > 0) {
+      if (studiosSpan) studiosSpan.textContent = studiosArr.join(', ');
+      if (studiosSection) studiosSection.style.display = 'flex';
     } else {
-      // Fallback : masquer les grilles, afficher les sections texte
-      if (crewSection) crewSection.style.display = 'none';
-      if (castSection) castSection.style.display = 'none';
+      if (studiosSection) studiosSection.style.display = 'none';
     }
+  }
 
-    // Sections texte fallback (créateur, acteurs, plateforme, statut, pays)
-    const directorSection = document.getElementById('series-director-section');
-    const directorName    = document.getElementById('series-director-name');
-    if (directorSection && directorName) {
-      if (series.creator && series.creator.trim()) {
-        directorName.textContent = series.creator;
-        directorSection.style.display = 'flex';
-      } else {
-        directorSection.style.display = 'none';
+  // ============================================
+  // GESTION DES PERSONNES — MODE ÉDITION
+  // ============================================
+
+  async transformCreditsToEditMode() {
+    const SERIES_CREW_DEPT = ['creator', 'producer', 'writer', 'composer'];
+    const SERIES_CREW_LABELS = {
+      creator: 'Créateur', producer: 'Producteur',
+      writer: 'Scénariste', composer: 'Compositeur'
+    };
+
+    const crewSection = document.getElementById('series-crew-section');
+    const castSection = document.getElementById('series-cast-section');
+    const castGrid    = document.getElementById('series-cast-persons-grid');
+
+    SERIES_CREW_DEPT.forEach(role => {
+      const dept = document.getElementById(`series-crew-${role}`);
+      if (dept) { dept.style.display = 'block'; const g = dept.querySelector('.credits-persons-grid'); if (g) g.innerHTML = ''; }
+    });
+    if (castGrid) castGrid.innerHTML = '';
+    if (crewSection) crewSection.style.display = 'block';
+    if (castSection) castSection.style.display = 'block';
+
+    let persons = [];
+    try {
+      const result = await window.electronAPI.getPersonsForMedia(this.currentSeriesId);
+      if (result && result.success) persons = result.persons || [];
+    } catch (e) { console.warn('transformCreditsToEditMode série:', e); }
+
+    const crewByRole = {};
+    SERIES_CREW_DEPT.forEach(r => { crewByRole[r] = []; });
+    const cast = [];
+
+    for (const person of persons) {
+      for (const roleObj of (person.roles || [])) {
+        const role = roleObj.role;
+        if (role === 'actor') cast.push({ person, roleObj });
+        else if (crewByRole[role]) crewByRole[role].push({ person, roleObj });
       }
     }
 
-    const actorsSection = document.getElementById('series-actors-section');
-    const actorsList    = document.getElementById('series-actors-list');
-    if (actorsSection && actorsList) {
-      if (persons.length === 0 && series.actors && series.actors.length > 0) {
-        actorsList.textContent = series.actors.slice(0, 3).join(', ');
-        actorsSection.style.display = 'flex';
-      } else {
-        actorsSection.style.display = 'none';
+    for (const [dept, items] of Object.entries(crewByRole)) {
+      const deptEl = document.getElementById(`series-crew-${dept}`);
+      if (!deptEl) continue;
+      const grid = deptEl.querySelector('.credits-persons-grid');
+      if (!grid) continue;
+      grid.innerHTML = '';
+      for (const { person, roleObj } of items) {
+        grid.appendChild(window.createPersonAvatarCard(person, roleObj, true));
+        // Relier le bouton supprimer à la méthode série
+        const removeBtn = grid.lastChild.querySelector('.person-avatar-remove-btn');
+        if (removeBtn) {
+          removeBtn.replaceWith(removeBtn.cloneNode(true));
+          grid.lastChild.querySelector('.person-avatar-remove-btn')
+            ?.addEventListener('click', (e) => { e.stopPropagation(); this.removePersonFromCredits(person.id, roleObj.role); });
+        }
       }
+      // Bouton "+"
+      const addWrap = document.createElement('div');
+      addWrap.className = 'person-avatar-card';
+      addWrap.style.cursor = 'pointer';
+      const addCircle = document.createElement('button');
+      addCircle.className = 'add-person-btn';
+      addCircle.innerHTML = '<i class="fas fa-plus"></i>';
+      addCircle.addEventListener('click', () => this.openPersonSearchModal(dept));
+      addWrap.appendChild(addCircle);
+      grid.appendChild(addWrap);
     }
 
-    // Plateforme, statut, pays (toujours affichés indépendamment des persons)
-    const platformSection = document.getElementById('series-platform-section');
-    const platformName    = document.getElementById('series-platform-name');
-    if (platformSection && platformName) {
-      if (series.platform && series.platform.trim()) {
-        platformName.textContent = series.platform;
-        platformSection.style.display = 'flex';
-      } else {
-        platformSection.style.display = 'none';
+    // Casting
+    if (castGrid) {
+      for (const { person, roleObj } of cast) {
+        castGrid.appendChild(window.createPersonAvatarCard(person, roleObj, true));
+        const removeBtn = castGrid.lastChild.querySelector('.person-avatar-remove-btn');
+        if (removeBtn) {
+          removeBtn.replaceWith(removeBtn.cloneNode(true));
+          castGrid.lastChild.querySelector('.person-avatar-remove-btn')
+            ?.addEventListener('click', (e) => { e.stopPropagation(); this.removePersonFromCredits(person.id, roleObj.role); });
+        }
       }
+      const addWrap = document.createElement('div');
+      addWrap.className = 'person-avatar-card';
+      addWrap.style.cursor = 'pointer';
+      const addCircle = document.createElement('button');
+      addCircle.className = 'add-person-btn';
+      addCircle.innerHTML = '<i class="fas fa-plus"></i>';
+      addCircle.addEventListener('click', () => this.openPersonSearchModal('actor'));
+      addWrap.appendChild(addCircle);
+      castGrid.appendChild(addWrap);
+    }
+  }
+
+  async removePersonFromCredits(personId, role) {
+    try {
+      await window.electronAPI.unlinkPersonFromMedia(personId, this.currentSeriesId, role);
+      await this.transformCreditsToEditMode();
+    } catch (e) { console.error('removePersonFromCredits série:', e); }
+  }
+
+  openPersonSearchModal(department) {
+    const existing = document.querySelector('.person-search-modal-overlay');
+    if (existing) existing.remove();
+
+    const LABELS = { creator: 'Créateur', producer: 'Producteur', writer: 'Scénariste', composer: 'Compositeur', actor: 'Acteur' };
+    const roleLabel = LABELS[department] || department;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'person-search-modal-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'person-search-modal';
+
+    const header = document.createElement('div');
+    header.className = 'person-search-header';
+    const title = document.createElement('h3');
+    title.textContent = `Ajouter un ${roleLabel}`;
+    header.appendChild(title);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'person-search-close-btn';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', () => overlay.remove());
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'person-search-input-wrap';
+    const input = document.createElement('input');
+    input.className = 'person-search-input';
+    input.type = 'text';
+    input.placeholder = 'Rechercher une personne...';
+    inputWrap.appendChild(input);
+    modal.appendChild(inputWrap);
+
+    const resultsContainer = document.createElement('div');
+    resultsContainer.className = 'person-search-results';
+    resultsContainer.innerHTML = '<div class="person-search-empty">Tapez un nom pour rechercher</div>';
+    modal.appendChild(resultsContainer);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    setTimeout(() => input.focus(), 100);
+
+    let debounceTimer = null;
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = input.value.trim();
+      if (query.length < 2) {
+        resultsContainer.innerHTML = '<div class="person-search-empty">Tapez au moins 2 caractères</div>';
+        return;
+      }
+      debounceTimer = setTimeout(() => this.performPersonSearch(query, resultsContainer, overlay, department), 300);
+    });
+  }
+
+  async performPersonSearch(query, container, overlay, department) {
+    container.innerHTML = '<div class="person-search-empty">Recherche en cours...</div>';
+    try {
+      const linkedResult = await window.electronAPI.getPersonsForMedia(this.currentSeriesId);
+      const linkedIds = new Set();
+      const linkedTmdbIds = new Set();
+      if (linkedResult.success && linkedResult.persons) {
+        for (const p of linkedResult.persons) {
+          for (const r of (p.roles || [])) {
+            if (r.role === department) {
+              linkedIds.add(p.id);
+              if (p.tmdbId) linkedTmdbIds.add(p.tmdbId);
+            }
+          }
+        }
+      }
+
+      const localResult = await window.electronAPI.searchPersons(query);
+      const localPersons = (localResult.success ? localResult.persons : []).filter(p => !linkedIds.has(p.id));
+
+      let tmdbPersons = [];
+      try {
+        const tmdbResults = await this.searchTMDBPersons(query);
+        tmdbPersons = tmdbResults.filter(p => !linkedTmdbIds.has(p.id));
+      } catch (e) { console.warn('Recherche TMDB personne échouée:', e); }
+
+      const localTmdbIds = new Set(localPersons.filter(p => p.tmdbId).map(p => p.tmdbId));
+      tmdbPersons = tmdbPersons.filter(p => !localTmdbIds.has(p.id));
+
+      container.innerHTML = '';
+      if (localPersons.length === 0 && tmdbPersons.length === 0) {
+        container.innerHTML = '<div class="person-search-empty">Aucun résultat</div>';
+        return;
+      }
+
+      if (localPersons.length > 0) {
+        const label = document.createElement('div');
+        label.className = 'person-search-section-label';
+        label.textContent = 'Bibliothèque locale';
+        container.appendChild(label);
+        for (const person of localPersons) {
+          container.appendChild(this.createSearchResultItem(person, 'local', overlay, department));
+        }
+      }
+
+      if (tmdbPersons.length > 0) {
+        const label = document.createElement('div');
+        label.className = 'person-search-section-label';
+        label.textContent = 'TMDB';
+        container.appendChild(label);
+        for (const p of tmdbPersons.slice(0, 10)) {
+          container.appendChild(this.createSearchResultItem({
+            tmdbId: p.id, name: p.name,
+            photo: p.profile_path ? `https://image.tmdb.org/t/p/w185${p.profile_path}` : null,
+            knownForDepartment: p.known_for_department,
+            _isTMDB: true, _profilePath: p.profile_path
+          }, 'tmdb', overlay, department));
+        }
+      }
+    } catch (err) {
+      container.innerHTML = '<div class="person-search-empty">Erreur de recherche</div>';
+      console.error('performPersonSearch série:', err);
+    }
+  }
+
+  createSearchResultItem(person, source, overlay, department) {
+    const item = document.createElement('div');
+    item.className = 'person-search-result-item';
+
+    if (person.photo) {
+      const img = document.createElement('img');
+      img.className = 'person-search-result-photo';
+      img.src = source === 'local' ? `http://localhost:3001/person-photos/${person.photo}` : person.photo;
+      img.onerror = function() {
+        const ph = document.createElement('div');
+        ph.className = 'person-search-result-photo-placeholder';
+        ph.innerHTML = '<i class="fas fa-user"></i>';
+        this.parentNode.replaceChild(ph, this);
+      };
+      item.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'person-search-result-photo-placeholder';
+      ph.innerHTML = '<i class="fas fa-user"></i>';
+      item.appendChild(ph);
     }
 
-    const statusSection = document.getElementById('series-status-section');
-    const statusName    = document.getElementById('series-status-name');
-    if (statusSection && statusName) {
-      if (series.status && series.status.trim()) {
-        statusName.textContent = series.status;
-        statusSection.style.display = 'flex';
-      } else {
-        statusSection.style.display = 'none';
-      }
+    const info = document.createElement('div');
+    info.className = 'person-search-result-info';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'person-search-result-name';
+    nameEl.textContent = person.name;
+    info.appendChild(nameEl);
+    if (person.knownForDepartment) {
+      const dept = document.createElement('div');
+      dept.className = 'person-search-result-dept';
+      dept.textContent = person.knownForDepartment;
+      info.appendChild(dept);
     }
+    item.appendChild(info);
 
-    const countrySection = document.getElementById('series-country-section');
-    const countryName    = document.getElementById('series-country-name');
-    if (countrySection && countryName) {
-      if (series.country && series.country.trim()) {
-        countryName.textContent = series.country;
-        countrySection.style.display = 'flex';
+    const badge = document.createElement('span');
+    badge.className = `person-search-result-badge ${source}`;
+    badge.textContent = source === 'local' ? 'LOCAL' : 'TMDB';
+    item.appendChild(badge);
+
+    item.addEventListener('click', () => this.handlePersonSearchSelection(person, source, overlay, department));
+    return item;
+  }
+
+  async handlePersonSearchSelection(person, source, overlay, department) {
+    try {
+      let personId;
+      if (source === 'local') {
+        personId = person.id;
       } else {
-        countrySection.style.display = 'none';
+        let fileName = null;
+        if (person._profilePath) {
+          try {
+            const dlResult = await window.electronAPI.downloadPersonPhoto(
+              `${SERIES_TMDB_IMAGE_BASE_URL}${person._profilePath}`, person.name
+            );
+            if (dlResult.success) fileName = dlResult.fileName;
+          } catch (e) { console.warn('Photo échouée:', e); }
+        }
+        const addResult = await window.electronAPI.addPerson({
+          tmdbId: person.tmdbId, name: person.name, photo: fileName,
+          knownForDepartment: person.knownForDepartment
+        });
+        if (!addResult.success || !addResult.person) return;
+        personId = addResult.person.id;
       }
-    }
+
+      if (department === 'actor') {
+        const character = await this.showCharacterNameDialog(overlay);
+        await window.electronAPI.linkPersonToMedia(personId, this.currentSeriesId, 'serie', 'actor', character);
+      } else {
+        await window.electronAPI.linkPersonToMedia(personId, this.currentSeriesId, 'serie', department, null);
+      }
+
+      overlay.remove();
+      await this.transformCreditsToEditMode();
+    } catch (err) { console.error('handlePersonSearchSelection série:', err); }
+  }
+
+  showCharacterNameDialog(parentOverlay) {
+    return new Promise((resolve) => {
+      const modal = parentOverlay.querySelector('.person-search-modal');
+      if (!modal) { resolve(null); return; }
+      const prevContent = modal.innerHTML;
+      modal.innerHTML = `
+        <div class="person-search-header"><h3>Nom du personnage</h3></div>
+        <div class="person-search-input-wrap">
+          <input class="person-search-input" type="text" placeholder="Nom du personnage (optionnel)" id="series-character-input">
+        </div>
+        <div style="display:flex;gap:8px;padding:12px 16px;">
+          <button class="person-add-cancel-btn" id="series-char-skip" style="flex:1">Passer</button>
+          <button class="person-add-confirm-btn" id="series-char-ok" style="flex:1">Confirmer</button>
+        </div>`;
+      const input = modal.querySelector('#series-character-input');
+      const okBtn = modal.querySelector('#series-char-ok');
+      const skipBtn = modal.querySelector('#series-char-skip');
+      setTimeout(() => input?.focus(), 100);
+      const submit = () => resolve(input?.value.trim() || null);
+      const skip = () => resolve(null);
+      okBtn?.addEventListener('click', submit);
+      skipBtn?.addEventListener('click', skip);
+      input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') skip(); });
+    });
+  }
+
+  async searchTMDBPersons(query) {
+    const url = `${SERIES_TMDB_API_BASE_URL}/search/person?query=${encodeURIComponent(query)}&language=fr-FR&include_adult=false&page=1`;
+    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${SERIES_TMDB_TOKEN}` } });
+    if (!response.ok) throw new Error(`Erreur API TMDB: ${response.status}`);
+    const data = await response.json();
+    return data.results || [];
   }
 
   displayTechnicalInfo(series) {
@@ -669,7 +1059,7 @@ class SeriesModal {
     const watchedEpisodes = userPrefs.watchedEpisodes ? (userPrefs.watchedEpisodes[seriesId] || 0) : 0;
     const totalEpisodes   = series.episodeCount || 0;
     const lastWatched     = userPrefs.lastWatched  ? userPrefs.lastWatched[seriesId]  : null;
-    const rating          = userPrefs.seriesRatings ? (userPrefs.seriesRatings[seriesId] || 0) : 0;
+    const rating          = series.rating || 0;
 
     const hasAnyStats = watchedEpisodes > 0 || lastWatched || rating > 0;
     if (statsSection) statsSection.style.display = hasAnyStats ? '' : 'none';
@@ -785,7 +1175,11 @@ class SeriesModal {
     // Définir l'ID de l'épisode
     if (card) {
       card.dataset.episodeId = episode.id;
-      card.addEventListener('click', () => this.playEpisode(episode));
+      card.addEventListener('click', () => {
+        const s = card.dataset.episodeAudioStatus;
+        if (s === 'pending' || s === 'converting') return;
+        this.playEpisode(episode);
+      });
     }
 
     // Remplir les informations
@@ -830,10 +1224,44 @@ class SeriesModal {
     }
 
     if (playBtn) {
+      const audioStatus = episode.audioStatus || 'pending';
+      if (audioStatus === 'pending' || audioStatus === 'converting') {
+        playBtn.disabled = true;
+        playBtn.classList.add('audio-converting');
+        playBtn.title = 'Conversion audio en cours...';
+        const spinner = document.createElement('span');
+        spinner.className = 'episode-audio-spinner';
+        playBtn.parentNode.insertBefore(spinner, playBtn.nextSibling);
+      }
       playBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.playEpisode(episode);
+        if (!playBtn.disabled) this.playEpisode(episode);
       });
+    }
+
+    if (card) {
+      card.dataset.episodeAudioStatus = episode.audioStatus || 'pending';
+    }
+
+    // Progression de visionnage
+    const progress = window.progressData?.playProgress?.[episode.id];
+    const isFinished = !!episode.lastWatched && !progress;
+
+    if (progress) {
+      const bar = episodeElement.querySelector('.episode-progress-bar');
+      const fill = episodeElement.querySelector('.episode-progress-fill');
+      const status = episodeElement.querySelector('.episode-watch-status');
+      if (bar) bar.style.display = '';
+      if (fill) fill.style.width = `${Math.round(progress.pct * 100)}%`;
+      const remaining = Math.max(0, (episode.duration || 0) - (progress.time || 0));
+      if (status && remaining > 0) {
+        status.textContent = `- ${this.formatDuration(remaining)}`;
+      }
+    } else if (isFinished) {
+      const badge = episodeElement.querySelector('.episode-finished-badge');
+      const status = episodeElement.querySelector('.episode-watch-status');
+      if (badge) badge.style.display = '';
+      if (status) { status.textContent = 'Vu'; status.classList.add('episode-status-finished'); }
     }
 
     return episodeElement;
@@ -897,11 +1325,44 @@ class SeriesModal {
     this.hide();
 
     if (window.openVideoPlayer) {
-      window.openVideoPlayer(episode.id, title, episode.path, seriesContext);
+      const effectivePath = (episode.audioStatus === 'ok' && episode.audioConvertedPath)
+        ? episode.audioConvertedPath : episode.path;
+      window.openVideoPlayer(episode.id, title, effectivePath, seriesContext, episode.audioStatus === 'ok', episode.path);
     } else {
       console.error('❌ Fonction de lecture vidéo non trouvée');
       alert('Impossible de lire l\'épisode : lecteur vidéo non disponible');
     }
+  }
+
+  _updatePlayButton() {
+    const playBtn = document.getElementById('btn-play-series');
+    if (!playBtn || this.isEditMode) return;
+    // Ne pas toucher si le bouton est en mode TMDB (originalHtml stocké)
+    if (playBtn.dataset.originalHtml) return;
+
+    const sp = window.progressData?.seriesProgress?.[this.currentSeriesId];
+    const icon = '<i class="fas fa-play"></i>';
+    if (sp && sp.episodeMediaId) {
+      const s = sp.seasonNumber ? `S${String(sp.seasonNumber).padStart(2, '0')}` : '';
+      const e = sp.episodeNumber ? `E${String(sp.episodeNumber).padStart(2, '0')}` : '';
+      const label = (s || e) ? `${s}${e}` : 'dernier épisode';
+      playBtn.innerHTML = `${icon}<span>Reprendre — ${label}</span>`;
+    } else {
+      playBtn.innerHTML = `${icon}<span>Premier épisode</span>`;
+    }
+  }
+
+  playOrResume() {
+    const sp = window.progressData?.seriesProgress?.[this.currentSeriesId];
+    if (sp && sp.episodeMediaId) {
+      const sortedEpisodes = this.getSortedEpisodes();
+      const episode = sortedEpisodes.find(e => e.id === sp.episodeMediaId);
+      if (episode) {
+        this.playEpisode(episode);
+        return;
+      }
+    }
+    this.playFirstEpisode();
   }
 
   playFirstEpisode() {
@@ -914,7 +1375,6 @@ class SeriesModal {
     }
 
     const firstEpisode = sortedEpisodes[0];
-    console.log('▶️ Lecture du premier épisode trié:', firstEpisode.title);
     this.playEpisode(firstEpisode);
   }
 
@@ -930,15 +1390,19 @@ class SeriesModal {
 
     // Sauvegarder les valeurs originales
     this.originalValues = {
-      name: this.currentSeries.name || '',
+      name:        this.currentSeries.name        || '',
       description: this.currentSeries.description || '',
-      genres: this.currentSeries.genres ? [...this.currentSeries.genres] : [],
-      year: this.currentSeries.year || '',
-      creator: this.currentSeries.creator || '',
-      actors: this.currentSeries.actors ? [...this.currentSeries.actors] : [],
-      country: this.currentSeries.country || '',
-      status: this.currentSeries.status || '',
-      platform: this.currentSeries.platform || ''
+      genres:      this.currentSeries.genres       ? [...this.currentSeries.genres]      : [],
+      year:        this.currentSeries.year         || '',
+      creator:     this.currentSeries.creator      || '',
+      actors:      this.currentSeries.actors       ? [...this.currentSeries.actors]      : [],
+      country:     this.currentSeries.country      || '',
+      status:      this.currentSeries.status       || '',
+      platform:    this.currentSeries.platform     || '',
+      studios:     this.currentSeries.studios      ? [...this.currentSeries.studios]     : [],
+      mood:        this.currentSeries.mood         ? [...this.currentSeries.mood]        : [],
+      personalTags:this.currentSeries.personalTags ? [...this.currentSeries.personalTags]: [],
+      franchises:  this.currentSeries.franchises   ? [...this.currentSeries.franchises]  : [],
     };
 
     // Ajouter la classe visuelle (même classe que movie-modal)
@@ -980,6 +1444,9 @@ class SeriesModal {
     // Mode édition saisons/épisodes
     this.activateEditModeSeasons();
 
+    // Mode édition crédits (personnes)
+    this.transformCreditsToEditMode();
+
     console.log('✏️ Mode édition série activé');
   }
 
@@ -1019,6 +1486,9 @@ class SeriesModal {
 
     // Restaurer la vue saisons/épisodes
     this.deactivateEditModeSeasons();
+
+    // Restaurer la vue crédits (personnes)
+    if (this.currentSeries) this.displayCredits(this.currentSeries);
 
     console.log('✏️ Mode édition série désactivé');
   }
@@ -1077,80 +1547,56 @@ class SeriesModal {
     this.displayEditableTagCategory('series-mood', series.mood || [], 'mood');
     this.displayEditableTagCategory('series-technical', series.technical || [], 'technical');
     this.displayEditableTagCategory('series-personal', series.personalTags || [], 'personal');
+    this.displayEditableTagCategory('series-franchise', series.franchises || [], 'franchise');
 
-    // Créateur → input (on garde l'id series-director-name)
-    const directorSection = document.getElementById('series-director-section');
-    const directorName = document.getElementById('series-director-name');
-    if (directorSection && directorName) {
-      directorSection.style.display = 'flex';
+    // Studios → input dans la pill movie-meta
+    const studiosSection = document.getElementById('series-studios-section');
+    const studiosSpan = document.getElementById('series-studios-name');
+    if (studiosSection && studiosSpan) {
+      studiosSection.style.display = 'flex';
       const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'edit-credit-field';
-      input.id = 'series-director-name';
-      input.value = series.creator || '';
-      input.placeholder = 'Créateur';
-      directorName.replaceWith(input);
+      input.type = 'text'; input.className = 'edit-credit-field';
+      input.id = 'series-studios-input';
+      input.value = (series.studios || []).join(', ');
+      input.placeholder = 'Studios (séparés par une virgule)';
+      studiosSpan.replaceWith(input);
     }
 
-    // Acteurs → input (on garde l'id series-actors-list)
-    const actorsSection = document.getElementById('series-actors-section');
-    const actorsList = document.getElementById('series-actors-list');
-    if (actorsSection && actorsList) {
-      actorsSection.style.display = 'flex';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'edit-credit-field';
-      input.id = 'series-actors-list';
-      input.value = (series.actors || []).join(', ');
-      input.placeholder = 'Acteurs (séparés par des virgules)';
-      actorsList.replaceWith(input);
-    }
-
-    // Plateforme → input (on garde l'id series-platform-name)
+    // Plateforme → input dans la pill movie-meta
     const platformSection = document.getElementById('series-platform-section');
     const platformName = document.getElementById('series-platform-name');
     if (platformSection && platformName) {
-      platformSection.style.display = 'flex';
+      platformSection.style.display = 'block';
       const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'edit-credit-field';
-      input.id = 'series-platform-name';
-      input.value = series.platform || '';
+      input.type = 'text'; input.className = 'edit-credit-field';
+      input.id = 'series-platform-name'; input.value = series.platform || '';
       input.placeholder = 'Plateforme';
       platformName.replaceWith(input);
     }
 
-    // Statut → select (on garde l'id series-status-name)
+    // Statut → select dans la pill movie-meta
     const statusSection = document.getElementById('series-status-section');
     const statusName = document.getElementById('series-status-name');
     if (statusSection && statusName) {
-      statusSection.style.display = 'flex';
+      statusSection.style.display = 'block';
       const select = document.createElement('select');
-      select.className = 'edit-credit-field';
-      select.id = 'series-status-name';
-      const statusOptions = ['', 'En cours', 'Terminée', 'Annulée'];
-      statusOptions.forEach(opt => {
+      select.className = 'edit-credit-field'; select.id = 'series-status-name';
+      ['', 'En cours', 'Terminée', 'Annulée'].forEach(opt => {
         const option = document.createElement('option');
-        option.value = opt;
-        option.textContent = opt || '-- Choisir --';
+        option.value = opt; option.textContent = opt || '-- Statut --';
         if (opt === (series.status || '')) option.selected = true;
         select.appendChild(option);
       });
       statusName.replaceWith(select);
     }
 
-    // Pays → input (on garde l'id series-country-name)
+    // Pays → select avec drapeaux dans la pill movie-meta
     const countrySection = document.getElementById('series-country-section');
     const countryName = document.getElementById('series-country-name');
-    if (countrySection && countryName) {
-      countrySection.style.display = 'flex';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'edit-credit-field';
-      input.id = 'series-country-name';
-      input.value = series.country || '';
-      input.placeholder = 'Pays';
-      countryName.replaceWith(input);
+    if (countrySection && countryName && countryName.tagName !== 'SELECT') {
+      countrySection.style.display = 'block';
+      const sel = createCountrySelect(series.country || '', 'series-country-name', 'edit-credit-field edit-credit-select');
+      countryName.replaceWith(sel);
     }
   }
 
@@ -1190,24 +1636,6 @@ class SeriesModal {
     // Tags → mode lecture
     this.displayTags(this.currentSeries);
 
-    // Créateur → span
-    const creatorInput = document.getElementById('series-director-name');
-    if (creatorInput && creatorInput.tagName === 'INPUT') {
-      const span = document.createElement('span');
-      span.className = 'director-name';
-      span.id = 'series-director-name';
-      creatorInput.replaceWith(span);
-    }
-
-    // Acteurs → span
-    const actorsInput = document.getElementById('series-actors-list');
-    if (actorsInput && actorsInput.tagName === 'INPUT') {
-      const span = document.createElement('span');
-      span.className = 'actors-list';
-      span.id = 'series-actors-list';
-      actorsInput.replaceWith(span);
-    }
-
     // Plateforme → span
     const platformInput = document.getElementById('series-platform-name');
     if (platformInput && platformInput.tagName === 'INPUT') {
@@ -1228,7 +1656,7 @@ class SeriesModal {
 
     // Pays → span
     const countryInput = document.getElementById('series-country-name');
-    if (countryInput && countryInput.tagName === 'INPUT') {
+    if (countryInput && (countryInput.tagName === 'INPUT' || countryInput.tagName === 'SELECT')) {
       const span = document.createElement('span');
       span.className = 'country-value';
       span.id = 'series-country-name';
@@ -1449,16 +1877,19 @@ class SeriesModal {
     // Tags sont déjà mis à jour dans currentSeries via removeTag/promptAddTag
     updates.genres = this.currentSeries.genres || [];
     updates.mood = this.currentSeries.mood || [];
-    updates.technical = this.currentSeries.technical || [];
     updates.personalTags = this.currentSeries.personalTags || [];
+    updates.franchises = this.currentSeries.franchises || [];
 
-    const creatorInput = document.getElementById('series-director-name');
-    if (creatorInput && creatorInput.tagName === 'INPUT') updates.creator = creatorInput.value.trim();
-
-    const actorsInput = document.getElementById('series-actors-list');
-    if (actorsInput && actorsInput.tagName === 'INPUT') {
-      updates.actors = actorsInput.value.split(',').map(a => a.trim()).filter(a => a);
+    const studiosInput = document.getElementById('series-studios-input');
+    if (studiosInput && studiosInput.tagName === 'INPUT') {
+      updates.studios = studiosInput.value.split(',').map(s => s.trim()).filter(s => s);
+    } else {
+      updates.studios = this.currentSeries.studios || [];
     }
+
+    // creator et actors sont gérés via le système de personnes, pas via un input direct
+    updates.creator = this.currentSeries.creator || '';
+    updates.actors  = this.currentSeries.actors  || [];
 
     const platformInput = document.getElementById('series-platform-name');
     if (platformInput && platformInput.tagName === 'INPUT') updates.platform = platformInput.value.trim();
@@ -1467,7 +1898,7 @@ class SeriesModal {
     if (statusSelect && statusSelect.tagName === 'SELECT') updates.status = statusSelect.value;
 
     const countryInput = document.getElementById('series-country-name');
-    if (countryInput && countryInput.tagName === 'INPUT') updates.country = countryInput.value.trim();
+    if (countryInput && (countryInput.tagName === 'INPUT' || countryInput.tagName === 'SELECT')) updates.country = countryInput.value.trim();
 
     if (this.pendingPosterUrl) {
       updates.posterUrl = this.pendingPosterUrl;
@@ -1490,17 +1921,15 @@ class SeriesModal {
           Object.assign(this.currentSeries, updates);
         }
 
-        // Mettre à jour l'image de la card en temps réel si un poster a changé
-        if (this.pendingPosterUrl) {
-          const seriesCard = document.querySelector(`.media-card[data-series-id="${this.currentSeriesId}"]`);
-          if (seriesCard) {
-            const img = seriesCard.querySelector('img.media-thumbnail');
-            if (img) img.src = this.pendingPosterUrl;
-          }
-        }
-
         this.pendingPosterUrl = null;
         this.deactivateEditMode();
+
+        // Rafraichir l'affichage depuis la DB (le nom est maintenant propagé aux épisodes)
+        if (window.filtersSystem?.applyFiltersAndSort) {
+          await window.filtersSystem.applyFiltersAndSort();
+        } else if (window.refreshDashboard) {
+          window.refreshDashboard();
+        }
         console.log('✅ Série mise à jour avec succès');
       } else {
         console.error('❌ Erreur lors de la mise à jour:', result.message);
@@ -1665,6 +2094,8 @@ class SeriesModal {
   }
 
   async selectTMDBSeries(tmdbId, closeModal) {
+    if (this._tmdbImportRunning) return;
+    this._tmdbImportRunning = true;
     try {
       const statusDiv = document.getElementById('series-tmdb-status');
       if (statusDiv) {
@@ -1693,19 +2124,77 @@ class SeriesModal {
         this.displayEditableTagCategory('series-genres', this.currentSeries.genres, 'genre');
       }
 
-      const creatorInput = document.getElementById('series-director-name');
-      if (creatorInput && creatorInput.tagName === 'INPUT' && details.created_by) {
-        creatorInput.value = details.created_by.map(c => c.name).join(', ');
-      }
+      // --- Import automatique des personnes (créateurs, équipe, casting) ---
+      const _importPersonsFromTMDB = async () => {
+        const toImport = [];
 
-      const actorsInput = document.getElementById('series-actors-list');
-      if (actorsInput && actorsInput.tagName === 'INPUT' && details.credits?.cast) {
-        actorsInput.value = details.credits.cast.slice(0, 10).map(a => a.name).join(', ');
-      }
+        for (const c of (details.created_by || []).slice(0, 3)) {
+          toImport.push({ p: c, role: 'creator', character: null });
+        }
+
+        const seenRoles = { composer: false, writer: false, producer: false };
+        for (const m of (details.credits?.crew || [])) {
+          if (!seenRoles.composer && m.job === 'Original Music Composer') {
+            toImport.push({ p: m, role: 'composer', character: null }); seenRoles.composer = true;
+          } else if (!seenRoles.writer && m.department === 'Writing') {
+            toImport.push({ p: m, role: 'writer', character: null }); seenRoles.writer = true;
+          } else if (!seenRoles.producer && (m.job === 'Executive Producer' || m.job === 'Producer')) {
+            toImport.push({ p: m, role: 'producer', character: null }); seenRoles.producer = true;
+          }
+        }
+
+        for (const a of (details.credits?.cast || []).slice(0, 8)) {
+          toImport.push({ p: a, role: 'actor', character: a.character || null });
+        }
+
+        for (const { p, role, character } of toImport) {
+          try {
+            let fileName = null;
+            if (p.profile_path) {
+              try {
+                const dlResult = await window.electronAPI.downloadPersonPhoto(
+                  `${SERIES_TMDB_IMAGE_BASE_URL}${p.profile_path}`, p.name
+                );
+                if (dlResult.success) fileName = dlResult.fileName;
+              } catch (e) { /* photo optionnelle */ }
+            }
+            const addResult = await window.electronAPI.addPerson({
+              tmdbId: p.id, name: p.name, photo: fileName,
+              knownForDepartment: p.known_for_department || null
+            });
+            if (!addResult.success || !addResult.person) continue;
+            await window.electronAPI.linkPersonToMedia(
+              addResult.person.id, this.currentSeriesId, 'serie', role, character
+            );
+          } catch (e) { console.warn('Import personne TMDB échoué:', p.name, e); }
+        }
+
+        if (this.isEditMode && this.currentSeriesId) {
+          await this.transformCreditsToEditMode();
+        }
+      };
+      _importPersonsFromTMDB();
 
       const countryInput = document.getElementById('series-country-name');
-      if (countryInput && countryInput.tagName === 'INPUT' && details.origin_country) {
-        countryInput.value = details.origin_country.join(', ');
+      if (countryInput && (countryInput.tagName === 'INPUT' || countryInput.tagName === 'SELECT') && details.origin_country) {
+        const countryLabel = resolveCountryLabel(details.origin_country[0] || '');
+        if (countryInput.tagName === 'SELECT') {
+          const opt = Array.from(countryInput.options).find(o => o.value === countryLabel);
+          if (opt) countryInput.value = countryLabel;
+        } else {
+          countryInput.value = countryLabel;
+        }
+        if (this.currentSeries) this.currentSeries.country = countryLabel;
+      }
+
+      // Extraire et appliquer les studios de production
+      const tmdbStudios = (details.production_companies || []).map(c => c.name);
+      if (tmdbStudios.length > 0) {
+        const studiosInput = document.getElementById('series-studios-input');
+        if (studiosInput && studiosInput.tagName === 'INPUT') {
+          studiosInput.value = tmdbStudios.join(', ');
+        }
+        if (this.currentSeries) this.currentSeries.studios = tmdbStudios;
       }
 
       const statusSelect = document.getElementById('series-status-name');
@@ -1734,12 +2223,14 @@ class SeriesModal {
       }
 
       this.hasUnsavedChanges = true;
-      console.log('✅ Données TMDB appliquées');
+      console.log('Donnees TMDB appliquees');
       if (closeModal) closeModal();
 
     } catch (error) {
-      console.error('❌ Erreur sélection TMDB série:', error);
+      console.error('Erreur selection TMDB serie:', error);
       alert('Erreur lors du chargement des données TMDB');
+    } finally {
+      this._tmdbImportRunning = false;
     }
   }
 
@@ -1999,21 +2490,29 @@ window.playSeriesFirstEpisode = async function(seriesId) {
       return a.episode_number - b.episode_number;
     });
 
-    // Lire le premier épisode trié
-    const firstEpisode = sortedEpisodes[0];
-    console.log('▶️ Lecture du premier épisode trié:', firstEpisode.title);
+    // Choisir l'épisode à lire : dernier en cours ou premier
+    const sp = window.progressData?.seriesProgress?.[seriesId];
+    let episodeToPlay = sortedEpisodes[0];
+    if (sp && sp.episodeMediaId) {
+      const resumed = sortedEpisodes.find(e => e.id === sp.episodeMediaId);
+      if (resumed) episodeToPlay = resumed;
+    }
 
-    if (!firstEpisode.path) {
+    if (!episodeToPlay.path) {
       console.error('❌ Chemin de l\'épisode manquant');
       alert('Impossible de lire l\'épisode : chemin du fichier manquant');
       return;
     }
 
-    const title = firstEpisode.title || 'Épisode sans titre';
+    const title = episodeToPlay.title || 'Épisode sans titre';
+    const currentIndex = sortedEpisodes.indexOf(episodeToPlay);
+    const seriesContext = { episodes: sortedEpisodes, currentIndex };
 
     // Lancer la lecture
     if (window.openVideoPlayer) {
-      window.openVideoPlayer(firstEpisode.id, title, firstEpisode.path);
+      const ep = (episodeToPlay.audioStatus === 'ok' && episodeToPlay.audioConvertedPath)
+        ? episodeToPlay.audioConvertedPath : episodeToPlay.path;
+      window.openVideoPlayer(episodeToPlay.id, title, ep, seriesContext, episodeToPlay.audioStatus === 'ok', episodeToPlay.path);
     } else {
       console.error('❌ Fonction de lecture vidéo non trouvée');
       alert('Impossible de lire l\'épisode : lecteur vidéo non disponible');

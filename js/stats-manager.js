@@ -83,13 +83,12 @@ class StatsManager {
     document.getElementById('total-watched-count').textContent = watchedCount;
 
     // Nombre de médias notés
-    const ratedCount = Object.keys(this.userPrefs.ratings).length;
-    document.getElementById('total-rated-count').textContent = ratedCount;
+    const ratedMoviesAll = this.allMovies.filter(m => m.rating > 0);
+    document.getElementById('total-rated-count').textContent = ratedMoviesAll.length;
 
     // Note moyenne
-    const ratings = Object.values(this.userPrefs.ratings);
-    if (ratings.length > 0) {
-      const avgRating = (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1);
+    if (ratedMoviesAll.length > 0) {
+      const avgRating = (ratedMoviesAll.reduce((sum, m) => sum + m.rating, 0) / ratedMoviesAll.length).toFixed(1);
       document.getElementById('average-rating').textContent = `${avgRating} ⭐`;
     } else {
       document.getElementById('average-rating').textContent = '-';
@@ -223,16 +222,9 @@ class StatsManager {
     const container = document.getElementById('top-rated-list');
 
     // Créer un tableau avec les films notés
-    const ratedMovies = [];
-    for (const [movieId, rating] of Object.entries(this.userPrefs.ratings)) {
-      const movie = this.allMovies.find(m => m.id === movieId);
-      if (movie) {
-        ratedMovies.push({
-          movie,
-          rating
-        });
-      }
-    }
+    const ratedMovies = this.allMovies
+      .filter(m => m.rating > 0)
+      .map(m => ({ movie: m, rating: m.rating }));
 
     // Trier par note (décroissant)
     ratedMovies.sort((a, b) => b.rating - a.rating);

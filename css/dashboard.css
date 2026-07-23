@@ -6,6 +6,27 @@
   --chrome-h: calc(var(--titlebar-h) + var(--navbar-h));
 }
 
+/* ===== Icônes personnalisées ===== */
+.rk-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  flex-shrink: 0;
+}
+.rk-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
 /* Reset et styles de base */
 * {
   box-sizing: border-box;
@@ -180,7 +201,7 @@ body {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(10px);
-  padding: 0 20px;
+  padding: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -330,7 +351,7 @@ body {
   gap: 15px;
 }
 
-.filter-button {
+.filter-button, .sort-button {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
   border: none;
@@ -345,7 +366,7 @@ body {
   height: 40px;
 }
 
-.filter-button:hover {
+.filter-button:hover, .sort-button:hover {
   background-color: var(--bg-card);
 }
 
@@ -379,16 +400,6 @@ body {
   height: 40px;
   position: relative;
   overflow: hidden;
-}
-
-.view-toggle-button:hover {
-  background-color: var(--bg-card-active);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-primary);
-}
-
-.view-toggle-button:active {
-  transform: translateY(0);
 }
 
 .view-toggle-button .view-icon {
@@ -433,24 +444,6 @@ body {
 }
 
 /* Bouton de tri (similaire au filtre mais avec distinction visuelle) */
-.sort-button {
-  background-color: var(--color-primary);
-  color: var(--text-primary);
-  border: none;
-  padding: 8px 20px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: var(--transition-fast);
-  height: 40px;
-}
-
-.sort-button:hover {
-  background-color: var(--bg-card-alt-hover);
-}
 
 .sort-icon {
   display: flex;
@@ -641,6 +634,13 @@ body {
   margin-left: 2px; /* Ajustement pour centrer visuellement l'icône play */
 }
 
+.play-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none;
+}
+
 /* Contenu inférieur avec titre et bouton */
 .media-info {
   padding: 8px 12px 12px 12px;
@@ -772,22 +772,22 @@ body {
   100% { transform: scale(1); box-shadow: 0 0 0 rgba(52, 152, 219, 0); }
 }
 
-/* Bouton positionné en absolu dès le départ pour permettre l'animation */
+/* Bouton à voir — positionné en bas à gauche du poster, visible au hover */
 .watch-top {
   position: absolute;
-  top: 16px;
-  right: 12px;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10;
+  bottom: 10px;
+  left: 10px;
+  z-index: 20;
   display: flex;
   align-items: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-/* Au hover, le bouton glisse vers le bas avec transform */
 .media-card:hover .watch-top {
-  transform: translateY(58px) scale(1.05);
-  padding: 8px 16px;
-  font-size: 13px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Contenu étendu (visible au hover) avec animation */
@@ -970,9 +970,12 @@ body {
   background-color: var(--color-primary-dark);
 }
 
-.plus-icon {
-  font-size: 28px;
-  font-weight: bold;
+.floating-action .rk-icon {
+  width: 28px;
+  height: 28px;
+}
+.floating-action .rk-icon svg * {
+  stroke-width: 3;
 }
 
 /* États et messages */
@@ -1153,15 +1156,6 @@ body {
   padding: 0 12px;
 }
 
-.category-title {
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 0;
-}
-
 .category-count {
   color: var(--text-tertiary);
   font-size: 12px;
@@ -1268,7 +1262,7 @@ body {
 
 .category-title {
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 28px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -1588,10 +1582,10 @@ body {
   padding: 0 12px;
 }
 
-.media-category .category-title {
+.media-category {
   color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
@@ -1614,12 +1608,139 @@ body {
   font-weight: 500;
 }
 
+/* Nombre de colonnes contrôlé par JS via --rk-grid-cols */
+.media-grid,
+.media-category .media-grid,
+.category-grid,
+.search-results-grid {
+  grid-template-columns: repeat(var(--rk-grid-cols, 5), 1fr) !important;
+}
+
 .media-category .media-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   padding: 0 12px;
   width: 100%;
+}
+
+/* ── Barre de progression dans les cards ─────────────────────────────── */
+
+.media-card-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.media-card-progress-fill {
+  height: 100%;
+  background: var(--color-primary-light, #a78bfa);
+  max-width: 100%;
+  transition: width 0.3s ease;
+}
+
+.media-current-episode {
+  font-size: 11px;
+  color: var(--color-primary-light, #a78bfa);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+/* ── Overlay conversion audio ──────────────────────────────────────────── */
+
+.audio-converting-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: inherit;
+  cursor: not-allowed;
+  pointer-events: all;
+}
+
+.audio-converting-label {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.audio-converting-pct {
+  color: var(--color-primary-light, #a78bfa);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+/* Anneau de progression SVG */
+.audio-converting-ring {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  animation: rk-spin 1.2s linear infinite;
+}
+
+.audio-converting-ring.has-progress {
+  animation: none;
+}
+
+.audio-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.audio-ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 3;
+}
+
+.audio-ring-fill {
+  fill: none;
+  stroke: var(--color-primary-light, #a78bfa);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* Circumference = 2π×15.9 ≈ 99.9. 75% arc pour l'état indéterminé */
+  stroke-dasharray: 74.9 24.9;
+  stroke-dashoffset: 0;
+  transition: stroke-dasharray 0.4s ease;
+}
+
+@keyframes rk-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Episode play button spinner (series modal) */
+.episode-audio-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--color-primary-light, #a78bfa);
+  border-radius: 50%;
+  animation: rk-spin 0.75s linear infinite;
+  vertical-align: middle;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.episode-play-btn.audio-converting {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Style spécial pour la catégorie non triés */
@@ -1984,7 +2105,6 @@ body {
   gap: 10px;
   padding: 10px 16px;
   background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
 }
 

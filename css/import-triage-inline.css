@@ -1,133 +1,9 @@
-/**
- * Styles pour les modales d'import et de triage
- * Incluant la vue galerie et le thème Rackoon Live
- */
+/* import-triage-inline.css — Phase 1 : Triage des fichiers importés
+   Chrome partagé → import-base.css
+   Ce fichier contient uniquement les styles propres à l'étape de triage :
+   sélecteur de type, galerie de triage, formulaire de détail, thème Rackoon Live. */
 
-.import-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--bg-overlay);
-  z-index: 2000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.import-modal-content {
-  background-color: var(--bg-modal-dark);
-  border-radius: 15px;
-  width: 95%;
-  max-width: 1400px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.import-modal-header {
-  padding: 25px 30px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.import-modal-header h2 {
-  color: var(--text-primary);
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.import-modal-count {
-  color: var(--text-tertiary);
-  font-size: 14px;
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 6px 12px;
-  border-radius: 12px;
-}
-
-.import-modal-body {
-  flex: 1;
-  overflow: hidden;
-  padding: 20px 30px;
-}
-
-.import-table-container {
-  height: 100%;
-  overflow-y: auto;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.import-table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.import-table th {
-  background-color: var(--input-bg);
-  color: var(--text-primary);
-  font-weight: 600;
-  padding: 15px 12px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.import-table td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border-color-light);
-  color: var(--text-secondary);
-}
-
-.import-row:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.file-thumbnail {
-  width: 60px;
-  height: 40px;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: var(--bg-thumbnail);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.thumbnail-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.filename-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.filename-title {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.filename-path {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
-}
+/* ── Sélecteur de type (film / série / court-métrage / autre) ── */
 
 .type-selector {
   background-color: rgba(255, 255, 255, 0.1);
@@ -169,65 +45,11 @@
   color: var(--text-primary) !important;
 }
 
-.btn-small {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: none;
-  transition: all 0.3s;
-}
-
-.btn-outline {
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: var(--text-primary);
-}
-
-.btn-outline:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.import-modal-footer {
-  padding: 25px 30px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+/* ── Actions et progression du triage ── */
 
 .import-actions {
   display: flex;
   gap: 15px;
-}
-
-.btn-secondary {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.btn-primary {
-  background-color: var(--color-primary);
-  color: var(--text-primary);
-  border: none;
-  padding: 10px 25px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-primary:hover {
-  background-color: var(--color-primary-dark);
 }
 
 .import-progress {
@@ -236,28 +58,8 @@
   gap: 15px;
 }
 
-.progress-bar {
-  width: 200px;
-  height: 6px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
-}
+/* ── Mode de tri ── */
 
-.progress-fill {
-  height: 100%;
-  background-color: var(--color-primary);
-  width: 0%;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  color: var(--text-tertiary);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-/* Styles pour les nouveaux champs de tri */
 .sort-mode-cell {
   min-width: 180px;
   vertical-align: top;
@@ -284,6 +86,8 @@
   background-color: rgba(255, 255, 255, 0.03);
 }
 
+/* ── Assignation de série ── */
+
 .series-fields {
   padding: 8px;
   background-color: rgba(255, 255, 255, 0.05);
@@ -294,7 +98,6 @@
   gap: 6px;
 }
 
-/* Ligne 1 : sélecteur de série + bouton + */
 .series-assign-row {
   display: flex;
   gap: 6px;
@@ -323,19 +126,6 @@
   color: var(--text-primary);
 }
 
-.btn-icon {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  line-height: 1;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
 .new-series-btn {
   font-size: 14px;
   white-space: nowrap;
@@ -356,7 +146,6 @@
   margin-top: 3px;
 }
 
-/* Tiret quand pas de série assignée */
 .no-series-dash {
   color: #444;
   font-size: 14px;
@@ -387,6 +176,8 @@
   border-color: var(--btn-other-border-hover);
 }
 
+/* ── Validation et erreurs ── */
+
 .validation-error {
   display: flex;
   align-items: center;
@@ -404,11 +195,10 @@
   flex: 1;
 }
 
-/* Animation de vibration pour les erreurs */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+  25%       { transform: translateX(-5px); }
+  75%       { transform: translateX(5px); }
 }
 
 .import-row.error-shake {
@@ -420,41 +210,16 @@
   border-left: 3px solid var(--color-error-light);
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-  .import-modal-content {
-    width: 98%;
-    max-height: 95vh;
-  }
-
-  .import-table {
-    font-size: 14px;
-  }
-
-  .filename-path {
-    max-width: 150px;
-  }
-}
+/* ── Responsive triage ── */
 
 @media (max-width: 768px) {
-  .import-modal-header {
-    flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
-  }
-
-  .import-modal-footer {
-    flex-direction: column;
-    gap: 15px;
-    align-items: stretch;
-  }
-
   .import-actions {
     justify-content: center;
   }
 }
 
-/* Styles pour la modal de classification détaillée */
+/* ── Modal de détail par fichier ── */
+
 .details-modal {
   max-width: 800px;
 }
@@ -549,31 +314,16 @@
   max-width: 500px;
 }
 
-.btn-small {
-  padding: 6px 12px;
-  font-size: 12px;
-  white-space: nowrap;
-}
+/* ── Boutons de navigation fichier à fichier ── */
 
-.btn-outline {
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: var(--text-primary);
-}
-
-.btn-outline:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-/* Styles pour les boutons de navigation */
 .navigation-buttons {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-#prev-file-btn, #next-file-btn {
+#prev-file-btn,
+#next-file-btn {
   padding: 8px 16px;
   font-size: 14px;
   border-radius: 6px;
@@ -584,24 +334,28 @@
   color: var(--text-primary);
 }
 
-#prev-file-btn:hover, #next-file-btn:hover {
+#prev-file-btn:hover,
+#next-file-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.5);
 }
 
-#prev-file-btn:disabled, #next-file-btn:disabled {
+#prev-file-btn:disabled,
+#next-file-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background-color: transparent;
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-#prev-file-btn:disabled:hover, #next-file-btn:disabled:hover {
+#prev-file-btn:disabled:hover,
+#next-file-btn:disabled:hover {
   background-color: transparent;
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Styles pour la modal galerie */
+/* ── Galerie de triage ── */
+
 .gallery-modal {
   max-width: 95vw;
   max-height: 95vh;
@@ -624,14 +378,14 @@
   max-height: 70vh;
 }
 
-/* Contrôles globaux (galerie et triage) */
+/* ── Contrôles globaux de la galerie ── */
+
 .gallery-global-controls,
 .triage-global-controls {
   background-color: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 20px;
-  margin: 20px 20px 25px 20px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -701,6 +455,8 @@
   border-radius: 4px;
   font-weight: 500;
 }
+
+/* ── Grille de cartes ── */
 
 .gallery-container {
   display: grid;
@@ -790,23 +546,14 @@
   white-space: nowrap;
 }
 
-/* Couleurs scoped au triage — évite d'écraser les variantes de import-classification.css */
-#import-triage-modal .category-badge.series {
-  background-color: rgba(220, 53, 69, 0.9);
-}
+/* Couleurs spécifiques au triage — scopées pour ne pas écraser
+   les variantes de import-classification.css */
+#import-triage-modal .category-badge.series { background-color: rgba(220, 53, 69, 0.9); }
+#import-triage-modal .category-badge.film   { background-color: rgba(40, 167, 69, 0.9); }
+#import-triage-modal .category-badge.short  { background-color: rgba(255, 193, 7, 0.9); color: var(--text-on-light); }
+#import-triage-modal .category-badge.other  { background-color: rgba(108, 117, 125, 0.9); }
 
-#import-triage-modal .category-badge.film {
-  background-color: rgba(40, 167, 69, 0.9);
-}
-
-#import-triage-modal .category-badge.short {
-  background-color: rgba(255, 193, 7, 0.9);
-  color: var(--text-on-light);
-}
-
-#import-triage-modal .category-badge.other {
-  background-color: rgba(108, 117, 125, 0.9);
-}
+/* ── Corps de la carte ── */
 
 .gallery-card-body {
   padding: 16px;
@@ -846,20 +593,22 @@
   gap: 8px;
 }
 
-.series-input-container {
+.gallery-card .series-input-container {
   display: flex;
   gap: 6px;
   align-items: flex-end;
 }
 
-.series-input-container .form-control {
+.gallery-card .series-input-container .form-control {
   flex: 1;
 }
 
-.series-input-container .btn-small {
+.gallery-card .series-input-container .btn-small {
   padding: 6px 8px;
   font-size: 12px;
 }
+
+/* ── Pied de carte ── */
 
 .gallery-card-footer {
   padding: 12px 16px;
@@ -878,20 +627,9 @@
   text-transform: uppercase;
 }
 
-.status-indicator[data-status="pending"] {
-  background-color: rgba(255, 193, 7, 0.2);
-  color: var(--color-warning);
-}
-
-.status-indicator[data-status="saved"] {
-  background-color: rgba(40, 167, 69, 0.2);
-  color: var(--color-success);
-}
-
-.status-indicator[data-status="skipped"] {
-  background-color: rgba(108, 117, 125, 0.2);
-  color: var(--btn-other-bg);
-}
+.status-indicator[data-status="pending"]  { background-color: rgba(255, 193, 7, 0.2);    color: var(--color-warning); }
+.status-indicator[data-status="saved"]    { background-color: rgba(40, 167, 69, 0.2);    color: var(--color-success); }
+.status-indicator[data-status="skipped"] { background-color: rgba(108, 117, 125, 0.2);  color: var(--btn-other-bg); }
 
 .card-actions {
   display: flex;
@@ -904,7 +642,8 @@
   border-radius: 4px;
 }
 
-/* Responsive pour la galerie */
+/* ── Responsive galerie ── */
+
 @media (max-width: 1200px) {
   .gallery-container {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -936,9 +675,7 @@
     width: 100%;
     margin-top: 5px;
   }
-}
 
-@media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
     gap: 15px;
@@ -954,36 +691,9 @@
   }
 }
 
-/* Bouton Rackoon Live */
-.rackoon-live-btn {
-  background: var(--btn-live-bg);
-  color: var(--btn-primary-text);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 15px;
-  transition: all 0.3s ease;
-  box-shadow: var(--btn-live-shadow);
-}
-
-.rackoon-live-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--btn-live-shadow-hover);
-}
-
-.rackoon-live-btn i {
-  font-size: 16px;
-}
-
-/* ========================================
-   THÈME RACKOON LIVE - Apple Glassmorphism 2025
-   ======================================== */
+/* ══════════════════════════════════════════════════════════════
+   THÈME RACKOON LIVE — Apple Glassmorphism 2025
+   ══════════════════════════════════════════════════════════════ */
 
 body.rackoon-live {
   --glass-bg: rgba(26, 35, 50, 0.7);
@@ -999,27 +709,16 @@ body.rackoon-live {
   --badge-white: #FFFFFF;
 }
 
-/* Animation d'entrée du mode Live */
 @keyframes glassAppear {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-    filter: blur(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
-  }
+  from { opacity: 0; transform: scale(0.95); filter: blur(10px); }
+  to   { opacity: 1; transform: scale(1);    filter: blur(0); }
 }
 
-/* Fond principal */
 body.rackoon-live {
   background: var(--bg-gradient);
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Navbar Glassmorphism */
 body.rackoon-live .navbar {
   background: rgba(26, 35, 50, 0.6);
   backdrop-filter: blur(20px) saturate(180%);
@@ -1051,14 +750,9 @@ body.rackoon-live .nav-link.active {
   box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
 }
 
-/* Main Content */
-body.rackoon-live .main-content {
-  background: transparent;
-}
+body.rackoon-live .main-content   { background: transparent; }
 
-body.rackoon-live .section-header {
-  padding: 40px 0 20px;
-}
+body.rackoon-live .section-header { padding: 40px 0 20px; }
 
 body.rackoon-live .section-header h2 {
   color: var(--text-primary);
@@ -1067,7 +761,6 @@ body.rackoon-live .section-header h2 {
   letter-spacing: -0.5px;
 }
 
-/* Glassmorphism Cards */
 body.rackoon-live .media-card {
   background: var(--glass-bg);
   backdrop-filter: blur(16px) saturate(180%);
@@ -1083,11 +776,9 @@ body.rackoon-live .media-card:hover {
   background: rgba(26, 35, 50, 0.85);
   border-color: rgba(74, 158, 255, 0.4);
   transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 12px 40px rgba(74, 158, 255, 0.2),
-              0 0 0 1px rgba(74, 158, 255, 0.3);
+  box-shadow: 0 12px 40px rgba(74, 158, 255, 0.2), 0 0 0 1px rgba(74, 158, 255, 0.3);
 }
 
-/* Thumbnail avec overlay glassmorphism */
 body.rackoon-live .media-thumbnail-container {
   border-radius: 12px;
   overflow: hidden;
@@ -1098,16 +789,13 @@ body.rackoon-live .media-thumbnail {
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-body.rackoon-live .media-card:hover .media-thumbnail {
-  transform: scale(1.05);
-}
+body.rackoon-live .media-card:hover .media-thumbnail { transform: scale(1.05); }
 
 body.rackoon-live .media-overlay {
   background: rgba(15, 20, 25, 0.7);
   backdrop-filter: blur(8px);
 }
 
-/* Boutons Glassmorphism */
 body.rackoon-live .sort-button,
 body.rackoon-live .filter-button,
 body.rackoon-live .view-toggle-button {
@@ -1130,7 +818,6 @@ body.rackoon-live .view-toggle-button:hover {
   box-shadow: 0 4px 16px rgba(74, 158, 255, 0.25);
 }
 
-/* Search Bar Glassmorphism */
 body.rackoon-live .search-filter {
   background: rgba(26, 35, 50, 0.5);
   backdrop-filter: blur(10px);
@@ -1146,11 +833,8 @@ body.rackoon-live .search-filter input {
   font-weight: 400;
 }
 
-body.rackoon-live .search-filter input::placeholder {
-  color: var(--text-secondary);
-}
+body.rackoon-live .search-filter input::placeholder { color: var(--text-secondary); }
 
-/* Category Sections */
 body.rackoon-live .category-section {
   background: rgba(26, 35, 50, 0.3);
   backdrop-filter: blur(10px);
@@ -1168,7 +852,6 @@ body.rackoon-live .category-title {
   letter-spacing: -0.3px;
 }
 
-/* Play Button */
 body.rackoon-live .play-btn {
   background: var(--accent-blue);
   border: none;
@@ -1182,7 +865,6 @@ body.rackoon-live .play-btn:hover {
   box-shadow: 0 6px 24px rgba(74, 158, 255, 0.6);
 }
 
-/* Rackoon Live Button Transform */
 body.rackoon-live .rackoon-live-btn {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
@@ -1196,14 +878,12 @@ body.rackoon-live .rackoon-live-btn:hover {
   transform: translateY(-2px) scale(1.05);
 }
 
-/* Media Title */
 body.rackoon-live .media-title {
   color: var(--text-primary);
   font-weight: 600;
   font-size: 15px;
 }
 
-/* Badge Styles (vu/à voir) */
 body.rackoon-live .media-card::after {
   content: 'Film';
   position: absolute;
@@ -1220,20 +900,35 @@ body.rackoon-live .media-card::after {
   letter-spacing: 0.5px;
 }
 
-/* Scrollbar Glassmorphism */
-body.rackoon-live ::-webkit-scrollbar {
-  width: 8px;
+body.rackoon-live ::-webkit-scrollbar       { width: 8px; }
+body.rackoon-live ::-webkit-scrollbar-track { background: rgba(26, 35, 50, 0.3); }
+body.rackoon-live ::-webkit-scrollbar-thumb { background: rgba(74, 158, 255, 0.5); border-radius: 4px; }
+body.rackoon-live ::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
+
+/* ── Bouton Rackoon Live ── */
+
+.rackoon-live-btn {
+  background: var(--btn-live-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 15px;
+  transition: all 0.3s ease;
+  box-shadow: var(--btn-live-shadow);
 }
 
-body.rackoon-live ::-webkit-scrollbar-track {
-  background: rgba(26, 35, 50, 0.3);
+.rackoon-live-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--btn-live-shadow-hover);
 }
 
-body.rackoon-live ::-webkit-scrollbar-thumb {
-  background: rgba(74, 158, 255, 0.5);
-  border-radius: 4px;
-}
-
-body.rackoon-live ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-blue);
+.rackoon-live-btn i {
+  font-size: 16px;
 }

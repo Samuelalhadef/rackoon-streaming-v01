@@ -536,13 +536,13 @@ class FileManagerElectron {
       </td>
       <td>
         <div class="file-actions">
-          ${fileExists ? `<button class="action-btn btn-view" onclick="fileManager.playFile(${file.id})">
+          ${fileExists ? `<button class="action-btn btn-view" onclick="fileManager.playFile('${file.id}')">
             <i class="fas fa-play"></i>
           </button>` : ''}
-          <button class="action-btn btn-details" onclick="fileManager.showFileDetails(${file.id})">
+          <button class="action-btn btn-details" onclick="fileManager.showFileDetails('${file.id}')">
             <i class="fas fa-info"></i>
           </button>
-          <button class="action-btn btn-delete" onclick="fileManager.deleteFile(${file.id})">
+          <button class="action-btn btn-delete" onclick="fileManager.deleteFile('${file.id}')">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -716,8 +716,8 @@ class FileManagerElectron {
     // Sélectionner/désélectionner tous les fichiers
     checkboxes.forEach(checkbox => {
       checkbox.checked = selectAll;
-      const fileId = parseInt(checkbox.dataset.fileId);
-      
+      const fileId = checkbox.dataset.fileId;
+
       if (selectAll) {
         this.selectedFiles.add(fileId);
       } else {
@@ -806,10 +806,7 @@ class FileManagerElectron {
       // Utiliser un sélecteur plus spécifique avec l'ID du dossier
       const folderId = this.getFolderId(folder.path);
       const folderCheckbox = document.getElementById(`folder-checkbox-${folderId}`);
-      if (!folderCheckbox) {
-        console.warn(`⚠️ Checkbox de dossier introuvable pour: ${folder.path} (ID: ${folderId})`);
-        return;
-      }
+      if (!folderCheckbox) return;
       
       // Compter combien de fichiers de ce dossier ET de ses sous-dossiers sont sélectionnés
       const normalizedFolderPath = this.normalizePath(folder.path);
@@ -859,8 +856,8 @@ class FileManagerElectron {
     try {
       const result = await window.electronAPI.getMediaDetails(fileId);
       if (result.success) {
-        const file = result.movie;
-        
+        const file = result.media;
+
         document.getElementById('detail-title').textContent = file.title || 'Sans titre';
         document.getElementById('detail-path').textContent = file.path || 'N/A';
         document.getElementById('detail-format').textContent = (file.format || 'N/A').toUpperCase();
@@ -960,8 +957,7 @@ class FileManagerElectron {
   // Ouvrir un dossier dans l'explorateur
   async openFolderInExplorer(folderPath) {
     try {
-      // Utiliser l'IPC pour ouvrir le dossier
-      await window.electronAPI.openMediaFolder(1); // On utilise l'API existante
+      await window.electronAPI.openFolder(folderPath);
     } catch (error) {
       console.error('Erreur lors de l\'ouverture du dossier:', error);
     }
@@ -976,41 +972,39 @@ class FileManagerElectron {
   // Mettre à jour le texte du bouton de vue
   updateViewButton() {
     const btn = document.getElementById('toggle-view-btn');
+    if (!btn) return;
     const icon = btn.querySelector('i');
-    const text = btn.childNodes[2]; // Le nœud texte après l'icône
-    
+    const label = btn.querySelector('span');
+
     if (this.viewMode === 'hierarchical') {
-      icon.className = 'fas fa-list';
-      btn.childNodes[2].textContent = ' Vue plate';
+      if (icon) icon.className = 'fas fa-list';
+      if (label) label.textContent = ' Vue plate';
     } else {
-      icon.className = 'fas fa-sitemap';
-      btn.childNodes[2].textContent = ' Vue hiérarchique';
+      if (icon) icon.className = 'fas fa-sitemap';
+      if (label) label.textContent = ' Vue hiérarchique';
     }
   }
 
   // Basculer entre déplier tout / replier tout
   toggleExpandAll() {
     const expandBtn = document.getElementById('expand-all-btn');
+    if (!expandBtn) return;
     const icon = expandBtn.querySelector('i');
-    
-    // Vérifier si tous les dossiers sont dépliés
+    const label = expandBtn.querySelector('span');
+
     const allFolders = this.getAllUniqueFolderPaths();
     const allExpanded = allFolders.every(folderPath => this.expandedFolders.has(folderPath));
-    
+
     if (allExpanded) {
-      // Tout replier
-      console.log('📁 Repliage de tous les dossiers');
       this.expandedFolders.clear();
-      icon.className = 'fas fa-plus-square';
-      expandBtn.childNodes[2].textContent = ' Tout déplier';
+      if (icon) icon.className = 'fas fa-plus-square';
+      if (label) label.textContent = ' Tout déplier';
     } else {
-      // Tout déplier
-      console.log('📂 Dépliage de tous les dossiers');
       this.expandAllFolders();
-      icon.className = 'fas fa-minus-square';
-      expandBtn.childNodes[2].textContent = ' Tout replier';
+      if (icon) icon.className = 'fas fa-minus-square';
+      if (label) label.textContent = ' Tout replier';
     }
-    
+
     this.displayFiles();
   }
 

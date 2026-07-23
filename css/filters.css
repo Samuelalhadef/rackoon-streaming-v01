@@ -155,6 +155,40 @@
   margin-bottom: 16px;
 }
 
+/* Sélecteur de colonnes */
+.columns-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.columns-btn {
+  flex: 1;
+  min-width: 32px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.columns-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+}
+
+.columns-btn.active {
+  background: rgba(var(--color-primary-rgb), 0.18);
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+}
+
 .filter-section-title {
   color: var(--text-secondary);
   font-size: var(--text-xs);

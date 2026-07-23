@@ -411,7 +411,6 @@
   width: 100%;
   border-collapse: collapse;
   background: var(--bg-modal-content);
-  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -911,23 +910,77 @@
 #delete-modal,
 #details-modal,
 #clear-all-modal {
-  background: var(--bg-overlay);
-  z-index: 1000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Contre-poids des règles opacity/visibility de modal.css */
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
 }
 
-.modal-content.large {
-  max-width: 800px;
+/* Boîte de dialog centrée — override complet des styles hérités de modal.css */
+#delete-modal .modal-content,
+#details-modal .modal-content,
+#clear-all-modal .modal-content {
+  flex: none;
+  gap: 0;
+  padding: 0;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-secondary, #16162a);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: none;
 }
 
-.modal-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+#details-modal .modal-content {
+  max-width: 600px;
+}
+
+#clear-all-modal .modal-content {
+  max-width: 520px;
+}
+
+#delete-modal .modal-header,
+#details-modal .modal-header,
+#clear-all-modal .modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#delete-modal .modal-body,
+#details-modal .modal-body,
+#clear-all-modal .modal-body {
+  padding: 24px;
+}
+
+#delete-modal .modal-footer,
+#details-modal .modal-footer,
+#clear-all-modal .modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-content.large {
+  max-width: 800px;
 }
 
 .modal-header h3 {
@@ -955,18 +1008,6 @@
 .modal-close:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.1);
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.modal-footer {
-  padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
 }
 
 .warning-text {

@@ -184,17 +184,20 @@ window.updateStarsDisplay = function(container, rating) {
 // Configuration d'interaction avec les étoiles
 window.setupStarsInteraction = function(container, onRate) {
   if (!container || !onRate) return;
-  
+
   const stars = container.querySelectorAll('.star');
   stars.forEach((star, index) => {
-    star.addEventListener('click', () => onRate(index + 1));
+    star.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onRate(index + 1);
+    });
     star.addEventListener('mouseenter', () => {
       stars.forEach((s, i) => {
         s.classList.toggle('hover', i <= index);
       });
     });
   });
-  
+
   container.addEventListener('mouseleave', () => {
     stars.forEach(s => s.classList.remove('hover'));
   });

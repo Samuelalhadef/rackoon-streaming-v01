@@ -384,9 +384,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let photoHtml;
     if (person.photo) {
-      photoHtml = `<img class="person-detail-photo" src="http://localhost:3001/person-photos/${person.photo}" alt="${escapeHtml(person.name)}">`;
+      photoHtml = `<div class="person-photo-edit-area" title="Modifier la photo">
+        <img class="person-detail-photo" src="http://localhost:3001/person-photos/${person.photo}" alt="${escapeHtml(person.name)}">
+        <div class="person-photo-edit-overlay"><i class="fas fa-camera"></i></div>
+      </div>`;
     } else {
-      photoHtml = `<div class="person-detail-photo-placeholder"><i class="fas fa-user"></i></div>`;
+      photoHtml = `<div class="person-photo-edit-area" title="Ajouter une photo">
+        <div class="person-detail-photo-placeholder"><i class="fas fa-user"></i></div>
+        <div class="person-photo-edit-overlay"><i class="fas fa-camera"></i></div>
+      </div>`;
     }
 
     // Construire la liste des rôles liés
@@ -484,6 +490,39 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal();
       await deletePersonUI(person.id);
     });
+
+    // Edition de la photo
+    const photoEditArea = modal.querySelector('.person-photo-edit-area');
+    if (photoEditArea) {
+      photoEditArea.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = async (re) => {
+            const base64Data = re.target.result.split(',')[1];
+            const ext = '.' + (file.name.split('.').pop() || 'jpg');
+            const result = await window.electronAPI.uploadPersonPhoto(person.id, base64Data, ext);
+            if (result.success) {
+              const newImg = document.createElement('img');
+              newImg.className = 'person-detail-photo';
+              newImg.src = `http://localhost:3001/person-photos/${result.fileName}`;
+              const old = photoEditArea.querySelector('.person-detail-photo, .person-detail-photo-placeholder');
+              if (old) old.replaceWith(newImg);
+              photoEditArea.title = 'Modifier la photo';
+              const personInArray = allPersons.find(p => p.id === person.id);
+              if (personInArray) personInArray.photo = result.fileName;
+              renderPersons(allPersons);
+            }
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+      });
+    }
   }
 
   // ========================================

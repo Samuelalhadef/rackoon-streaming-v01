@@ -10,15 +10,17 @@
   <link rel="stylesheet" href="../css/dashboard.css">
   <link rel="stylesheet" href="../css/modal.css">
   <link rel="stylesheet" href="../css/video-player.css">
+  <link rel="stylesheet" href="../css/import-base.css">
   <link rel="stylesheet" href="../css/import-classification.css">
   <link rel="stylesheet" href="../css/import-triage-inline.css">
   <link rel="stylesheet" href="../css/stats-overview.css">
-  <link rel="stylesheet" href="../css/series-modal.css">
   <link rel="stylesheet" href="../css/filters.css">
   <link rel="stylesheet" href="../css/file-manager.css">
   <link rel="stylesheet" href="../css/watch-party.css">
   <link rel="stylesheet" href="../css/personnes.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/plateformes.css">
+  <link rel="stylesheet" href="../css/tags.css">
+  <link rel="stylesheet" href="../node_modules/@fortawesome/fontawesome-free/css/all.min.css">
 </head>
 <body>
   <!-- Titlebar custom -->
@@ -43,7 +45,6 @@
   <!-- Barre de navigation -->
   <nav class="navbar">
     <div class="navbar-left">
-      <div class="logo">RACKOON</div>
       <div class="nav-links tabs-navigation" id="tabs-navigation">
         <a href="#accueil" class="nav-link tab-link active" data-tab="accueil">
           <i class="fas fa-home"></i>
@@ -56,6 +57,14 @@
         <a href="#personnes" class="nav-link tab-link" data-tab="personnes">
           <i class="fas fa-users"></i>
           Personnes
+        </a>
+        <a href="#plateformes" class="nav-link tab-link" data-tab="plateformes">
+          <i class="fas fa-play-circle"></i>
+          Plateformes & Studios
+        </a>
+        <a href="#tags" class="nav-link tab-link" data-tab="tags">
+          <i class="fas fa-tags"></i>
+          Tags
         </a>
         <a href="#gestion-fichiers" class="nav-link tab-link" data-tab="gestion-fichiers">
           <i class="fas fa-folder-open"></i>
@@ -327,6 +336,34 @@
     </div>
     <!-- Fin Section Statistiques -->
 
+    <!-- Section Plateformes & Studios -->
+    <div class="tab-section" id="section-plateformes" data-section="plateformes">
+      <main class="main-content">
+        <div class="ps-header">
+          <h2><i class="fas fa-play-circle"></i> Plateformes &amp; Studios</h2>
+        </div>
+
+        <section class="ps-section">
+          <h3 class="ps-section-title"><i class="fas fa-tv"></i> Plateformes</h3>
+          <div class="ps-grid" id="platforms-grid"></div>
+          <div class="ps-empty" id="platforms-empty" style="display:none">
+            <i class="fas fa-tv"></i>
+            <p>Aucune plateforme enregistrée.<br>Associez des plateformes à vos films et séries.</p>
+          </div>
+        </section>
+
+        <section class="ps-section">
+          <h3 class="ps-section-title"><i class="fas fa-film"></i> Studios</h3>
+          <div class="ps-grid" id="studios-grid"></div>
+          <div class="ps-empty" id="studios-empty" style="display:none">
+            <i class="fas fa-film"></i>
+            <p>Aucun studio enregistré.<br>Associez des studios à vos films et séries.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <!-- Fin Section Plateformes & Studios -->
+
     <!-- Section Personnes -->
     <div class="tab-section" id="section-personnes" data-section="personnes">
       <main class="main-content">
@@ -355,6 +392,21 @@
       </main>
     </div>
     <!-- Fin Section Personnes -->
+
+    <!-- Section Tags -->
+    <div class="tab-section" id="section-tags" data-section="tags">
+      <main class="main-content">
+        <div class="tags-header">
+          <h2><i class="fas fa-tags"></i> Tags</h2>
+          <div class="tags-search-wrapper">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" class="tags-search-input" id="tags-search-input" placeholder="Filtrer les tags...">
+          </div>
+        </div>
+        <div class="tags-grid" id="tags-grid"></div>
+      </main>
+    </div>
+    <!-- Fin Section Tags -->
 
     <!-- Section Gestion de fichiers -->
     <div class="tab-section" id="section-gestion-fichiers" data-section="gestion-fichiers">
@@ -424,13 +476,11 @@
             </select>
 
             <button id="toggle-view-btn" class="btn-secondary">
-              <i class="fas fa-list"></i>
-              Vue plate
+              <i class="fas fa-list"></i><span> Vue plate</span>
             </button>
 
             <button id="expand-all-btn" class="btn-secondary">
-              <i class="fas fa-plus-square"></i>
-              Tout déplier
+              <i class="fas fa-plus-square"></i><span> Tout déplier</span>
             </button>
 
             <button id="refresh-btn" class="btn-primary">
@@ -492,7 +542,7 @@
 
   <!-- Bouton d'action flottant -->
   <div class="floating-action" id="add-btn">
-    <span class="plus-icon">+</span>
+    <i class="fas fa-plus"></i>
   </div>
 
   <!-- Menu flottant pour le scan -->
@@ -500,11 +550,11 @@
     <h3>Ajouter des médias</h3>
     <div class="scan-actions">
       <button class="scan-btn" id="scan-folder-btn">
-        <span class="icon"><i class="fas fa-folder-open"></i></span>
+        <span class="icon"><i class="fas fa-folder"></i></span>
         Rechercher un dossier
       </button>
       <button class="scan-btn" id="scan-file-btn">
-        <span class="icon"><i class="fas fa-file-video"></i></span>
+        <span class="icon"><i class="fas fa-film"></i></span>
         Rechercher un fichier
       </button>
     </div>
@@ -526,6 +576,24 @@
           <i class="fas fa-sort-alpha-down"></i>
           <span>A → Z</span>
         </button>
+      </div>
+
+      <div class="filters-divider"></div>
+
+      <!-- Section Colonnes -->
+      <div class="filter-section">
+        <h4 class="filter-section-title">
+          <i class="fas fa-th-large"></i>
+          Colonnes
+        </h4>
+        <div class="columns-picker" id="columns-picker">
+          <button class="columns-btn" data-cols="3">3</button>
+          <button class="columns-btn" data-cols="4">4</button>
+          <button class="columns-btn active" data-cols="5">5</button>
+          <button class="columns-btn" data-cols="6">6</button>
+          <button class="columns-btn" data-cols="7">7</button>
+          <button class="columns-btn" data-cols="8">8</button>
+        </div>
       </div>
 
       <div class="filters-divider"></div>
@@ -596,7 +664,23 @@
           </label>
           <label class="filter-checkbox">
             <input type="checkbox" name="media-type" value="series" checked>
-            <span>Séries</span>
+            <span>Séries TV</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="documentaire" checked>
+            <span>Documentaires</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="animation" checked>
+            <span>Animation</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="concert" checked>
+            <span>Concerts</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" name="media-type" value="sport" checked>
+            <span>Sport</span>
           </label>
           <label class="filter-checkbox">
             <input type="checkbox" name="media-type" value="short" checked>
@@ -807,13 +891,26 @@
               <i class="fas fa-play"></i>
             </button>
           </div>
+          <div class="media-card-progress" style="display:none">
+            <div class="media-card-progress-fill"></div>
+          </div>
+          <div class="audio-converting-overlay" style="display:none">
+            <div class="audio-converting-ring">
+              <svg viewBox="0 0 36 36" class="audio-ring-svg">
+                <circle class="audio-ring-bg" cx="18" cy="18" r="15.9"/>
+                <circle class="audio-ring-fill" cx="18" cy="18" r="15.9"/>
+              </svg>
+            </div>
+            <span class="audio-converting-label">Conversion…</span>
+            <span class="audio-converting-pct" style="display:none"></span>
+          </div>
+          <div class="watch-top">
+            <button class="btn-watch-toggle">à voir</button>
+          </div>
         </div>
         <div class="media-info">
           <div class="media-title-container">
             <h3 class="media-title"></h3>
-            <div class="watch-top">
-              <button class="btn-watch-toggle">à voir</button>
-            </div>
           </div>
           <div class="media-extended-info">
             <div class="media-duration">
@@ -927,7 +1024,9 @@
           <div class="movie-meta">
             <div class="release-date" id="release-date"></div>
             <div class="duration" id="duration">2h 35m</div>
-            <div class="decade" id="decade"></div>
+            <div class="platform-section" id="platform-section" style="display: none;"><span id="platform-name"></span></div>
+            <div class="country-pill" id="country-pill" style="display: none;"><span id="country-name"></span></div>
+            <div class="studios-pill" id="studios-pill" style="display: none;"><span id="studios-name"></span></div>
           </div>
 
           <!-- Synopsis remonté pour une meilleure logique de lecture -->
@@ -972,6 +1071,15 @@
                 <span class="tag-category-title">Personnel</span>
               </div>
               <div class="tag-chips" id="personal-container"></div>
+            </div>
+
+            <!-- Franchises -->
+            <div class="tag-category" id="franchise-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-layer-group"></i>
+                <span class="tag-category-title">Franchises</span>
+              </div>
+              <div class="tag-chips" id="franchise-container"></div>
             </div>
           </div>
 
@@ -1020,14 +1128,6 @@
               <span class="actors-list" id="actors-list"></span>
             </div>
 
-            <div class="franchise-section" id="franchise-section" style="display: none;">
-              <span class="credit-label">Collection :</span>
-              <span class="franchise-name" id="franchise-name"></span>
-            </div>
-            <div class="platform-section" id="platform-section" style="display: none;">
-              <span class="credit-label">Plateforme :</span>
-              <span class="platform-name" id="platform-name"></span>
-            </div>
           </div>
 
           <!-- Section Visionnage -->
@@ -1096,8 +1196,8 @@
           </div>
 
           <!-- Bouton flottant pour regarder le film -->
-          <button class="btn-watch-film floating-watch-btn" id="btn-watch-film">
-            <i class="fas fa-play"></i>
+          <button class="floating-watch-btn" id="btn-watch-film">
+            <img src="../assets/pictos/play.svg" class="rk-icon" style="filter:brightness(0)invert(1);width:20px;height:20px;">
             <span>Regarder le film</span>
           </button>
           </div>
@@ -1220,8 +1320,12 @@
           </div>
 
           <div class="movie-meta">
-            <div class="series-episode-count" id="series-episode-count">0 épisodes</div>
-            <div class="decade" id="series-decade"></div>
+            <div class="series-seasons" id="series-seasons">0 saison</div>
+            <div class="series-episodes" id="series-episodes">0 épisode</div>
+            <div class="platform-section" id="series-platform-section" style="display: none;"><span id="series-platform-name"></span></div>
+            <div class="series-studios-pill" id="series-studios-section" style="display: none;"><span id="series-studios-name"></span></div>
+            <div class="series-status-pill" id="series-status-section" style="display: none;"><span id="series-status-name"></span></div>
+            <div class="series-country-pill" id="series-country-section" style="display: none;"><span id="series-country-name"></span></div>
           </div>
 
           <!-- Synopsis remonté pour une meilleure logique de lecture -->
@@ -1233,7 +1337,7 @@
           <!-- Tags déplacés avant les crédits -->
           <div class="tags-container">
             <!-- Genres -->
-            <div class="tag-category" id="series-genres-category" style="display: block;">
+            <div class="tag-category" id="series-genres-category">
               <div class="tag-category-header">
                 <i class="fas fa-film"></i>
                 <span class="tag-category-title">Genres</span>
@@ -1242,7 +1346,7 @@
             </div>
 
             <!-- Ambiance/Mood -->
-            <div class="tag-category" id="series-mood-category" style="display: block;">
+            <div class="tag-category" id="series-mood-category">
               <div class="tag-category-header">
                 <i class="fas fa-heart"></i>
                 <span class="tag-category-title">Ambiance</span>
@@ -1251,7 +1355,7 @@
             </div>
 
             <!-- Technique -->
-            <div class="tag-category" id="series-technical-category" style="display: block;">
+            <div class="tag-category" id="series-technical-category">
               <div class="tag-category-header">
                 <i class="fas fa-cog"></i>
                 <span class="tag-category-title">Technique</span>
@@ -1260,12 +1364,21 @@
             </div>
 
             <!-- Personnel -->
-            <div class="tag-category" id="series-personal-category" style="display: block;">
+            <div class="tag-category" id="series-personal-category">
               <div class="tag-category-header">
                 <i class="fas fa-user"></i>
                 <span class="tag-category-title">Personnel</span>
               </div>
               <div class="tag-chips" id="series-personal-container"><span class="empty-tags-message">Aucun tag ajouté</span></div>
+            </div>
+
+            <!-- Franchises -->
+            <div class="tag-category" id="series-franchise-category" style="display: none;">
+              <div class="tag-category-header">
+                <i class="fas fa-layer-group"></i>
+                <span class="tag-category-title">Franchises</span>
+              </div>
+              <div class="tag-chips" id="series-franchise-container"></div>
             </div>
           </div>
 
@@ -1300,29 +1413,6 @@
               <div class="credits-persons-grid" id="series-cast-persons-grid" data-department="actor"></div>
             </div>
 
-            <!-- Fallback texte (actuel, conservé pour compatibilité JS) -->
-            <div class="director-section" id="series-director-section" style="display: none;">
-              <span class="credit-label">Créateur :</span>
-              <span class="director-name" id="series-director-name"></span>
-            </div>
-            <div class="actors-section" id="series-actors-section" style="display: none;">
-              <span class="credit-label">Acteurs principaux :</span>
-              <span class="actors-list" id="series-actors-list"></span>
-            </div>
-
-            <!-- Infos spécifiques séries -->
-            <div class="platform-section" id="series-platform-section" style="display: none;">
-              <span class="credit-label">Plateforme :</span>
-              <span class="platform-name" id="series-platform-name"></span>
-            </div>
-            <div class="director-section" id="series-status-section" style="display: none;">
-              <span class="credit-label">Statut :</span>
-              <span class="status-value" id="series-status-name"></span>
-            </div>
-            <div class="director-section" id="series-country-section" style="display: none;">
-              <span class="credit-label">Pays :</span>
-              <span class="country-value" id="series-country-name"></span>
-            </div>
           </div>
 
           <!-- Liste des saisons et épisodes -->
@@ -1392,7 +1482,7 @@
           </div>
 
           <!-- Bouton flottant pour regarder la série -->
-          <button class="btn-watch-film floating-watch-btn" id="btn-play-series">
+          <button class="floating-watch-btn" id="btn-play-series">
             <i class="fas fa-play"></i>
             <span>Lire la série</span>
           </button>
@@ -1425,12 +1515,17 @@
         <button class="episode-play-btn">
           <i class="fas fa-play"></i>
         </button>
+        <div class="episode-progress-bar" style="display:none">
+          <div class="episode-progress-fill"></div>
+        </div>
+        <div class="episode-finished-badge" style="display:none">Vu</div>
       </div>
       <div class="episode-info">
         <div class="episode-number"></div>
         <div class="episode-title"></div>
         <div class="episode-meta">
           <span class="episode-date"></span>
+          <span class="episode-watch-status"></span>
         </div>
       </div>
     </div>
@@ -1456,7 +1551,11 @@
                   <select class="form-control" id="global-triage-type">
                     <option value="">Sélectionner un type</option>
                     <option value="film">🎬 Film</option>
-                    <option value="series">📺 Série</option>
+                    <option value="series">📺 Série TV</option>
+                    <option value="documentaire">📹 Documentaire</option>
+                    <option value="animation">🎨 Animation</option>
+                    <option value="concert">🎵 Concert</option>
+                    <option value="sport">⚽ Sport</option>
                     <option value="short">🎞️ Court métrage</option>
                     <option value="other">📁 Autre</option>
                     <option value="unsorted">❓ Non trié</option>
@@ -1499,7 +1598,11 @@
           <select id="triage-filter-type" class="triage-filter-select">
             <option value="">Tous les types</option>
             <option value="film">🎬 Films</option>
-            <option value="series">📺 Séries</option>
+            <option value="series">📺 Séries TV</option>
+            <option value="documentaire">📹 Documentaires</option>
+            <option value="animation">🎨 Animation</option>
+            <option value="concert">🎵 Concerts</option>
+            <option value="sport">⚽ Sport</option>
             <option value="short">🎞️ Courts métrages</option>
             <option value="other">📁 Autres</option>
             <option value="unsorted">❓ Non triés</option>
@@ -1568,13 +1671,18 @@
         <select class="type-selector">
           <option value="unsorted">À définir plus tard</option>
           <option value="film">🎬 Film</option>
-          <option value="series">📺 Série</option>
+          <option value="series">📺 Série TV</option>
+          <option value="documentaire">📹 Documentaire</option>
+          <option value="animation">🎨 Animation</option>
+          <option value="concert">🎵 Concert</option>
+          <option value="sport">⚽ Sport</option>
           <option value="short">🎞️ Court métrage</option>
           <option value="other">📁 Autre</option>
         </select>
       </td>
       <td class="sort-mode-cell">
         <div class="sort-mode-container">
+          <button type="button" class="btn-small series-toggle-btn" style="display:none" title="Rattacher à une série existante ou nouvelle">🔗 Grouper en série</button>
           <div class="series-fields" style="display: none;">
             <div class="series-assign-row">
               <select class="series-name-selector">
@@ -1664,7 +1772,11 @@
         <select class="type-selector">
           <option value="unsorted">À définir</option>
           <option value="film">🎬 Film</option>
-          <option value="series">📺 Série</option>
+          <option value="series">📺 Série TV</option>
+          <option value="documentaire">📹 Documentaire</option>
+          <option value="animation">🎨 Animation</option>
+          <option value="concert">🎵 Concert</option>
+          <option value="sport">⚽ Sport</option>
           <option value="short">🎞️ Court métrage</option>
           <option value="other">📁 Autre</option>
         </select>
@@ -1793,10 +1905,38 @@
             <textarea class="form-control description-input" placeholder="Résumé en 1-2 phrases..." rows="2" maxlength="200"></textarea>
           </div>
 
+          <!-- Actions TMDB / Réinitialiser -->
+          <div class="card-tmdb-actions">
+            <button type="button" class="btn-tmdb-import">
+              <i class="fas fa-database"></i> Importer TMDB
+            </button>
+            <button type="button" class="btn-card-reset">
+              <i class="fas fa-undo"></i> Réinitialiser
+            </button>
+          </div>
+
           <!-- Section avancée (cachée par défaut) -->
           <details class="advanced-section">
             <summary>➕ Plus d'options</summary>
             <div class="advanced-fields">
+              <!-- Plateforme + Pays -->
+              <div class="form-row form-row-2">
+                <div class="form-group">
+                  <label>📡 Plateforme</label>
+                  <input type="text" class="form-control platform-input" placeholder="Netflix, Disney+…">
+                </div>
+                <div class="form-group">
+                  <label>🌍 Pays</label>
+                  <select class="form-control country-select"></select>
+                </div>
+              </div>
+
+              <!-- Studios -->
+              <div class="form-group">
+                <label>🏭 Studios (séparés par des virgules)</label>
+                <input type="text" class="form-control studios-input" placeholder="A24, Pixar, Warner Bros…">
+              </div>
+
               <!-- Réalisateur -->
               <div class="form-group">
                 <label>🎬 Réalisateur</label>
@@ -1879,13 +2019,37 @@
             </div>
           </div>
 
+          <!-- Champs supplémentaires films (masqués pour les séries) -->
+          <div id="detail-film-extra" class="film-extra-fields">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="detail-platform">Plateforme</label>
+                <input type="text" id="detail-platform" class="form-control" placeholder="Netflix, Disney+…">
+              </div>
+              <div class="form-group">
+                <label for="detail-country">Pays</label>
+                <select id="detail-country" class="form-control"></select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="detail-studios">Studios de production</label>
+                <input type="text" id="detail-studios" class="form-control" placeholder="Studio Ghibli, Pixar… (virgule)">
+              </div>
+              <div class="form-group">
+                <label for="detail-director">Réalisateur</label>
+                <input type="text" id="detail-director" class="form-control" placeholder="Ex: Christopher Nolan">
+              </div>
+            </div>
+          </div>
+
           <div class="form-group">
             <label for="detail-description">Description</label>
             <textarea id="detail-description" class="form-control" rows="3" placeholder="Description du média (optionnel)"></textarea>
           </div>
         </div>
       </div>
-      
+
       <div class="import-modal-footer">
         <div class="import-actions">
           <button class="btn-secondary" id="skip-file-btn">Passer ce fichier</button>
@@ -1949,7 +2113,7 @@
           </div>
           <div class="form-group">
             <label for="new-series-country">Pays</label>
-            <input type="text" id="new-series-country" class="form-control" placeholder="USA, France…">
+            <select id="new-series-country" class="form-control"></select>
           </div>
         </div>
 
@@ -1963,6 +2127,12 @@
             <label for="new-series-platform">Plateforme / Chaîne</label>
             <input type="text" id="new-series-platform" class="form-control" placeholder="Ex: Netflix, HBO…">
           </div>
+        </div>
+
+        <!-- Studios -->
+        <div class="form-group">
+          <label for="new-series-studios">Studios de production</label>
+          <input type="text" id="new-series-studios" class="form-control" placeholder="Ex: HBO, Bad Robot… (virgule)">
         </div>
 
         <!-- Genres -->
@@ -2147,6 +2317,7 @@
   <!-- Socket.io pour Watch Party -->
   <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
 
+  <script src="../js/icons.js"></script>
   <script src="../js/utils.js"></script>
   <!-- Système de thèmes -->
   <script src="../js/theme-manager.js"></script>
@@ -2169,6 +2340,8 @@
   <script src="../js/file-manager-electron.js"></script>
   <script src="../js/stats-manager.js"></script>
   <script src="../js/personnes.js"></script>
+  <script src="../js/plateformes.js"></script>
+  <script src="../js/tags.js"></script>
 
   <!-- Initialisation du gestionnaire de fichiers pour la section gestion-fichiers -->
   <script>

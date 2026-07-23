@@ -145,6 +145,7 @@ class ImportTriageSystem {
         ...file,
         originalIndex: index,
         triageType: parsed.detectedType || 'unsorted',
+        isSeries: parsed.detectedType === 'series',
         action: 'classify',
         // Métadonnées détectées automatiquement
         title: parsed.cleanTitle || file.title || file.name,
@@ -197,10 +198,11 @@ class ImportTriageSystem {
     }
 
     // Créer un Set des chemins de fichiers déjà importés pour une recherche rapide
+    // Exclure les fichiers faisant partie du lot en cours (ajoutés en DB avant la triage)
+    const newlyScannedIdSet = new Set(this.newlyScannedIds);
     const existingPaths = new Set();
     existingMovies.forEach(movie => {
-      if (movie.path) {
-        // Normaliser le chemin pour la comparaison
+      if (movie.path && !newlyScannedIdSet.has(movie.id)) {
         const normalizedPath = movie.path.replace(/\\/g, '/').toLowerCase();
         existingPaths.add(normalizedPath);
       }
@@ -353,6 +355,19 @@ class ImportTriageSystem {
           this.currentFiles[index].seriesName = seriesId ?
             this.series.find(s => s.id == seriesId)?.name : '';
           this.hideValidationError(row);
+        });
+      }
+
+      // Événement sur le toggle "Grouper en série"
+      const seriesToggleBtn = row.querySelector('.series-toggle-btn');
+      if (seriesToggleBtn) {
+        seriesToggleBtn.addEventListener('click', () => {
+          this.currentFiles[index].isSeries = !this.currentFiles[index].isSeries;
+          if (!this.currentFiles[index].isSeries) {
+            this.currentFiles[index].seriesId = null;
+            this.currentFiles[index].seriesName = null;
+          }
+          this.updateSortMode(row, index, this.currentFiles[index].triageType);
         });
       }
 
@@ -541,16 +556,21 @@ class ImportTriageSystem {
       console.log(`💾 Sauvegarde de ${skippedFiles.length} fichiers passés`);
 
       for (const file of skippedFiles) {
+        // Un fichier série sans seriesId est invalide → on le sauvegarde comme non trié
+        const needsSeries = file.triageType === 'series' || !!file.isSeries;
+        const isBrokenSeries = needsSeries && !file.seriesId;
+        const effectiveType = isBrokenSeries ? 'unsorted' : file.triageType;
+
         const result = await window.electronAPI.saveClassifiedFile({
           filePath: file.path,
           title: file.title || file.name,
-          category: file.triageType === 'unsorted' ? 'unsorted' : file.triageType,
-          mediaType: file.mediaType || (file.triageType === 'series' ? 'series' : 'unique'),
+          category: effectiveType,
+          mediaType: (needsSeries && !isBrokenSeries) ? 'series' : 'unique',
           description: '',
           releaseDate: '',
           year: null,
-          seriesId: file.seriesId || null,
-          seriesName: file.seriesName || null,
+          seriesId: isBrokenSeries ? null : (file.seriesId || null),
+          seriesName: isBrokenSeries ? null : (file.seriesName || null),
           season_number: file.seasonNumber ?? null,
           episode_number: file.episodeNumber ?? null
         });
@@ -604,7 +624,7 @@ class ImportTriageSystem {
             filePath: file.path,
             title: file.title || file.name,
             category: file.triageType || 'unsorted',
-            mediaType: file.mediaType || (file.triageType === 'series' ? 'series' : 'unique'),
+            mediaType: file.seriesId ? 'series' : 'unique',
             description: '',
             releaseDate: '',
             year: null,
@@ -1018,29 +1038,33 @@ class ImportTriageSystem {
     if (previousValue) seriesSelector.value = previousValue;
   }
 
-  updateSortMode(row, fileIndex, mediaType) {
-    const seriesFields = row.querySelector('.series-fields');
-    const noSeriesDash = row.querySelector('.no-series-dash');
+  updateSortMode(row, fileIndex, category) {
+    const seriesFields    = row.querySelector('.series-fields');
+    const noSeriesDash    = row.querySelector('.no-series-dash');
+    const seriesToggleBtn = row.querySelector('.series-toggle-btn');
     const file = this.currentFiles[fileIndex];
 
-    const isSeries = mediaType === 'series';
+    const isSeriesType = category === 'series';
+    // Si le type est "série TV", isSeries est implicitement vrai
+    if (isSeriesType) file.isSeries = true;
+    const isSeries = isSeriesType || !!file.isSeries;
 
-    if (seriesFields)   seriesFields.style.display   = isSeries ? 'flex' : 'none';
-    if (noSeriesDash)   noSeriesDash.style.display   = isSeries ? 'none' : '';
-
-    switch (mediaType) {
-      case 'film':
-      case 'short':
-      case 'other':
-        file.mediaType = 'unique';
-        break;
-      case 'series':
-        file.mediaType = 'series';
-        break;
-      default:
-        file.mediaType = null;
-        break;
+    // Le toggle "Grouper en série" s'affiche pour les types non-série
+    if (seriesToggleBtn) {
+      if (isSeriesType) {
+        seriesToggleBtn.style.display = 'none';
+        seriesToggleBtn.classList.remove('active');
+      } else {
+        seriesToggleBtn.style.display = '';
+        seriesToggleBtn.textContent = file.isSeries ? '🔗 Retirer de la série' : '🔗 Grouper en série';
+        seriesToggleBtn.classList.toggle('active', !!file.isSeries);
+      }
     }
+
+    if (seriesFields) seriesFields.style.display = isSeries ? 'flex' : 'none';
+    if (noSeriesDash) noSeriesDash.style.display  = isSeries ? 'none' : '';
+
+    file.mediaType = isSeries ? 'series' : 'unique';
 
     this.hideValidationError(row);
     this.updateSeriesBatchControl();
@@ -1103,9 +1127,10 @@ class ImportTriageSystem {
 
       // Valider seulement les fichiers qui ne sont pas passés
       if (file && file.action === 'classify') {
-        if (file.triageType === 'series') {
+        const needsSeries = file.triageType === 'series' || !!file.isSeries;
+        if (needsSeries) {
           const fileName = file.title || file.name || 'Fichier inconnu';
-          console.log(`🔍 Validation série fichier ${index}: seriesId="${file.seriesId}", seriesName="${file.seriesName}", triageType="${file.triageType}"`);
+          console.log(`🔍 Validation série fichier ${index}: seriesId="${file.seriesId}", seriesName="${file.seriesName}", triageType="${file.triageType}", isSeries=${file.isSeries}`);
           if (!file.seriesId || !file.seriesName) {
             console.log(`❌ Validation échouée pour fichier ${index}: ${fileName}`);
             this.showValidationError(row);
@@ -1275,7 +1300,7 @@ class ImportTriageSystem {
 
     // Compter les médias en attente de sélection de série
     const pendingSeries = this.currentFiles.filter(file =>
-      file.triageType === 'series' && !file.seriesId
+      (file.triageType === 'series' || !!file.isSeries) && !file.seriesId
     );
 
     if (pendingSeries.length > 0) {
@@ -1369,7 +1394,7 @@ class ImportTriageSystem {
     // Appliquer la série à tous les médias en attente
     let appliedCount = 0;
     this.currentFiles.forEach((file, index) => {
-      if (file.triageType === 'series' && !file.seriesId) {
+      if ((file.triageType === 'series' || !!file.isSeries) && !file.seriesId) {
         file.seriesId = selectedSeriesId;
         file.seriesName = selectedSeries.name;
         appliedCount++;

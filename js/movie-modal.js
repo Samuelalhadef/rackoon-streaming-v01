@@ -2,6 +2,123 @@
 
 console.log('📁 Script movie-modal.js CHARGÉ');
 
+// Liste des pays avec drapeaux (les plus courants en premier)
+const COUNTRY_LIST = [
+  { code: 'FR', flag: '🇫🇷', name: 'France' },
+  { code: 'US', flag: '🇺🇸', name: 'États-Unis' },
+  { code: 'GB', flag: '🇬🇧', name: 'Royaume-Uni' },
+  { code: 'JP', flag: '🇯🇵', name: 'Japon' },
+  { code: 'KR', flag: '🇰🇷', name: 'Corée du Sud' },
+  { code: 'DE', flag: '🇩🇪', name: 'Allemagne' },
+  { code: 'IT', flag: '🇮🇹', name: 'Italie' },
+  { code: 'ES', flag: '🇪🇸', name: 'Espagne' },
+  { code: 'CA', flag: '🇨🇦', name: 'Canada' },
+  { code: 'AU', flag: '🇦🇺', name: 'Australie' },
+  { code: 'BE', flag: '🇧🇪', name: 'Belgique' },
+  { code: 'CH', flag: '🇨🇭', name: 'Suisse' },
+  { code: 'AT', flag: '🇦🇹', name: 'Autriche' },
+  { code: 'NL', flag: '🇳🇱', name: 'Pays-Bas' },
+  { code: 'PT', flag: '🇵🇹', name: 'Portugal' },
+  { code: 'SE', flag: '🇸🇪', name: 'Suède' },
+  { code: 'DK', flag: '🇩🇰', name: 'Danemark' },
+  { code: 'NO', flag: '🇳🇴', name: 'Norvège' },
+  { code: 'FI', flag: '🇫🇮', name: 'Finlande' },
+  { code: 'PL', flag: '🇵🇱', name: 'Pologne' },
+  { code: 'CZ', flag: '🇨🇿', name: 'Tchéquie' },
+  { code: 'RO', flag: '🇷🇴', name: 'Roumanie' },
+  { code: 'HU', flag: '🇭🇺', name: 'Hongrie' },
+  { code: 'GR', flag: '🇬🇷', name: 'Grèce' },
+  { code: 'IE', flag: '🇮🇪', name: 'Irlande' },
+  { code: 'RU', flag: '🇷🇺', name: 'Russie' },
+  { code: 'TR', flag: '🇹🇷', name: 'Turquie' },
+  { code: 'CN', flag: '🇨🇳', name: 'Chine' },
+  { code: 'TW', flag: '🇹🇼', name: 'Taïwan' },
+  { code: 'HK', flag: '🇭🇰', name: 'Hong Kong' },
+  { code: 'IN', flag: '🇮🇳', name: 'Inde' },
+  { code: 'TH', flag: '🇹🇭', name: 'Thaïlande' },
+  { code: 'MX', flag: '🇲🇽', name: 'Mexique' },
+  { code: 'BR', flag: '🇧🇷', name: 'Brésil' },
+  { code: 'AR', flag: '🇦🇷', name: 'Argentine' },
+  { code: 'CO', flag: '🇨🇴', name: 'Colombie' },
+  { code: 'ZA', flag: '🇿🇦', name: 'Afrique du Sud' },
+  { code: 'NG', flag: '🇳🇬', name: 'Nigéria' },
+  { code: 'EG', flag: '🇪🇬', name: 'Égypte' },
+  { code: 'IL', flag: '🇮🇱', name: 'Israël' },
+  { code: 'NZ', flag: '🇳🇿', name: 'Nouvelle-Zélande' },
+  { code: 'SK', flag: '🇸🇰', name: 'Slovaquie' },
+];
+
+// Retourne "🇫🇷 France" à partir d'un code ISO ou d'un nom anglais/français
+function resolveCountryLabel(codeOrName) {
+  if (!codeOrName) return '';
+  const upper = codeOrName.toUpperCase();
+  const byCode = COUNTRY_LIST.find(c => c.code === upper);
+  if (byCode) return `${byCode.flag} ${byCode.name}`;
+  // Essayer par nom (anglais TMDB → correspondance partielle)
+  const tmdbNameMap = {
+    'France': 'FR', 'United States of America': 'US', 'United States': 'US',
+    'United Kingdom': 'GB', 'Japan': 'JP', 'South Korea': 'KR', 'Republic of Korea': 'KR',
+    'Germany': 'DE', 'Italy': 'IT', 'Spain': 'ES', 'Canada': 'CA', 'Australia': 'AU',
+    'Belgium': 'BE', 'Switzerland': 'CH', 'Austria': 'AT', 'Netherlands': 'NL',
+    'Portugal': 'PT', 'Sweden': 'SE', 'Denmark': 'DK', 'Norway': 'NO', 'Finland': 'FI',
+    'Poland': 'PL', 'Czech Republic': 'CZ', 'Czechia': 'CZ', 'Romania': 'RO',
+    'Hungary': 'HU', 'Greece': 'GR', 'Ireland': 'IE', 'Russia': 'RU', 'Turkey': 'TR',
+    'China': 'CN', 'Taiwan': 'TW', 'Hong Kong': 'HK', 'India': 'IN', 'Thailand': 'TH',
+    'Mexico': 'MX', 'Brazil': 'BR', 'Argentina': 'AR', 'Colombia': 'CO',
+    'South Africa': 'ZA', 'Nigeria': 'NG', 'Egypt': 'EG', 'Israel': 'IL',
+    'New Zealand': 'NZ', 'Slovakia': 'SK',
+  };
+  const code = tmdbNameMap[codeOrName];
+  if (code) {
+    const entry = COUNTRY_LIST.find(c => c.code === code);
+    if (entry) return `${entry.flag} ${entry.name}`;
+  }
+  // Retourner tel quel si non reconnu
+  return codeOrName;
+}
+
+// Crée un <select> de pays pour l'édition inline
+function createCountrySelect(currentValue, id, className) {
+  const select = document.createElement('select');
+  select.id = id;
+  select.className = className;
+
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = '';
+  emptyOpt.textContent = '— Choisir un pays —';
+  select.appendChild(emptyOpt);
+
+  const topGroup = document.createElement('optgroup');
+  topGroup.label = 'Fréquents';
+  COUNTRY_LIST.slice(0, 10).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = `${c.flag} ${c.name}`;
+    opt.textContent = `${c.flag} ${c.name}`;
+    topGroup.appendChild(opt);
+  });
+  select.appendChild(topGroup);
+
+  const allGroup = document.createElement('optgroup');
+  allGroup.label = 'Tous les pays';
+  COUNTRY_LIST.slice(10).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = `${c.flag} ${c.name}`;
+    opt.textContent = `${c.flag} ${c.name}`;
+    allGroup.appendChild(opt);
+  });
+  select.appendChild(allGroup);
+
+  // Sélectionner la valeur courante (qui peut être "🇫🇷 France" ou "France" ou "FR")
+  const resolved = resolveCountryLabel(currentValue);
+  if (resolved) {
+    // Chercher dans les options
+    const match = Array.from(select.options).find(o => o.value === resolved || o.value === currentValue);
+    if (match) select.value = match.value;
+  }
+
+  return select;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🎬 Initialisation de movie-modal.js...');
 
@@ -132,7 +249,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Vérifier si la modale est déjà ouverte
       if (modalOverlay.classList.contains('active')) {
-        console.log('⚠️ La modale est déjà ouverte, fermeture en cours...');
+        console.log('La modale est deja ouverte, fermeture en cours...');
+        if (isEditMode) {
+          deactivateEditMode();
+        }
         // Forcer la fermeture immédiate sans animation
         modalOverlay.classList.remove('active');
         document.body.style.overflow = '';
@@ -162,8 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('✅ window.openMovieModal exposée');
 
   // Exposer les utilitaires partagés (utilisés par series-modal.js)
-  window.createPersonAvatarCard = createPersonAvatarCard;
-  window.openPersonMiniPopup    = openPersonMiniPopup;
+  window.createPersonAvatarCard  = createPersonAvatarCard;
+  window.openPersonMiniPopup     = openPersonMiniPopup;
+  window.backfillPersonPhotos    = backfillPersonPhotos;
 
   // Fonction utilitaire pour forcer la restauration du scroll
   window.forceRestoreBodyScroll = function() {
@@ -201,6 +322,59 @@ document.addEventListener('DOMContentLoaded', () => {
   // ============================================
   // NOUVELLES FONCTIONS POUR LES TAGS ET MÉTADONNÉES
   // ============================================
+
+  // Restaure les spans pills (remplace les inputs/selects du mode édition) et met à jour l'affichage
+  function displayMoviePlatformCountryStudios(movie) {
+    const _restoreSpan = (sectionId, spanId) => {
+      const section = document.getElementById(sectionId);
+      if (!section) return;
+      const editable = section.querySelector('input, select');
+      if (editable) {
+        const span = document.createElement('span');
+        span.id = spanId;
+        editable.replaceWith(span);
+      }
+    };
+    _restoreSpan('platform-section', 'platform-name');
+    _restoreSpan('country-pill', 'country-name');
+    _restoreSpan('studios-pill', 'studios-name');
+
+    // Restaurer la date (replace l'input inline si présent)
+    if (releaseDate) {
+      const inlineDateInput = releaseDate.querySelector('input');
+      if (inlineDateInput) {
+        releaseDate.textContent = movie.releaseDate || '';
+      }
+    }
+
+    const platformSection = document.getElementById('platform-section');
+    const platformName = document.getElementById('platform-name');
+    if (movie.platform && movie.platform.trim()) {
+      if (platformName) platformName.textContent = movie.platform;
+      if (platformSection) platformSection.style.display = 'block';
+    } else {
+      if (platformSection) platformSection.style.display = 'none';
+    }
+
+    const countryPill = document.getElementById('country-pill');
+    const countryName = document.getElementById('country-name');
+    if (movie.country && movie.country.trim()) {
+      if (countryName) countryName.textContent = movie.country;
+      if (countryPill) countryPill.style.display = 'flex';
+    } else {
+      if (countryPill) countryPill.style.display = 'none';
+    }
+
+    const studiosPill = document.getElementById('studios-pill');
+    const studiosName = document.getElementById('studios-name');
+    const studiosArr = movie.studios || [];
+    if (studiosArr.length > 0) {
+      if (studiosName) studiosName.textContent = studiosArr.join(', ');
+      if (studiosPill) studiosPill.style.display = 'flex';
+    } else {
+      if (studiosPill) studiosPill.style.display = 'none';
+    }
+  }
 
   // Afficher les crédits du film (personnes liées + fallback texte)
   async function displayMovieCredits(movie) {
@@ -272,6 +446,9 @@ document.addEventListener('DOMContentLoaded', () => {
             castGrid.appendChild(createPersonAvatarCard(person, roleObj, false));
           }
         }
+
+        // Backfill photos manquantes en arrière-plan (sans bloquer l'affichage)
+        backfillPersonPhotos(result.persons);
       }
     } catch (err) {
       console.warn('⚠️ Impossible de charger les personnes liées:', err);
@@ -292,39 +469,67 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Franchise/Collection
-    const franchiseSection = document.getElementById('franchise-section');
-    const franchiseName = document.getElementById('franchise-name');
-    if (movie.franchise && movie.franchise.trim()) {
-      if (franchiseName) {
-        franchiseName.textContent = movie.franchise;
-        franchiseName.style.fontStyle = 'normal';
-        franchiseName.style.color = '#ffffff';
-      }
-      if (franchiseSection) franchiseSection.style.display = 'block';
-    } else {
-      if (franchiseName) {
-        franchiseName.textContent = 'Aucune collection';
-        franchiseName.style.fontStyle = 'italic';
-        franchiseName.style.color = '#888';
-      }
-      if (franchiseSection) franchiseSection.style.display = 'block';
-    }
-
     // Plateforme d'origine
     const platformSection = document.getElementById('platform-section');
     const platformName = document.getElementById('platform-name');
-    if (platformName) {
-      if (movie.platform && movie.platform.trim()) {
-        platformName.textContent = movie.platform;
-        platformName.style.fontStyle = 'normal';
-        platformName.style.color = '#ffffff';
-        if (platformSection) platformSection.style.display = 'block';
-      } else {
-        platformName.textContent = 'Non renseigné';
-        platformName.style.fontStyle = 'italic';
-        platformName.style.color = '#888';
-        if (platformSection) platformSection.style.display = 'block';
+    if (movie.platform && movie.platform.trim()) {
+      if (platformName) platformName.textContent = movie.platform;
+      if (platformSection) platformSection.style.display = 'block';
+    } else {
+      if (platformSection) platformSection.style.display = 'none';
+    }
+
+    // Pays de production
+    const countryPill = document.getElementById('country-pill');
+    const countryName = document.getElementById('country-name');
+    if (movie.country && movie.country.trim()) {
+      if (countryName) countryName.textContent = movie.country;
+      if (countryPill) countryPill.style.display = 'flex';
+    } else {
+      if (countryPill) countryPill.style.display = 'none';
+    }
+
+    // Studios de production
+    const studiosPill = document.getElementById('studios-pill');
+    const studiosName = document.getElementById('studios-name');
+    const studiosArr = movie.studios || [];
+    if (studiosArr.length > 0) {
+      if (studiosName) studiosName.textContent = studiosArr.join(', ');
+      if (studiosPill) studiosPill.style.display = 'flex';
+    } else {
+      if (studiosPill) studiosPill.style.display = 'none';
+    }
+  }
+
+  // Télécharge en arrière-plan les photos manquantes et met à jour les cartes affichées
+  async function backfillPersonPhotos(persons) {
+    const missing = persons.filter(p => !p.photo && p.tmdbId);
+    for (const person of missing) {
+      try {
+        const details = await getTMDBPersonDetails(person.tmdbId);
+        if (!details || !details.profile_path) continue;
+        const photoUrl = `${TMDB_IMAGE_BASE_URL}${details.profile_path}`;
+        const dlResult = await window.electronAPI.downloadPersonPhoto(photoUrl, person.name);
+        if (!dlResult.success) continue;
+        await window.electronAPI.updatePerson(person.id, { photo: dlResult.fileName });
+        // Mettre à jour toutes les cartes affichées pour cette personne
+        document.querySelectorAll(`.person-avatar-card[data-person-id="${person.id}"]`).forEach(card => {
+          const placeholder = card.querySelector('.person-avatar-placeholder');
+          if (!placeholder) return;
+          const img = document.createElement('img');
+          img.className = 'person-avatar-photo';
+          img.src = `http://localhost:3001/person-photos/${dlResult.fileName}`;
+          img.alt = person.name;
+          img.onerror = function() {
+            const ph = document.createElement('div');
+            ph.className = 'person-avatar-placeholder';
+            ph.innerHTML = '<i class="fas fa-user"></i>';
+            this.parentNode.replaceChild(ph, this);
+          };
+          placeholder.replaceWith(img);
+        });
+      } catch (e) {
+        console.warn(`Backfill photo échouée pour ${person.name}:`, e);
       }
     }
   }
@@ -871,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const photoUrl = `${TMDB_IMAGE_BASE_URL}${person._profilePath}`;
             const dlResult = await window.electronAPI.downloadPersonPhoto(photoUrl, person.name);
             if (dlResult.success) {
-              fileName = dlResult.localPath.split(/[\\/]/).pop();
+              fileName = dlResult.fileName;
             }
           } catch (e) {
             console.warn('Photo échouée:', e);
@@ -971,10 +1176,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Personnel
     displayTagCategory('personal', movie.personalTags, 'personal');
+
+    // Franchises (masquées si vides)
+    displayTagCategory('franchise', movie.franchises, 'franchise', { hideWhenEmpty: true });
   }
 
-  // Fonction helper pour afficher une catégorie de tags (TOUJOURS VISIBLE)
-  function displayTagCategory(categoryId, tags, chipClass) {
+  // Fonction helper pour afficher une catégorie de tags
+  function displayTagCategory(categoryId, tags, chipClass, options = {}) {
     const categoryElement = document.getElementById(`${categoryId}-category`);
     const containerElement = document.getElementById(`${categoryId}-container`);
 
@@ -1003,16 +1211,20 @@ document.addEventListener('DOMContentLoaded', () => {
       addButton.dataset.category = categoryId;
       addButton.title = 'Ajouter un tag';
       containerElement.appendChild(addButton);
+      categoryElement.style.display = 'block';
     } else if (!tags || tags.length === 0) {
-      // En mode lecture, afficher le message seulement si vide
-      const emptyMessage = document.createElement('span');
-      emptyMessage.className = 'empty-tags-message';
-      emptyMessage.textContent = 'Aucun tag ajouté';
-      containerElement.appendChild(emptyMessage);
+      if (options.hideWhenEmpty) {
+        categoryElement.style.display = 'none';
+      } else {
+        const emptyMessage = document.createElement('span');
+        emptyMessage.className = 'empty-tags-message';
+        emptyMessage.textContent = 'Aucun tag ajouté';
+        containerElement.appendChild(emptyMessage);
+        categoryElement.style.display = 'block';
+      }
+    } else {
+      categoryElement.style.display = 'block';
     }
-
-    // TOUJOURS afficher la catégorie
-    categoryElement.style.display = 'block';
   }
 
   // Afficher les informations techniques du média
@@ -1167,8 +1379,10 @@ document.addEventListener('DOMContentLoaded', () => {
       statProgress.style.display = 'none';
     }
 
-    // Note personnelle (copie de celle de la sidebar)
-    const rating = userPrefs.ratings[movieId] || 0;
+    // Note personnelle (DB en priorité, localStorage en fallback)
+    const dbRatingStat = currentMovieData.rating || 0;
+    const localRatingStat = (loadUserPreferences().ratings && loadUserPreferences().ratings[currentMovieId]) || 0;
+    const rating = dbRatingStat > 0 ? dbRatingStat : localRatingStat;
     const statRatingPersonal = document.getElementById('stat-rating-personal');
     const statRatingPersonalValue = document.getElementById('stat-rating-personal-value');
     if (rating > 0) {
@@ -1247,6 +1461,44 @@ document.addEventListener('DOMContentLoaded', () => {
       // Copier les genres actuels
       selectedGenres = [...(currentMovieData.genres || [])];
 
+      // Édition inline : platform, studios (remplace le span par un input)
+      const _makePillInput = (sectionId, spanId, value, placeholder, displayMode = 'block') => {
+        const section = document.getElementById(sectionId);
+        const span = document.getElementById(spanId);
+        if (!section || !span || span.tagName === 'INPUT') return;
+        section.style.display = displayMode;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'edit-credit-field';
+        input.id = spanId;
+        input.value = value || '';
+        input.placeholder = placeholder;
+        span.replaceWith(input);
+      };
+      _makePillInput('platform-section', 'platform-name', currentMovieData.platform, 'Plateforme');
+      _makePillInput('studios-pill', 'studios-name', (currentMovieData.studios || []).join(', '), 'Studios (virgule)', 'flex');
+
+      // Pays → select avec drapeaux
+      const countrySection = document.getElementById('country-pill');
+      const countrySpan = document.getElementById('country-name');
+      if (countrySection && countrySpan && countrySpan.tagName !== 'SELECT') {
+        countrySection.style.display = 'flex';
+        const sel = createCountrySelect(currentMovieData.country, 'country-name', 'edit-credit-field edit-credit-select');
+        countrySpan.replaceWith(sel);
+      }
+
+      // Date de sortie → input inline dans la pill release-date
+      if (releaseDate && !releaseDate.querySelector('input')) {
+        const dateInput = document.createElement('input');
+        dateInput.type = 'date';
+        dateInput.className = 'edit-credit-field';
+        dateInput.id = 'inline-release-date';
+        const parts = (currentMovieData.releaseDate || '').split('/');
+        if (parts.length === 3) dateInput.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        releaseDate.textContent = '';
+        releaseDate.appendChild(dateInput);
+      }
+
       // Rafraîchir l'affichage des tags pour montrer les boutons d'ajout
       displayOrganizedTags(currentMovieData);
 
@@ -1260,6 +1512,9 @@ document.addEventListener('DOMContentLoaded', () => {
       editableFields.forEach(field => {
         field.classList.remove('editing');
       });
+
+      // Restaurer les spans pills (platform, country, studios)
+      displayMoviePlatformCountryStudios(currentMovieData);
 
       // Rafraîchir l'affichage des tags sans les boutons d'ajout
       displayOrganizedTags(currentMovieData);
@@ -1357,10 +1612,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Récupérer les valeurs des champs d'édition
       const title = editTitleInput.value.trim() || currentMovieData.title;
 
-      // Convertir la date au format JJ/MM/AAAA
+      // Convertir la date au format JJ/MM/AAAA (input inline prioritaire sur le champ caché)
+      const inlineDateInput = document.getElementById('inline-release-date');
+      const dateSource = (inlineDateInput && inlineDateInput.value) ? inlineDateInput : editReleaseDateInput;
       let formattedDate = '';
-      if (editReleaseDateInput.value) {
-        const dateParts = editReleaseDateInput.value.split('-');
+      if (dateSource && dateSource.value) {
+        const dateParts = dateSource.value.split('-');
         if (dateParts.length === 3) {
           formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
         }
@@ -1387,14 +1644,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Extraire l'année
       let year = null;
-      if (editReleaseDateInput.value) {
-        year = new Date(editReleaseDateInput.value).getFullYear();
+      if (dateSource && dateSource.value) {
+        year = new Date(dateSource.value).getFullYear();
       }
 
       // Synchroniser director/actors depuis les person links (source de vérité)
       const legacyCredits = await syncLegacyCreditsFromPersons(currentMovieId);
       const legacyDirector = legacyCredits ? legacyCredits.director : (currentMovieData.director || '');
       const legacyActors = legacyCredits ? legacyCredits.actors : (currentMovieData.actors || []);
+
+      // Lire les champs pills éditables (platform, country, studios)
+      const platformInput = document.getElementById('platform-name');
+      const countryEl = document.getElementById('country-name');
+      const studiosInput = document.getElementById('studios-name');
 
       // Préparer les données à sauvegarder
       const movieUpdates = {
@@ -1407,8 +1669,14 @@ document.addEventListener('DOMContentLoaded', () => {
         mood: currentMovieData.mood || [],
         technical: currentMovieData.technical || [],
         personalTags: currentMovieData.personalTags || [],
+        franchises: currentMovieData.franchises || [],
         director: legacyDirector,
-        actors: legacyActors
+        actors: legacyActors,
+        platform: platformInput && platformInput.tagName === 'INPUT' ? platformInput.value.trim() : (currentMovieData.platform || ''),
+        country: countryEl && (countryEl.tagName === 'INPUT' || countryEl.tagName === 'SELECT') ? countryEl.value.trim() : (currentMovieData.country || ''),
+        studios: studiosInput && studiosInput.tagName === 'INPUT'
+          ? studiosInput.value.split(',').map(s => s.trim()).filter(s => s)
+          : (currentMovieData.studios || [])
       };
 
       console.log('📝 Données à sauvegarder:', movieUpdates);
@@ -1437,6 +1705,9 @@ document.addEventListener('DOMContentLoaded', () => {
           // Mettre à jour les données locales
           currentMovieData = { ...currentMovieData, ...movieUpdates };
           originalMovieData = { ...currentMovieData };
+
+          // Restaurer les spans pills (platform, country, studios) et afficher les nouvelles valeurs
+          displayMoviePlatformCountryStudios(currentMovieData);
 
           // Rafraîchir le dashboard
           if (typeof window.refreshDashboard === 'function') {
@@ -1571,15 +1842,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Configurer la durée (utiliser la version formatée si disponible)
       duration.textContent = movie.durationFormatted || window.formatTime(movie.duration);
 
-      // Afficher la décennie si disponible
-      const decadeElement = document.getElementById('decade');
-      if (movie.decade) {
-        decadeElement.textContent = movie.decade;
-        decadeElement.style.display = 'inline-block';
-      } else {
-        decadeElement.style.display = 'none';
-      }
-
       // Afficher les nouveaux champs enrichis
       displayMovieCredits(movie);
 
@@ -1614,8 +1876,10 @@ document.addEventListener('DOMContentLoaded', () => {
         watchToggleModal.classList.remove('watched');
       }
       
-      // Configurer les étoiles de notation
-      const rating = userPrefs.ratings[movieId] || 0;
+      // Configurer les étoiles de notation (DB en priorité, localStorage en fallback)
+      const dbRatingMovie = (movie && movie.rating) || 0;
+      const localRatingMovie = (loadUserPreferences().ratings && loadUserPreferences().ratings[currentMovieId]) || 0;
+      const rating = dbRatingMovie > 0 ? dbRatingMovie : localRatingMovie;
       updateModalStarsDisplay(rating);
 
       // Initialiser le système progressif
@@ -1904,97 +2168,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.round(hoverRating * 10) / 10; // Arrondir au 0.1 près
   }
 
-  // Gérer le système de notation sur les étoiles
+  // Système de notation : clic ou clic-glissé
   if (starsOverlay && progressiveStars) {
-    // Démarrer le timer au mousedown
+    let isDraggingStars = false;
+
     starsOverlay.addEventListener('mousedown', (e) => {
       if (!currentMovieId) return;
-
-      // Démarrer le timer pour le clic long
-      longPressTimer = setTimeout(() => {
-        // Mode slider activé après 500ms
-        isRatingActive = true;
-        progressiveStars.classList.add('active');
-        console.log('🎯 Mode slider activé - glissez pour ajuster');
-
-        // Calculer et afficher la note à la position actuelle
-        const rating = calculateRatingFromPosition(e);
-        updateProgressiveStars(rating);
-      }, LONG_PRESS_DURATION);
-    });
-
-    // Gérer mouseup global (même en dehors des étoiles)
-    document.addEventListener('mouseup', (e) => {
-      if (!currentMovieId) return;
-
-      // Si le timer est encore actif, c'est un clic court
-      if (longPressTimer && !isRatingActive) {
-        clearTimeout(longPressTimer);
-
-        // Vérifier que le mouseup est sur les étoiles
-        if (e.target === starsOverlay || starsOverlay.contains(e.target)) {
-          // Clic court : noter directement à cet endroit
-          const rating = calculateRatingFromPosition(e);
-          updateProgressiveStars(rating);
-
-          // Enregistrer la note immédiatement
-          const userPrefs = loadUserPreferences();
-          userPrefs.ratings[currentMovieId] = rating;
-          saveUserPreferences(userPrefs);
-
-          // Sauvegarder aussi dans le fichier JSON
-          saveRatingToDatabase(currentMovieId, rating);
-
-          // Automatiquement marquer comme "Vu"
-          autoMarkAsWatched();
-
-          // Déclencher un événement pour mettre à jour la carte sur le dashboard
-          window.dispatchEvent(new CustomEvent('ratingUpdated', {
-            detail: { movieId: currentMovieId, rating: rating }
-          }));
-
-          console.log(`⭐ Note enregistrée (clic court): ${rating}/5`);
-        }
-      }
-      // Si en mode slider, enregistrer la note (même si mouseup en dehors)
-      else if (isRatingActive) {
-        const userPrefs = loadUserPreferences();
-        userPrefs.ratings[currentMovieId] = currentRating;
-        saveUserPreferences(userPrefs);
-
-        // Sauvegarder aussi dans le fichier JSON
-        saveRatingToDatabase(currentMovieId, currentRating);
-
-        // Automatiquement marquer comme "Vu"
-        autoMarkAsWatched();
-
-        // Déclencher un événement pour mettre à jour la carte sur le dashboard
-        window.dispatchEvent(new CustomEvent('ratingUpdated', {
-          detail: { movieId: currentMovieId, rating: currentRating }
-        }));
-
-        console.log(`⭐ Note enregistrée (slider): ${currentRating}/5`);
-
-        // Désactiver le mode slider
-        isRatingActive = false;
-        progressiveStars.classList.remove('active');
-      }
-
-      longPressTimer = null;
-    });
-
-    // Ne plus annuler si on quitte - garder le mode actif tant que le clic est maintenu
-    starsOverlay.addEventListener('mouseleave', () => {
-      // Ne rien faire - le mode slider reste actif jusqu'au mouseup
-    });
-
-    // Survol : mettre à jour uniquement en mode slider
-    // Utiliser document.addEventListener pour capturer le mouvement même en dehors
-    document.addEventListener('mousemove', (e) => {
-      if (!isRatingActive) return;
-
+      isDraggingStars = true;
+      progressiveStars.classList.add('active');
       const rating = calculateRatingFromPosition(e);
       updateProgressiveStars(rating);
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDraggingStars) return;
+      const rating = calculateRatingFromPosition(e);
+      updateProgressiveStars(rating);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isDraggingStars) return;
+      isDraggingStars = false;
+      progressiveStars.classList.remove('active');
+      if (!currentMovieId) return;
+
+      const userPrefs = loadUserPreferences();
+      userPrefs.ratings[currentMovieId] = currentRating;
+      saveUserPreferences(userPrefs);
+      saveRatingToDatabase(currentMovieId, currentRating);
+      autoMarkAsWatched();
+      window.dispatchEvent(new CustomEvent('ratingUpdated', {
+        detail: { movieId: currentMovieId, rating: currentRating }
+      }));
+      console.log(`⭐ Note enregistrée: ${currentRating}/5`);
     });
   }
 
@@ -2314,7 +2521,7 @@ document.addEventListener('DOMContentLoaded', () => {
           try {
             const dlResult = await window.electronAPI.downloadPersonPhoto(photoUrl, p.name);
             if (dlResult.success) {
-              fileName = dlResult.localPath.split(/[\\/]/).pop();
+              fileName = dlResult.fileName;
             }
           } catch (photoErr) {
             console.warn(`⚠️ Photo échouée pour ${p.name}:`, photoErr);
@@ -2526,13 +2733,20 @@ document.addEventListener('DOMContentLoaded', () => {
         actors = details.credits.cast?.slice(0, 5).map(a => a.name) || [];
       }
 
+      // Extraire studios et pays de production
+      const studios = (details.production_companies || []).map(c => c.name);
+      const rawCountry = details.production_countries && details.production_countries[0];
+      const country = rawCountry ? resolveCountryLabel(rawCountry.iso_3166_1 || rawCountry.name) : '';
+
       // Appliquer le titre
       const titleInput = document.querySelector('.edit-title-field') || editTitleInput;
       if (titleInput) titleInput.value = title;
 
-      // Appliquer la date de sortie
-      if (details.release_date && editReleaseDateInput) {
-        editReleaseDateInput.value = details.release_date;
+      // Appliquer la date de sortie (input inline prioritaire, sinon champ caché)
+      if (details.release_date) {
+        const inlineDateInp = document.getElementById('inline-release-date');
+        if (inlineDateInp) inlineDateInp.value = details.release_date;
+        if (editReleaseDateInput) editReleaseDateInput.value = details.release_date;
       }
 
       // Appliquer le synopsis
@@ -2585,8 +2799,28 @@ document.addEventListener('DOMContentLoaded', () => {
         currentMovieData.tmdb_id = tmdbId;
         currentMovieData.director = director;
         currentMovieData.actors = actors;
+        if (studios.length > 0) currentMovieData.studios = studios;
+        if (country) currentMovieData.country = country;
         if (downloadedPosterUrl) {
           currentMovieData.posterUrl = downloadedPosterUrl;
+        }
+      }
+
+      // Appliquer studios et pays dans les champs inline si présents
+      const studiosInputEl = document.getElementById('studios-name');
+      if (studiosInputEl && studiosInputEl.tagName === 'INPUT' && studios.length > 0) {
+        studiosInputEl.value = studios.join(', ');
+      }
+      const countryEl = document.getElementById('country-name');
+      if (countryEl && countryEl.tagName === 'SELECT' && country) {
+        const opt = Array.from(countryEl.options).find(o => o.value === country);
+        if (opt) countryEl.value = country;
+        else {
+          // Pays inconnu → ajouter une option temporaire
+          const tmpOpt = document.createElement('option');
+          tmpOpt.value = country; tmpOpt.textContent = country;
+          countryEl.insertBefore(tmpOpt, countryEl.options[1]);
+          countryEl.value = country;
         }
       }
 
@@ -2675,15 +2909,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       
-      // Convertir la date au format JJ/MM/AAAA
+      // Convertir la date au format JJ/MM/AAAA (input inline prioritaire)
+      const inlineDateInput2 = document.getElementById('inline-release-date');
+      const dateSource2 = (inlineDateInput2 && inlineDateInput2.value) ? inlineDateInput2 : editReleaseDateInput;
       let formattedDate = '';
-      if (editReleaseDateInput.value) {
-        const dateParts = editReleaseDateInput.value.split('-');
+      if (dateSource2 && dateSource2.value) {
+        const dateParts = dateSource2.value.split('-');
         if (dateParts.length === 3) {
           formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
         }
       }
-      
+
       // Capture l'URL de l'image actuelle
       let finalImageUrl = imagePreview.src;
       
@@ -2709,8 +2945,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Extraire l'année pour l'enregistrer séparément
       let year = null;
-      if (editReleaseDateInput.value) {
-        year = new Date(editReleaseDateInput.value).getFullYear();
+      if (dateSource2 && dateSource2.value) {
+        year = new Date(dateSource2.value).getFullYear();
       }
       
       // Récupérer les tags du système de tags avancé
@@ -2888,7 +3124,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (currentMovieData && currentMovieData.id) {
           try {
-            await window.openVideoPlayer(currentMovieData.id, currentMovieData.title, currentMovieData.path);
+            const effectivePath = (currentMovieData.audioStatus === 'ok' && currentMovieData.audioConvertedPath)
+              ? currentMovieData.audioConvertedPath : currentMovieData.path;
+            await window.openVideoPlayer(currentMovieData.id, currentMovieData.title, effectivePath, null, currentMovieData.audioStatus === 'ok', currentMovieData.path);
           } catch (error) {
             console.error('Erreur lors du lancement du lecteur vidéo:', error);
             alert('Erreur lors du lancement de la vidéo: ' + error.message);
@@ -3043,7 +3281,10 @@ document.addEventListener('DOMContentLoaded', () => {
         genres: currentMovieData.genres || [],
         mood: currentMovieData.mood || [],
         technical: currentMovieData.technical || [],
-        personalTags: currentMovieData.personalTags || []
+        personalTags: currentMovieData.personalTags || [],
+        franchises: currentMovieData.franchises || [],
+        country: currentMovieData.country || '',
+        studios: currentMovieData.studios || []
       };
 
       console.log('💾 Sauvegarde automatique des tags:', tagUpdates);
@@ -3233,6 +3474,44 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Transformer les crédits personnes en mode édition (avatars + boutons)
     transformCreditsToEditMode();
 
+    // 5. Date de sortie → input inline dans la pill release-date
+    if (releaseDate && !releaseDate.querySelector('input')) {
+      const dateInput = document.createElement('input');
+      dateInput.type = 'date';
+      dateInput.className = 'edit-credit-field';
+      dateInput.id = 'inline-release-date';
+      const dateParts = (currentMovieData.releaseDate || '').split('/');
+      if (dateParts.length === 3) dateInput.value = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+      releaseDate.textContent = '';
+      releaseDate.appendChild(dateInput);
+    }
+
+    // 6. Plateforme et studios → inputs inline
+    const _makeInlinePillInput = (sectionId, spanId, value, placeholder, displayMode) => {
+      const section = document.getElementById(sectionId);
+      const span = document.getElementById(spanId);
+      if (!section || !span || span.tagName === 'INPUT') return;
+      section.style.display = displayMode || 'block';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-credit-field';
+      input.id = spanId;
+      input.value = value || '';
+      input.placeholder = placeholder;
+      span.replaceWith(input);
+    };
+    _makeInlinePillInput('platform-section', 'platform-name', currentMovieData.platform, 'Plateforme', 'block');
+    _makeInlinePillInput('studios-pill', 'studios-name', (currentMovieData.studios || []).join(', '), 'Studios (virgule)', 'flex');
+
+    // 7. Pays → select avec drapeaux
+    const countryPillSection = document.getElementById('country-pill');
+    const countryPillSpan = document.getElementById('country-name');
+    if (countryPillSection && countryPillSpan && countryPillSpan.tagName !== 'SELECT') {
+      countryPillSection.style.display = 'flex';
+      const sel = createCountrySelect(currentMovieData.country, 'country-name', 'edit-credit-field edit-credit-select');
+      countryPillSpan.replaceWith(sel);
+    }
+
     console.log('🔧 Éléments transformés en champs modifiables');
   }
 
@@ -3286,6 +3565,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Restaurer les crédits personnes en mode lecture
     if (currentMovieData) {
       displayMovieCredits(currentMovieData);
+    }
+
+    // 5. Restaurer les pills date, plateforme, pays, studios
+    if (currentMovieData) {
+      displayMoviePlatformCountryStudios(currentMovieData);
     }
 
     console.log('🔄 Éléments restaurés en mode lecture');
@@ -3542,23 +3826,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const watchBtn = document.getElementById('btn-watch-film');
     if (!watchBtn) return;
 
-    // Sauvegarder l'état original
-    if (!watchBtn.dataset.originalState) {
-      const btnIcon = watchBtn.querySelector('i');
-      const btnText = watchBtn.querySelector('span');
-      watchBtn.dataset.originalState = JSON.stringify({
-        iconClass: btnIcon ? btnIcon.className : '',
-        text: btnText ? btnText.textContent : ''
-      });
+    if (!watchBtn.dataset.originalHtml) {
+      watchBtn.dataset.originalHtml = watchBtn.innerHTML;
     }
 
-    // Transformer visuellement
-    const btnIcon = watchBtn.querySelector('i');
-    const btnText = watchBtn.querySelector('span');
-    if (btnIcon) btnIcon.className = 'fas fa-search';
-    if (btnText) btnText.textContent = 'Rechercher sur TMDB';
+    watchBtn.innerHTML = '<img src="../assets/pictos/search.svg" class="rk-icon" style="filter:brightness(0)invert(1);width:20px;height:20px;"><span>Rechercher sur TMDB</span>';
 
-    // Cloner pour remplacer les event listeners
     const newBtn = watchBtn.cloneNode(true);
     watchBtn.parentNode.replaceChild(newBtn, watchBtn);
     newBtn.addEventListener('click', () => openTMDBSearch());
@@ -3567,25 +3840,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Restaurer le bouton "Regarder le film"
   function restoreTMDBButtonToWatch() {
     const watchBtn = document.getElementById('btn-watch-film');
-    if (!watchBtn || !watchBtn.dataset.originalState) return;
+    if (!watchBtn || !watchBtn.dataset.originalHtml) return;
 
-    const originalState = JSON.parse(watchBtn.dataset.originalState);
-    const btnIcon = watchBtn.querySelector('i');
-    const btnText = watchBtn.querySelector('span');
+    watchBtn.innerHTML = watchBtn.dataset.originalHtml;
+    delete watchBtn.dataset.originalHtml;
 
-    if (btnIcon) btnIcon.className = originalState.iconClass;
-    if (btnText) btnText.textContent = originalState.text;
-
-    // Cloner pour remplacer les event listeners
     const newBtn = watchBtn.cloneNode(true);
     watchBtn.parentNode.replaceChild(newBtn, watchBtn);
     newBtn.addEventListener('click', async () => {
-      if (currentMovieData && currentMovieData.file_path) {
-        await window.electronAPI.playVideo(currentMovieData.file_path);
+      if (currentMovieData) {
+        const effectivePath = (currentMovieData.audioStatus === 'ok' && currentMovieData.audioConvertedPath)
+          ? currentMovieData.audioConvertedPath : currentMovieData.path;
+        await window.openVideoPlayer(currentMovieData.id, currentMovieData.title, effectivePath, null, currentMovieData.audioStatus === 'ok', currentMovieData.path);
       }
     });
-
-    delete newBtn.dataset.originalState;
   }
 
   // Nouvelle fonction pour créer une popup de confirmation avec 3 boutons
@@ -4189,7 +4457,8 @@ document.addEventListener('DOMContentLoaded', () => {
       genres: ['Action', 'Aventure', 'Comédie', 'Drame', 'Fantastique', 'Horreur', 'Romance', 'Science-Fiction', 'Thriller', 'Animation', 'Documentaire', 'Musical'],
       mood: ['Sombre', 'Joyeux', 'Mélancolique', 'Intense', 'Relaxant', 'Inspirant', 'Nostalgique', 'Mystérieux'],
       technical: ['Effets Spéciaux', 'Cinématographie', 'Bande Originale', 'Montage', 'Direction Artistique', 'Costume', 'Maquillage'],
-      personal: ['Coup de cœur', 'À revoir', 'Déçu', 'Surprise', 'Classique']
+      personal: ['Coup de cœur', 'À revoir', 'Déçu', 'Surprise', 'Classique'],
+      franchise: []
     };
 
     const addButtons = document.querySelectorAll('.add-tag-btn-inline');
@@ -4197,6 +4466,14 @@ document.addEventListener('DOMContentLoaded', () => {
       button.addEventListener('click', (e) => {
         e.preventDefault();
         const category = button.dataset.category;
+
+        // Pour franchise : popup avec saisie libre + suggestions existantes
+        if (category === 'franchise') {
+          const existingFranchises = (currentMovieData && currentMovieData.franchises) || [];
+          showFreeInputTagPopup(category, existingFranchises);
+          return;
+        }
+
         const container = document.getElementById(`${category}-container`);
         const existingTags = Array.from(container.querySelectorAll('.tag-chip')).map(chip => {
           const textNode = chip.querySelector('.tag-text');
@@ -4251,12 +4528,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function showFreeInputTagPopup(category, currentTags) {
+    const popup = document.createElement('div');
+    popup.className = 'tag-selection-popup';
+    popup.innerHTML = `
+      <div class="tag-selection-content">
+        <h3>Ajouter une franchise</h3>
+        <div class="tag-free-input-row">
+          <input type="text" class="tag-free-input" placeholder="Nom de la franchise…" autocomplete="off">
+          <button class="tag-free-confirm">Ajouter</button>
+        </div>
+        <button class="tag-selection-close">Fermer</button>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+    setTimeout(() => popup.classList.add('show'), 10);
+
+    const input = popup.querySelector('.tag-free-input');
+    const confirmBtn = popup.querySelector('.tag-free-confirm');
+    input.focus();
+
+    const doAdd = () => {
+      const val = input.value.trim();
+      if (!val) return;
+      if (!currentTags.includes(val)) {
+        addTagToCategory(category, val);
+      }
+      input.value = '';
+      input.focus();
+    };
+
+    confirmBtn.addEventListener('click', doAdd);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+
+    popup.querySelector('.tag-selection-close').addEventListener('click', () => {
+      popup.classList.remove('show');
+      setTimeout(() => popup.remove(), 300);
+    });
+    popup.addEventListener('click', (e) => {
+      if (e.target === popup) {
+        popup.classList.remove('show');
+        setTimeout(() => popup.remove(), 300);
+      }
+    });
+  }
+
   function addTagToCategory(category, tagName) {
     const container = document.getElementById(`${category}-container`);
     if (!container) return;
 
     // Mettre à jour currentMovieData pour persister le tag
-    const dataKey = category === 'genres' ? 'genres' : category === 'mood' ? 'mood' : category === 'technical' ? 'technical' : 'personalTags';
+    const dataKey = category === 'genres' ? 'genres'
+      : category === 'mood' ? 'mood'
+      : category === 'technical' ? 'technical'
+      : category === 'franchise' ? 'franchises'
+      : 'personalTags';
     if (!currentMovieData[dataKey]) {
       currentMovieData[dataKey] = [];
     }

@@ -1,5 +1,24 @@
 // import-classification.js - Système de classification avancé des médias avec séries
 
+// ─── Constantes TMDB (partagées avec movie-modal.js) ─────────────────────────
+const IMPORT_TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjMjIwYTRiMzAyMTZlMzkwYzE1MmE1MjhlNGVmYjc5YyIsIm5iZiI6MTczMzkzMjAyOS40Nywic3ViIjoiNjc1OWIzZmQ1MDZiNDIzOTRkMjE2MDM3Iiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.RFQAh_1LTZWemAFFIHJUimpU7BEHJxxrua0ys5rruos';
+const IMPORT_TMDB_BASE  = 'https://api.themoviedb.org/3';
+const IMPORT_TMDB_IMG   = 'https://image.tmdb.org/t/p/w500';
+
+async function importSearchTMDB(query) {
+  const url = `${IMPORT_TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&language=fr-FR&include_adult=false&page=1`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${IMPORT_TMDB_TOKEN}` } });
+  if (!res.ok) throw new Error(`TMDB ${res.status}`);
+  return (await res.json()).results || [];
+}
+
+async function importGetTMDBDetails(tmdbId) {
+  const url = `${IMPORT_TMDB_BASE}/movie/${tmdbId}?language=fr-FR&append_to_response=credits`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${IMPORT_TMDB_TOKEN}` } });
+  if (!res.ok) throw new Error(`TMDB ${res.status}`);
+  return res.json();
+}
+
 class ImportClassificationSystem {
   constructor() {
     this.importModal = null;
@@ -33,9 +52,46 @@ class ImportClassificationSystem {
     await this.loadCategories();
     await this.loadSeries();
     
+    // Peupler les selects de pays
+    this._initCountrySelects();
+
     // Attacher les événements
     this.attachEventListeners();
     this.attachKeyboardListeners();
+  }
+
+  _initCountrySelects() {
+    const selectIds = ['detail-country', 'new-series-country'];
+    selectIds.forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel || typeof COUNTRY_LIST === 'undefined') return;
+
+      sel.innerHTML = '<option value="">— Pays —</option>';
+
+      const frequent = COUNTRY_LIST.slice(0, 10);
+      const rest = COUNTRY_LIST.slice(10);
+
+      const grpFreq = document.createElement('optgroup');
+      grpFreq.label = 'Fréquents';
+      frequent.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = `${c.flag} ${c.name}`;
+        opt.textContent = `${c.flag} ${c.name}`;
+        grpFreq.appendChild(opt);
+      });
+
+      const grpAll = document.createElement('optgroup');
+      grpAll.label = 'Tous les pays';
+      rest.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = `${c.flag} ${c.name}`;
+        opt.textContent = `${c.flag} ${c.name}`;
+        grpAll.appendChild(opt);
+      });
+
+      sel.appendChild(grpFreq);
+      sel.appendChild(grpAll);
+    });
   }
 
   async loadCategories() {
@@ -108,7 +164,7 @@ class ImportClassificationSystem {
       }
 
       if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => this.hideNewSeriesModal());
+        cancelBtn.addEventListener('click', () => this._tryCloseSeriesModal());
       }
 
       // Chips de genres — toggle sélection
@@ -120,15 +176,22 @@ class ImportClassificationSystem {
         });
       }
 
-      // Fermer avec Escape
+      // Fermer avec Escape (avec confirmation si données saisies)
       this.seriesModal.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') this.hideNewSeriesModal();
+        if (e.key === 'Escape') this._tryCloseSeriesModal();
         if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') this.createNewSeries();
       });
 
-      // Fermer en cliquant sur l'overlay
+      // Fermer en cliquant sur l'overlay — uniquement si le mousedown était aussi sur l'overlay
+      // (évite la fermeture accidentelle sur clic glissé depuis un champ)
+      let mouseDownOnBackdrop = false;
+      this.seriesModal.addEventListener('mousedown', (e) => {
+        mouseDownOnBackdrop = e.target === this.seriesModal;
+      });
       this.seriesModal.addEventListener('click', (e) => {
-        if (e.target === this.seriesModal) this.hideNewSeriesModal();
+        if (e.target === this.seriesModal && mouseDownOnBackdrop) {
+          this._tryCloseSeriesModal();
+        }
       });
     }
 
@@ -346,9 +409,9 @@ class ImportClassificationSystem {
     galleryCount.textContent = `${this.currentFiles.length} fichiers`;
     galleryProgress.textContent = '0 classifiés';
 
-    // 1. Séparer médias uniques et séries
-    const uniqueMedias = this.currentFiles.filter(f => f.triageType !== 'series');
-    const seriesMedias = this.currentFiles.filter(f => f.triageType === 'series');
+    // 1. Séparer médias uniques et séries (via seriesId, pas triageType)
+    const uniqueMedias = this.currentFiles.filter(f => !f.seriesId);
+    const seriesMedias = this.currentFiles.filter(f => !!f.seriesId);
 
     console.log(`📊 Répartition: ${uniqueMedias.length} médias uniques, ${seriesMedias.length} épisodes de séries`);
 
@@ -750,7 +813,7 @@ class ImportClassificationSystem {
     card.dataset.fileIndex = globalIndex;
 
     // Définir le type de média pour le CSS
-    const mediaType = file.triageType === 'series' ? 'series' : 'unique';
+    const mediaType = file.seriesId ? 'series' : 'unique';
     card.dataset.mediaType = mediaType;
 
     // Ajouter le nom du fichier comme data attribute pour backup
@@ -775,8 +838,8 @@ class ImportClassificationSystem {
       yearInput.value = file.year;
     }
 
-    // Afficher automatiquement les champs série si c'est une série
-    if (file.triageType === 'series') {
+    // Afficher automatiquement les champs série si rattaché à une série
+    if (file.seriesId) {
       // Afficher la section des champs série
       const seriesFields = card.querySelector('.series-fields');
       const uniqueFields = card.querySelector('.unique-fields');
@@ -813,8 +876,245 @@ class ImportClassificationSystem {
       }
     }
 
+    // Peupler le select pays dans la section avancée
+    const countrySelect = card.querySelector('.country-select');
+    if (countrySelect && typeof COUNTRY_LIST !== 'undefined') {
+      countrySelect.innerHTML = '<option value="">— Pays —</option>';
+      const grpFreq = document.createElement('optgroup');
+      grpFreq.label = 'Fréquents';
+      COUNTRY_LIST.slice(0, 10).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = `${c.flag} ${c.name}`;
+        opt.textContent = `${c.flag} ${c.name}`;
+        grpFreq.appendChild(opt);
+      });
+      const grpAll = document.createElement('optgroup');
+      grpAll.label = 'Tous les pays';
+      COUNTRY_LIST.slice(10).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = `${c.flag} ${c.name}`;
+        opt.textContent = `${c.flag} ${c.name}`;
+        grpAll.appendChild(opt);
+      });
+      countrySelect.appendChild(grpFreq);
+      countrySelect.appendChild(grpAll);
+    }
+
     return card;
   }
+
+  // ─── TMDB pour les cartes galerie ──────────────────────────────────────────
+
+  openTMDBForCard(card) {
+    const existing = document.getElementById('import-tmdb-modal');
+    if (existing) existing.remove();
+
+    const initialQuery = card.querySelector('.title-input')?.value?.trim() || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'import-tmdb-modal';
+    modal.className = 'tmdb-modal-overlay';
+    modal.innerHTML = `
+      <div class="tmdb-modal-container">
+        <div class="tmdb-modal-header">
+          <h2><i class="fas fa-database"></i> Recherche TMDB</h2>
+          <button class="tmdb-close-btn" id="itm-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="tmdb-search-bar">
+          <input type="text" id="itm-field" placeholder="Rechercher un film…" value="${initialQuery.replace(/"/g, '&quot;')}">
+          <button id="itm-search" class="tmdb-search-btn"><i class="fas fa-search"></i> Rechercher</button>
+        </div>
+        <div class="tmdb-results-area">
+          <div id="itm-status" class="tmdb-status"><i class="fas fa-info-circle"></i><span>Entrez un titre et cliquez sur Rechercher</span></div>
+          <div id="itm-grid" class="tmdb-results-grid"></div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const field     = document.getElementById('itm-field');
+    const searchBtn = document.getElementById('itm-search');
+    const closeBtn  = document.getElementById('itm-close');
+    const statusDiv = document.getElementById('itm-status');
+    const grid      = document.getElementById('itm-grid');
+
+    const closeModal = () => modal.remove();
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    const fallback = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450"%3E%3Crect fill="%23222" width="300" height="450"/%3E%3Ctext x="150" y="225" fill="%23555" text-anchor="middle" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E';
+
+    const doSearch = async () => {
+      const q = field.value.trim();
+      if (!q) { statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Veuillez entrer un titre</span>'; return; }
+      statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Recherche…</span>';
+      statusDiv.style.display = 'flex';
+      grid.innerHTML = '';
+      try {
+        const results = await importSearchTMDB(q);
+        if (!results.length) { statusDiv.innerHTML = '<i class="fas fa-search"></i><span>Aucun résultat</span>'; return; }
+        statusDiv.style.display = 'none';
+        results.slice(0, 20).forEach(movie => {
+          const item = document.createElement('div');
+          item.className = 'tmdb-result-card';
+          const poster = movie.poster_path ? `${IMPORT_TMDB_IMG}${movie.poster_path}` : fallback;
+          const year   = movie.release_date ? movie.release_date.slice(0, 4) : '----';
+          const safe   = (movie.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+          item.innerHTML = `
+            <div class="tmdb-card-poster">
+              <img src="${poster}" alt="${safe}" loading="lazy" referrerpolicy="no-referrer">
+              <div class="tmdb-card-rating"><i class="fas fa-star"></i> ${movie.vote_average?.toFixed(1) || 'N/A'}</div>
+            </div>
+            <div class="tmdb-card-info"><h4>${safe}</h4><span class="tmdb-card-year">${year}</span></div>
+          `;
+          const img = item.querySelector('img');
+          if (img) img.onerror = () => { img.src = fallback; img.onerror = null; };
+          item.addEventListener('click', () => this.applyTMDBToCard(card, movie.id, closeModal));
+          grid.appendChild(item);
+        });
+      } catch {
+        statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Erreur de connexion à TMDB</span>';
+      }
+    };
+
+    searchBtn.addEventListener('click', doSearch);
+    field.addEventListener('keypress', e => { if (e.key === 'Enter') doSearch(); });
+    setTimeout(() => field.focus(), 100);
+    if (initialQuery) setTimeout(doSearch, 300);
+  }
+
+  async applyTMDBToCard(card, tmdbId, closeModal) {
+    const statusDiv = document.getElementById('itm-status');
+    if (statusDiv) { statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Chargement…</span>'; statusDiv.style.display = 'flex'; }
+    const tmdbBtn = card.querySelector('.btn-tmdb-import');
+    if (tmdbBtn) tmdbBtn.classList.add('loading');
+
+    try {
+      const details = await importGetTMDBDetails(tmdbId);
+
+      // Titre
+      const titleInp = card.querySelector('.title-input');
+      if (titleInp) titleInp.value = details.title || '';
+
+      // Année
+      const yearInp = card.querySelector('.year-input');
+      if (yearInp && details.release_date) yearInp.value = details.release_date.slice(0, 4);
+
+      // Description
+      const descInp = card.querySelector('.description-input');
+      if (descInp) descInp.value = details.overview || '';
+
+      // Genres — repeupler les pastilles
+      if (details.genres?.length) {
+        const genreNames = details.genres.map(g => g.name);
+        const tagsList = card.querySelector('.genres-tags-list');
+        if (tagsList) {
+          tagsList.innerHTML = '';
+          genreNames.forEach(name => {
+            const tag = document.createElement('span');
+            tag.className = 'genre-tag';
+            tag.dataset.genre = name;
+            tag.innerHTML = `${name} <span class="genre-tag-remove" data-genre="${name}">×</span>`;
+            tagsList.appendChild(tag);
+          });
+        }
+      }
+
+      // Réalisateur + acteurs
+      if (details.credits) {
+        const dirInfo = details.credits.crew?.find(p => p.job === 'Director');
+        const dirInp  = card.querySelector('.director-input');
+        if (dirInp && dirInfo) dirInp.value = dirInfo.name;
+
+        const actInp = card.querySelector('.actors-input');
+        if (actInp) actInp.value = (details.credits.cast?.slice(0, 5).map(a => a.name) || []).join(', ');
+      }
+
+      // Studios
+      const studInp = card.querySelector('.studios-input');
+      if (studInp && details.production_companies?.length) {
+        studInp.value = details.production_companies.map(c => c.name).join(', ');
+      }
+
+      // Pays
+      const countrySelect = card.querySelector('.country-select');
+      if (countrySelect && details.production_countries?.length) {
+        const raw = details.production_countries[0];
+        const label = typeof resolveCountryLabel === 'function'
+          ? resolveCountryLabel(raw.iso_3166_1 || raw.name)
+          : `${raw.name}`;
+        const opt = Array.from(countrySelect.options).find(o => o.value === label);
+        if (opt) {
+          countrySelect.value = label;
+        } else if (label) {
+          const tmp = document.createElement('option');
+          tmp.value = label; tmp.textContent = label;
+          countrySelect.insertBefore(tmp, countrySelect.options[1]);
+          countrySelect.value = label;
+        }
+      }
+
+      // Poster — appliquer à la miniature et stocker l'URL
+      if (details.poster_path) {
+        const posterUrl = `${IMPORT_TMDB_IMG}${details.poster_path}`;
+        const thumb = card.querySelector('.gallery-card-thumb-img');
+        if (thumb) { thumb.src = posterUrl; thumb.onerror = null; }
+        const posterInp = card.querySelector('.poster-input');
+        if (posterInp) posterInp.value = posterUrl;
+      }
+
+      // Ouvrir la section avancée pour que l'utilisateur voie les données
+      const details_el = card.querySelector('.advanced-section');
+      if (details_el && !details_el.open) details_el.open = true;
+
+      if (closeModal) closeModal();
+    } catch (err) {
+      console.error('Erreur TMDB import:', err);
+      if (statusDiv) statusDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Erreur lors du chargement</span>';
+    } finally {
+      if (tmdbBtn) tmdbBtn.classList.remove('loading');
+    }
+  }
+
+  resetGalleryCard(card) {
+    const fileIndex = parseInt(card.dataset.fileIndex);
+    const file = this.currentFiles[fileIndex];
+    if (!file) return;
+
+    // Titre
+    const titleInp = card.querySelector('.title-input');
+    if (titleInp) titleInp.value = file.title || file.name || '';
+
+    // Année
+    const yearInp = card.querySelector('.year-input');
+    if (yearInp) yearInp.value = file.year || '';
+
+    // Description
+    const descInp = card.querySelector('.description-input');
+    if (descInp) descInp.value = '';
+
+    // Genres — vider
+    const tagsList = card.querySelector('.genres-tags-list');
+    if (tagsList) tagsList.innerHTML = '';
+
+    // Champs avancés
+    ['director-input', 'actors-input', 'studios-input', 'franchise-input', 'poster-input', 'platform-input'].forEach(cls => {
+      const el = card.querySelector(`.${cls}`);
+      if (el) el.value = '';
+    });
+
+    // Pays → vide
+    const countrySelect = card.querySelector('.country-select');
+    if (countrySelect) countrySelect.value = '';
+
+    // Miniature → originale
+    const thumb = card.querySelector('.gallery-card-thumb-img');
+    if (thumb) {
+      window.setupImageWithFallback(thumb, file.id, file.posterUrl || null, file.thumbnail || null, file.title || file.name);
+    }
+  }
+
+  // ─── Fin TMDB ──────────────────────────────────────────────────────────────
 
   attachGalleryEvents() {
     const galleryContainer = document.getElementById('gallery-container');
@@ -828,6 +1128,12 @@ class ImportClassificationSystem {
     galleryContainer.addEventListener('click', (e) => {
       const card = e.target.closest('.gallery-card');
       if (!card) return;
+
+      // TMDB / Reset
+      const tmdbBtn  = e.target.closest('.btn-tmdb-import');
+      const resetBtn = e.target.closest('.btn-card-reset');
+      if (tmdbBtn)  { this.openTMDBForCard(card); return; }
+      if (resetBtn) { this.resetGalleryCard(card); return; }
 
       // Gestion des boutons principaux
       if (e.target.classList.contains('save-btn')) {
@@ -1035,10 +1341,14 @@ class ImportClassificationSystem {
 
     // Utiliser les catégories fixes du nouveau système
     const fixedCategories = [
-      { value: 'film', icon: '🎬', name: 'Film' },
-      { value: 'series', icon: '📺', name: 'Série' },
-      { value: 'short', icon: '🎞️', name: 'Court métrage' },
-      { value: 'other', icon: '📁', name: 'Autre' }
+      { value: 'film',         icon: '🎬', name: 'Film' },
+      { value: 'series',       icon: '📺', name: 'Série TV' },
+      { value: 'documentaire', icon: '📹', name: 'Documentaire' },
+      { value: 'animation',    icon: '🎨', name: 'Animation' },
+      { value: 'concert',      icon: '🎵', name: 'Concert' },
+      { value: 'sport',        icon: '⚽', name: 'Sport' },
+      { value: 'short',        icon: '🎞️', name: 'Court métrage' },
+      { value: 'other',        icon: '📁', name: 'Autre' }
     ];
 
     fixedCategories.forEach(category => {
@@ -1053,8 +1363,8 @@ class ImportClassificationSystem {
     const seriesNameInput = document.getElementById('detail-series-name');
     if (!seriesNameInput) return;
 
-    // Afficher le nom de la série si c'est une série
-    if (currentFile.triageType === 'series' && currentFile.seriesName) {
+    // Afficher le nom de la série si rattaché à une série
+    if (currentFile.seriesId && currentFile.seriesName) {
       seriesNameInput.value = currentFile.seriesName;
     } else {
       seriesNameInput.value = '';
@@ -1105,7 +1415,6 @@ class ImportClassificationSystem {
         category: formData.category,
         mediaType: formData.mediaType,
 
-        // Nouveaux champs enrichis
         description: formData.description || '',
         year: formData.year || null,
         genres: formData.genres || [],
@@ -1113,6 +1422,9 @@ class ImportClassificationSystem {
         actors: formData.actors || [],
         franchise: formData.franchise || '',
         posterUrl: formData.posterUrl || '',
+        platform: formData.platform || null,
+        country: formData.country || null,
+        studios: formData.studios || [],
 
         // Champs pour séries
         releaseDate: null,
@@ -1139,9 +1451,17 @@ class ImportClassificationSystem {
         this.markCardAsSaved(card, fileIndex);
         this.updateGalleryProgress();
 
+      } else if (result.duplicate) {
+        // Doublon détecté mais infos mises à jour côté serveur
+        console.log('ℹ️ Doublon traité, infos mises à jour');
+        if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
+          this.newlyScannedIds.push(result.movieId);
+        }
+        this.markCardAsSaved(card, fileIndex);
+        this.updateGalleryProgress();
       } else {
         console.error('❌ Erreur lors de la sauvegarde:', result.message);
-        window.showNotification('Erreur de sauvegarde', result.message, 'error');
+        window.showNotification('Erreur de sauvegarde', result.message || 'Erreur inconnue', 'error');
       }
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde:', error);
@@ -1186,28 +1506,31 @@ class ImportClassificationSystem {
     const description = card.querySelector('.description-input')?.value?.trim() || '';
 
     // Récupérer les champs avancés
-    const director = card.querySelector('.director-input')?.value?.trim() || '';
-
-    // Récupérer les acteurs et les convertir en array
-    const actorsString = card.querySelector('.actors-input')?.value?.trim() || '';
-    const actors = actorsString ? actorsString.split(',').map(a => a.trim()).filter(a => a) : [];
-
-    const franchise = card.querySelector('.franchise-input')?.value?.trim() || '';
-    const posterUrl = card.querySelector('.poster-input')?.value?.trim() || '';
+    const director    = card.querySelector('.director-input')?.value?.trim() || '';
+    const actorsStr   = card.querySelector('.actors-input')?.value?.trim() || '';
+    const actors      = actorsStr ? actorsStr.split(',').map(a => a.trim()).filter(Boolean) : [];
+    const franchise   = card.querySelector('.franchise-input')?.value?.trim() || '';
+    const posterUrl   = card.querySelector('.poster-input')?.value?.trim() || '';
+    const platform    = card.querySelector('.platform-input')?.value?.trim() || '';
+    const country     = card.querySelector('.country-select')?.value?.trim() || '';
+    const studiosStr  = card.querySelector('.studios-input')?.value?.trim() || '';
+    const studios     = studiosStr ? studiosStr.split(',').map(s => s.trim()).filter(Boolean) : [];
 
     const result = {
       title: title.trim(),
       category: category,
-      mediaType: file?.mediaType || (category === 'series' ? 'series' : 'unique'),
+      mediaType: file?.seriesId ? 'series' : 'unique',
       year: parseInt(card.querySelector('.year-input')?.value) || null,
 
-      // Nouveaux champs pour médias uniques
       genres: genres,
       description: description,
       director: director,
       actors: actors,
       franchise: franchise,
       posterUrl: posterUrl,
+      platform: platform || null,
+      country: country || null,
+      studios: studios,
 
       // Champs pour séries
       seriesId: file?.seriesId || null,
@@ -1230,7 +1553,10 @@ class ImportClassificationSystem {
 
     // La catégorie est maintenant définie en phase 1, pas besoin de validation supplémentaire
 
-    if (formData.category === 'series' && (!formData.seriesId || formData.seriesId === '')) {
+    const fileIndex = parseInt(card.dataset.fileIndex);
+    const file = this.currentFiles[fileIndex];
+    const needsSeries = file?.triageType === 'series' || !!file?.isSeries;
+    if (needsSeries && (!formData.seriesId || formData.seriesId === '')) {
       window.showNotification('Série manquante', 'Aucune série définie. Revenez au triage pour en sélectionner une.', 'warning');
       return false;
     }
@@ -1384,16 +1710,24 @@ class ImportClassificationSystem {
           title: formData.title.trim(),
           category: formData.category,
           mediaType: formData.mediaType,
-          description: '',
+          description: formData.description || '',
           releaseDate: null,
           year: formData.year || null,
+          genres: formData.genres || [],
+          director: formData.director || '',
+          actors: formData.actors || [],
+          franchise: formData.franchise || '',
+          posterUrl: formData.posterUrl || '',
+          platform: formData.platform || null,
+          country: formData.country || null,
+          studios: formData.studios || [],
           seriesId: formData.seriesId || null,
           seriesName: formData.seriesName || null,
           season_number: formData.seasonNumber || null,
           episode_number: formData.episodeNumber || null
         });
 
-        if (result.success) {
+        if (result.success || result.duplicate) {
           file.classified = true;
           this.classifiedFiles.push(file);
           savedCount++;
@@ -1404,9 +1738,11 @@ class ImportClassificationSystem {
           }
         } else {
           console.error(`❌ Erreur sauvegarde ${fileName}:`, result.message);
+          window.showNotification('Erreur de sauvegarde', `${fileName}: ${result.message || 'Erreur inconnue'}`, 'error');
         }
       } catch (error) {
         console.error('❌ Erreur pour', fileName, ':', error);
+        window.showNotification('Erreur de sauvegarde', `${fileName}: ${error.message}`, 'error');
       }
     }
 
@@ -1445,11 +1781,15 @@ class ImportClassificationSystem {
     const seriesSection = document.getElementById('series-section');
     if (!seriesSection) return;
 
-    // Afficher la section série si la catégorie est "series"
-    if (categoryValue === 'series') {
-      seriesSection.style.display = 'block';
-    } else {
-      seriesSection.style.display = 'none';
+    const currentFile = this.currentFiles[this.currentFileIndex];
+    const needsSeries = categoryValue === 'series' || !!currentFile?.isSeries || !!currentFile?.seriesId;
+
+    seriesSection.style.display = needsSeries ? 'block' : 'none';
+
+    // Champs supplémentaires : visibles seulement pour les types non-série
+    const filmExtra = document.getElementById('detail-film-extra');
+    if (filmExtra) {
+      filmExtra.style.display = needsSeries ? 'none' : 'block';
     }
   }
 
@@ -1472,15 +1812,14 @@ class ImportClassificationSystem {
       }
     });
 
-    // Masquer la section série par défaut (sauf si on garde une catégorie série)
+    // Masquer la section série par défaut (sauf si fichier courant appartient à une série)
     const seriesSection = document.getElementById('series-section');
     const categorySelect = document.getElementById('detail-category');
     if (seriesSection) {
-      if (keepCategory && categorySelect && categorySelect.value === 'series') {
-        seriesSection.style.display = 'block';
-      } else {
-        seriesSection.style.display = 'none';
-      }
+      const currentFile = this.currentFiles[this.currentFileIndex];
+      const hasSeries = !!currentFile?.seriesId || !!currentFile?.isSeries;
+      const keepSeries = keepCategory && (categorySelect?.value === 'series' || hasSeries);
+      seriesSection.style.display = keepSeries ? 'block' : 'none';
     }
   }
 
@@ -1510,7 +1849,11 @@ class ImportClassificationSystem {
         seriesId: formData.seriesId || null,
         seriesName: formData.seriesName || null,
         season_number: formData.seasonNumber ?? null,
-        episode_number: formData.episodeNumber ?? null
+        episode_number: formData.episodeNumber ?? null,
+        platform: formData.platform || null,
+        country: formData.country || null,
+        studios: formData.studios || [],
+        director: formData.director || null,
       };
 
       console.log('🔍 Données API:', saveData);
@@ -1547,17 +1890,28 @@ class ImportClassificationSystem {
 
   getFormData() {
     const category = document.getElementById('detail-category')?.value || 'unsorted';
+    const currentFile = this.currentFiles[this.currentFileIndex];
+    const isSeriesEpisode = category === 'series' || !!currentFile?.isSeries || !!currentFile?.seriesId;
+    const isFilm = !isSeriesEpisode;
+
+    const studiosRaw = isFilm ? (document.getElementById('detail-studios')?.value || '') : '';
+    const studios = studiosRaw ? studiosRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
     return {
       title: document.getElementById('detail-title')?.value || '',
       category: category,
-      mediaType: category === 'series' ? 'series' : 'unique',
+      mediaType: isSeriesEpisode ? 'series' : 'unique',
       description: document.getElementById('detail-description')?.value || '',
       releaseDate: document.getElementById('detail-release-date')?.value || '',
       year: parseInt(document.getElementById('detail-year')?.value) || null,
       seriesId: this.currentFiles[this.currentFileIndex]?.seriesId || null,
-      seriesName: null, // Sera récupéré depuis les données série si nécessaire
+      seriesName: this.currentFiles[this.currentFileIndex]?.seriesName || null,
       seasonNumber: parseInt(document.getElementById('detail-season')?.value) || null,
-      episodeNumber: parseInt(document.getElementById('detail-episode')?.value) || null
+      episodeNumber: parseInt(document.getElementById('detail-episode')?.value) || null,
+      platform: isFilm ? (document.getElementById('detail-platform')?.value?.trim() || null) : null,
+      country: isFilm ? (document.getElementById('detail-country')?.value?.trim() || null) : null,
+      studios: studios.length > 0 ? studios : null,
+      director: isFilm ? (document.getElementById('detail-director')?.value?.trim() || null) : null,
     };
   }
 
@@ -1575,15 +1929,17 @@ class ImportClassificationSystem {
     }
 
     // Vérifier que la catégorie est valide
-    const validCategories = ['film', 'series', 'short', 'other'];
+    const validCategories = ['film', 'series', 'documentaire', 'animation', 'concert', 'sport', 'short', 'other', 'unsorted'];
     if (!validCategories.includes(formData.category)) {
       alert('Catégorie invalide');
       document.getElementById('detail-category')?.focus();
       return false;
     }
 
-    // Si c'est une série, vérifier les champs obligatoires
-    if (formData.category === 'series') {
+    // Si c'est un épisode de série, vérifier les champs obligatoires
+    const currentFile = this.currentFiles[this.currentFileIndex];
+    const needsSeries = formData.category === 'series' || !!currentFile?.isSeries || !!currentFile?.seriesId;
+    if (needsSeries) {
       if (!formData.seriesId || formData.seriesId === '') {
         alert('Erreur: aucune série définie. Veuillez revenir au triage pour sélectionner une série.');
         return false;
@@ -1621,9 +1977,25 @@ class ImportClassificationSystem {
     window._newSeriesCallback = null;
   }
 
+  _seriesFormHasData() {
+    return ['new-series-name', 'new-series-year', 'new-series-country',
+            'new-series-creator', 'new-series-platform', 'new-series-description']
+      .some(id => !!document.getElementById(id)?.value?.trim());
+  }
+
+  _tryCloseSeriesModal() {
+    if (this._seriesFormHasData()) {
+      if (!confirm('Abandonner la création de la série ? Les informations saisies seront perdues.')) {
+        return;
+      }
+    }
+    this.hideNewSeriesModal();
+  }
+
   _resetNewSeriesForm() {
     ['new-series-name', 'new-series-year', 'new-series-country',
-     'new-series-creator', 'new-series-platform', 'new-series-description'].forEach(id => {
+     'new-series-creator', 'new-series-platform', 'new-series-studios',
+     'new-series-description'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -1790,20 +2162,23 @@ class ImportClassificationSystem {
       return;
     }
 
-    const description = document.getElementById('new-series-description')?.value?.trim() || '';
-    const startYear   = parseInt(document.getElementById('new-series-year')?.value) || null;
-    const status      = document.getElementById('new-series-status')?.value || 'unknown';
-    const country     = document.getElementById('new-series-country')?.value?.trim() || '';
-    const creator     = document.getElementById('new-series-creator')?.value?.trim() || '';
-    const platform    = document.getElementById('new-series-platform')?.value?.trim() || '';
-    const genres      = [...document.querySelectorAll('#new-series-genres .genre-chip.selected')]
-                          .map(chip => chip.dataset.genre);
+    const description  = document.getElementById('new-series-description')?.value?.trim() || '';
+    const startYear    = parseInt(document.getElementById('new-series-year')?.value) || null;
+    const status       = document.getElementById('new-series-status')?.value || 'unknown';
+    const country      = document.getElementById('new-series-country')?.value?.trim() || '';
+    const creator      = document.getElementById('new-series-creator')?.value?.trim() || '';
+    const platform     = document.getElementById('new-series-platform')?.value?.trim() || '';
+    const studiosRaw   = document.getElementById('new-series-studios')?.value?.trim() || '';
+    const studios      = studiosRaw ? studiosRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const genres       = [...document.querySelectorAll('#new-series-genres .genre-chip.selected')]
+                           .map(chip => chip.dataset.genre);
 
     try {
       console.log('📺 Création de la série:', name);
 
       const result = await window.electronAPI.createSeries({
-        name, description, startYear, status, country, creator, platform, genres
+        name, description, startYear, status, country, creator, platform, genres,
+        studios: studios.length > 0 ? studios : []
       });
 
       if (result.success) {

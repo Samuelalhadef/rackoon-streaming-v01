@@ -13,6 +13,8 @@ class VideoPlayer {
     // États
     this.isPlaying = false;
     this.isFullscreen = false;
+    this.isMiniPlayer = false;
+    this._miniDragActive = false;
     this.currentTime = 0;
     this.duration = 0;
     this.volume = 0.5; // Volume par défaut à 50%
@@ -39,6 +41,10 @@ class VideoPlayer {
     this.hideControlsTimer = null;
     this.progressUpdateTimer = null;
 
+    // Progress tracking
+    this._lastProgressSave = 0;
+    this._resumeTime = 0;
+
     // Éléments du lecteur
     this.elements = {};
     
@@ -58,7 +64,7 @@ class VideoPlayer {
     this.modal.innerHTML = `
       <!-- Bouton fermer - EN DEHORS du container pour éviter overflow:hidden -->
       <button class="close-btn" title="Fermer (Échap)">
-        <i class="fas fa-times"></i>
+        <img src="../assets/pictos/times.svg" class="picto-icon">
       </button>
 
       <div class="video-player-container">
@@ -73,11 +79,24 @@ class VideoPlayer {
 
         <!-- Indicateurs de chargement -->
         <div class="loading-indicator">
-          <i class="fas fa-spinner fa-spin"></i>
+          <div class="spinner-anim"></div>
         </div>
         
         <div class="buffering-indicator"></div>
-        
+
+        <!-- Mini lecteur overlay -->
+        <div class="mini-player-overlay">
+          <div class="mini-player-top">
+            <span class="mini-player-title"></span>
+            <button class="mini-ctrl-btn mini-expand-btn" title="Agrandir">
+              <img src="../assets/pictos/expand.svg" class="picto-icon">
+            </button>
+            <button class="mini-ctrl-btn mini-close-btn" title="Fermer">
+              <img src="../assets/pictos/times.svg" class="picto-icon">
+            </button>
+          </div>
+        </div>
+
         <!-- Contrôles vidéo -->
         <div class="video-controls">
           <!-- Timeline -->
@@ -94,20 +113,20 @@ class VideoPlayer {
           <div class="main-controls">
             <div class="controls-left">
               <button class="control-btn prev-episode-btn" title="Épisode précédent (P)" style="display:none">
-                <i class="fas fa-step-backward"></i>
+                <img src="../assets/pictos/step-backward.svg" class="picto-icon">
               </button>
 
               <button class="control-btn play-pause" title="Lecture/Pause (Espace)">
-                <i class="fas fa-play"></i>
+                <img src="../assets/pictos/play.svg" class="picto-icon">
               </button>
 
               <button class="control-btn next-episode-btn" title="Épisode suivant (N)" style="display:none">
-                <i class="fas fa-step-forward"></i>
+                <img src="../assets/pictos/step-forward.svg" class="picto-icon">
               </button>
 
               <div class="volume-container">
                 <button class="control-btn volume-btn" title="Volume">
-                  <i class="fas fa-volume-up"></i>
+                  <img src="../assets/pictos/volume-up.svg" class="picto-icon">
                 </button>
                 <div class="volume-slider">
                   <div class="volume-progress"></div>
@@ -123,20 +142,24 @@ class VideoPlayer {
             
             <div class="controls-right">
               <button class="control-btn audio-btn" title="Pistes audio">
-                <i class="fas fa-volume-up"></i>
+                <img src="../assets/pictos/sliders-h.svg" class="picto-icon">
               </button>
-              
+
               <button class="control-btn subtitle-btn" title="Sous-titres">
-                <i class="fas fa-closed-captioning"></i>
+                <img src="../assets/pictos/list.svg" class="picto-icon">
               </button>
-              
+
               <button class="control-btn speed-btn" title="Vitesse de lecture">
-                <i class="fas fa-tachometer-alt"></i>
+                <img src="../assets/pictos/bolt.svg" class="picto-icon">
                 <span class="speed-text">1x</span>
               </button>
-              
+
+              <button class="control-btn mini-player-btn" title="Mini lecteur">
+                <img src="../assets/pictos/pip.svg" class="picto-icon">
+              </button>
+
               <button class="control-btn fullscreen-btn" title="Plein écran (F)">
-                <i class="fas fa-expand"></i>
+                <img src="../assets/pictos/expand.svg" class="picto-icon">
               </button>
             </div>
           </div>
@@ -191,9 +214,9 @@ class VideoPlayer {
       prevEpisodeBtn: this.modal.querySelector('.prev-episode-btn'),
       nextEpisodeBtn: this.modal.querySelector('.next-episode-btn'),
       playPauseBtn: this.modal.querySelector('.play-pause'),
-      playPauseIcon: this.modal.querySelector('.play-pause i'),
+      playPauseIcon: this.modal.querySelector('.play-pause .picto-icon'),
       volumeBtn: this.modal.querySelector('.volume-btn'),
-      volumeIcon: this.modal.querySelector('.volume-btn i'),
+      volumeIcon: this.modal.querySelector('.volume-btn .picto-icon'),
       volumeSlider: this.modal.querySelector('.volume-slider'),
       volumeProgress: this.modal.querySelector('.volume-progress'),
       timeCurrent: this.modal.querySelector('.time-current'),
@@ -207,8 +230,13 @@ class VideoPlayer {
       subtitleBtn: this.modal.querySelector('.subtitle-btn'),
       subtitleMenu: this.modal.querySelector('.subtitle-menu'),
       subtitleTracks: this.modal.querySelector('.subtitle-tracks'),
+      miniPlayerBtn: this.modal.querySelector('.mini-player-btn'),
+      miniOverlay: this.modal.querySelector('.mini-player-overlay'),
+      miniTitle: this.modal.querySelector('.mini-player-title'),
+      miniExpandBtn: this.modal.querySelector('.mini-expand-btn'),
+      miniCloseBtn: this.modal.querySelector('.mini-close-btn'),
       fullscreenBtn: this.modal.querySelector('.fullscreen-btn'),
-      fullscreenIcon: this.modal.querySelector('.fullscreen-btn i')
+      fullscreenIcon: this.modal.querySelector('.fullscreen-btn .picto-icon')
     };
   }
   
@@ -233,15 +261,19 @@ class VideoPlayer {
     this.elements.speedBtn.addEventListener('click', () => this.toggleSpeedMenu());
     this.elements.audioBtn.addEventListener('click', () => this.toggleAudioMenu());
     this.elements.subtitleBtn.addEventListener('click', () => this.toggleSubtitleMenu());
+    this.elements.miniPlayerBtn.addEventListener('click', () => this.toggleMiniPlayer());
+    this.elements.miniExpandBtn.addEventListener('click', () => this.exitMiniPlayer());
+    this.elements.miniCloseBtn.addEventListener('click', () => this.close());
     this.elements.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+    this.setupMiniPlayerDrag();
     
     // Timeline
-    this.elements.timelineContainer.addEventListener('click', (e) => this.seekToPosition(e));
+    this.setupTimelineDrag();
     this.elements.timelineContainer.addEventListener('mousemove', (e) => this.updateTimeDisplay(e));
     this.elements.timelineContainer.addEventListener('mouseleave', () => this.hideTimeDisplay());
-    
+
     // Volume slider
-    this.elements.volumeSlider.addEventListener('click', (e) => this.setVolume(e));
+    this.setupVolumeDrag();
     
     // Menu vitesse
     this.modal.querySelectorAll('.speed-option').forEach(btn => {
@@ -334,7 +366,7 @@ class VideoPlayer {
     });
   }
   
-  async open(movieId, movieTitle, moviePath, seriesContext = null) {
+  async open(movieId, movieTitle, moviePath, seriesContext = null, audioReady = false, originalPath = null) {
     try {
       // Validation des paramètres
       if (!movieTitle || typeof movieTitle !== 'string') {
@@ -345,9 +377,23 @@ class VideoPlayer {
         throw new Error('Chemin de la vidéo manquant');
       }
 
-      this.currentMovie = { id: movieId, title: movieTitle, path: moviePath };
+      // originalPath = fichier source (MKV original), moviePath = fichier à jouer (peut être le converti)
+      this.currentMovie = { id: movieId, title: movieTitle, path: moviePath, audioReady, originalPath: originalPath || moviePath };
       this.seriesContext = seriesContext;
       this.updateSeriesNavigation();
+      this._lastProgressSave = 0;
+      this._resumeTime = 0;
+
+      // Charger la progression sauvegardée pour l'auto-reprise
+      if (movieId && window.electronAPI?.getAllProgress) {
+        try {
+          const pr = await window.electronAPI.getAllProgress();
+          if (pr.success) {
+            const saved = pr.playProgress[movieId];
+            if (saved && saved.time > 15) this._resumeTime = saved.time;
+          }
+        } catch (e) { /* silencieux */ }
+      }
 
       // Enregistrer le moment de début du visionnage pour les statistiques
       this.watchStartTime = Date.now();
@@ -356,8 +402,7 @@ class VideoPlayer {
       this.modal.classList.add('active');
 
       // Mettre à jour les informations
-      const truncatedTitle = movieTitle.length > 20 ? movieTitle.substring(0, 20) + '...' : movieTitle;
-      this.elements.title.textContent = truncatedTitle;
+      this.elements.title.textContent = movieTitle;
       this.elements.details.textContent = 'Chargement...';
 
       // Charger la vidéo
@@ -377,15 +422,16 @@ class VideoPlayer {
           throw new Error('Chemin de la vidéo non fourni');
         }
 
-        // Stocker le chemin original pour référence
-        this.originalMoviePath = moviePath;
+        // Stocker le chemin du fichier source (original) pour la détection et les sous-titres
+        this.originalMoviePath = originalPath || moviePath;
 
         // Construire l'URL avec piste audio 0 par défaut (chargement rapide)
         videoUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(moviePath)}&audioTrack=0`;
         console.log('🎬 URL vidéo locale via serveur:', videoUrl);
 
-        // Détecter les pistes et vérifier l'audio en arrière-plan
-        this.detectAndFixAudioInBackground(moviePath);
+        // Détecter les pistes depuis le fichier ORIGINAL (langues, sous-titres)
+        // même quand on joue la version convertie
+        this.detectAndFixAudioInBackground(this.originalMoviePath);
       }
 
       this.video.src = videoUrl;
@@ -436,14 +482,15 @@ class VideoPlayer {
       this.watchStartTime = null;
     }
 
+    // Sauvegarder la progression finale avant fermeture
+    this._saveProgress();
+
     this.pause();
     this.modal.classList.remove('active');
 
-    // Nettoyer les URLs de sous-titres
-    if (this.subtitleUrls) {
-      this.subtitleUrls.forEach(url => URL.revokeObjectURL(url));
-      this.subtitleUrls = [];
-    }
+    // Nettoyer les tracks et URLs de sous-titres
+    this._cancelSubtitleTimers();
+    this._removeSubtitleTracks();
 
     // Supprimer l'URL de la vidéo de manière propre
     this.video.removeAttribute('src');
@@ -451,6 +498,11 @@ class VideoPlayer {
 
     this.currentMovie = null;
     this.resetPlayer();
+
+    // Mettre à jour les cards visibles avec la nouvelle progression
+    setTimeout(() => {
+      if (window.filtersSystem?.applyFiltersAndSort) window.filtersSystem.applyFiltersAndSort();
+    }, 300);
     
     // Sortir du mode plein écran
     if (this.isFullscreen) {
@@ -464,15 +516,31 @@ class VideoPlayer {
   }
   
   resetPlayer() {
+    if (this.isMiniPlayer) {
+      this.isMiniPlayer = false;
+      this._miniDragActive = false;
+      this.modal.classList.remove('mini-player');
+      this.modal.style.left = '';
+      this.modal.style.top = '';
+      this.modal.style.right = '';
+      this.modal.style.bottom = '';
+    }
     this.isPlaying = false;
     this.currentTime = 0;
     this.duration = 0;
+    this._lastProgressSave = 0;
+    this._resumeTime = 0;
     this.playbackRate = 1;
-    this.hasTriedTranscode = false; // Réinitialiser le flag de transcodage
-    this.isRetryingWithTranscode = false; // Réinitialiser le flag de retry
-    this.needsVideoTranscode = false; // Réinitialiser le flag de transcodage vidéo
-    this.isShowingConversionDialog = false; // Réinitialiser le flag de dialogue
-    this.selectedAudioTracksForConversion = [0]; // Réinitialiser les pistes sélectionnées
+    this.hasTriedTranscode = false;
+    this.isRetryingWithTranscode = false;
+    this.needsVideoTranscode = false;
+    this.isShowingConversionDialog = false;
+    this._conversionPending = false;
+    if (this._audioWaitCleanup) { this._audioWaitCleanup(); this._audioWaitCleanup = null; }
+    this._cancelSubtitleTimers();
+    this._removeSubtitleTracks();
+    this._activeSubtitleIndex = -1;
+    this.selectedAudioTracksForConversion = [0];
     this.detectedAudioTracks = null;
     this.detectedVideoTracks = null;
     this.detectedSubtitles = null;
@@ -518,10 +586,10 @@ class VideoPlayer {
   updatePlayPauseButton() {
     const icon = this.elements.playPauseIcon;
     if (this.isPlaying) {
-      icon.className = 'fas fa-pause';
+      icon.src = '../assets/pictos/pause.svg';
       this.elements.playPauseBtn.title = 'Pause (Espace)';
     } else {
-      icon.className = 'fas fa-play';
+      icon.src = '../assets/pictos/play.svg';
       this.elements.playPauseBtn.title = 'Lecture (Espace)';
     }
   }
@@ -541,11 +609,68 @@ class VideoPlayer {
     const rect = this.elements.volumeSlider.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
     const volume = Math.max(0, Math.min(1, percent));
-    
     this.video.volume = volume;
     this.video.muted = false;
     this.volume = volume;
     this.updateVolumeDisplay();
+  }
+
+  setupTimelineDrag() {
+    const container = this.elements.timelineContainer;
+    let isDragging = false;
+
+    const getPercent = (e) => {
+      const rect = container.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    };
+
+    container.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      this.elements.timelineThumb.classList.add('dragging');
+      this.seekToPercent(getPercent(e));
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      this.seekToPercent(getPercent(e));
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      this.elements.timelineThumb.classList.remove('dragging');
+      this.seekToPercent(getPercent(e));
+    });
+  }
+
+  setupVolumeDrag() {
+    const slider = this.elements.volumeSlider;
+    let isDragging = false;
+
+    const applyVolume = (e) => {
+      const rect = slider.getBoundingClientRect();
+      const volume = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      this.video.volume = volume;
+      this.video.muted = volume === 0;
+      this.volume = volume;
+      this.updateVolumeDisplay();
+    };
+
+    slider.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      applyVolume(e);
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      applyVolume(e);
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
   }
   
   changeVolume(delta) {
@@ -562,11 +687,11 @@ class VideoPlayer {
     
     const icon = this.elements.volumeIcon;
     if (this.video.muted || volume === 0) {
-      icon.className = 'fas fa-volume-mute';
+      icon.src = '../assets/pictos/volume-mute.svg';
     } else if (volume < 0.5) {
-      icon.className = 'fas fa-volume-down';
+      icon.src = '../assets/pictos/volume-down.svg';
     } else {
-      icon.className = 'fas fa-volume-up';
+      icon.src = '../assets/pictos/volume-up.svg';
     }
   }
   
@@ -599,15 +724,40 @@ class VideoPlayer {
   updateProgress() {
     this.currentTime = this.video.currentTime;
     this.duration = this.video.duration || 0;
-    
+
     if (this.duration > 0) {
       const percent = (this.currentTime / this.duration) * 100;
       this.elements.timelineProgress.style.width = `${percent}%`;
       this.elements.timelineThumb.style.left = `${percent}%`;
     }
-    
+
     this.elements.timeCurrent.textContent = this.formatTime(this.currentTime);
     this.elements.timeDuration.textContent = this.formatTime(this.duration);
+
+    // Sauvegarde throttlée toutes les 10s pendant la lecture
+    if (this.isPlaying && this.duration > 30) {
+      const now = Date.now();
+      if (now - this._lastProgressSave > 10000) {
+        this._lastProgressSave = now;
+        this._saveProgress();
+      }
+    }
+  }
+
+  _saveProgress() {
+    if (!this.currentMovie?.id || !this.duration) return;
+    const pct = this.currentTime / this.duration;
+    const seriesInfo = this.seriesContext ? {
+      seriesId: this.seriesContext.episodes[this.seriesContext.currentIndex]?.seriesId,
+      episodeNumber: this.seriesContext.episodes[this.seriesContext.currentIndex]?.episode_number,
+      seasonNumber: this.seriesContext.episodes[this.seriesContext.currentIndex]?.season_number
+    } : null;
+    window.electronAPI?.saveProgress?.(
+      this.currentMovie.id,
+      pct,
+      Math.floor(this.currentTime),
+      seriesInfo
+    );
   }
   
   updateBuffer() {
@@ -706,7 +856,7 @@ class VideoPlayer {
       // Priorité 2: Demander les informations via FFprobe si pas encore détectées
       if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
         console.log('🎵 Détection pistes audio via FFprobe...');
-        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
+        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.originalPath || this.currentMovie.path);
         if (videoInfo.success && videoInfo.audioTracks && videoInfo.audioTracks.length > 0) {
           console.log('🎵 Pistes audio détectées via FFprobe:', videoInfo.audioTracks.length);
 
@@ -839,22 +989,45 @@ class VideoPlayer {
 
       // === DÉCISION DE LECTURE ===
 
-      // CAS 1: Audio non supporté (AC3/DTS) → Conversion obligatoire
-      if (needsAudioTranscode) {
-        console.log(`⚠️ Audio ${audioCodecName.toUpperCase()} non supporté - vérification conversion existante...`);
+      // CAS 1: Audio non supporté (AC3/DTS) — vérifier le système de conversion
+      // Si audioReady = true, la conversion est déjà faite ou le fichier est natif : ne pas intervenir
+      if (needsAudioTranscode && !this.currentMovie?.audioReady) {
+        console.log(`Audio ${audioCodecName.toUpperCase()} non supporté - vérification via système de conversion...`);
 
-        // Vérifier si une conversion existe déjà
-        const existingConversion = await window.electronAPI.checkConvertedAudio(moviePath, false);
-
-        if (existingConversion.exists) {
-          console.log('✅ Conversion existante trouvée - lecture directe');
-          this.showAudioTranscodeNotification(audioCodecName.toUpperCase(), true);
-          this.playConvertedFile(existingConversion.path);
-        } else {
-          // Pas de conversion existante → afficher le menu
-          console.log('📋 Aucune conversion trouvée - affichage du menu');
-          this.showLanguageSelectionDialog(moviePath, audioCodecName.toUpperCase(), false);
+        // Priorité 1 : vérifier la base de données (nouveau système)
+        if (this.currentMovie?.id && window.electronAPI?.getAudioStatuses) {
+          const statusRes = await window.electronAPI.getAudioStatuses();
+          if (statusRes.success) {
+            const entry = statusRes.statuses[this.currentMovie.id];
+            if (entry?.status === 'ok' && entry.convertedPath) {
+              console.log('Conversion DB trouvée - lecture directe');
+              this.playConvertedFile(entry.convertedPath);
+              return;
+            }
+            if (entry?.status === 'pending' || entry?.status === 'converting') {
+              // Arrêter le chargement du fichier original pour éviter onVideoError
+              this.video.pause();
+              this.video.removeAttribute('src');
+              this.video.load();
+              this._conversionPending = true;
+              this._showAudioWaitToast();
+              return;
+            }
+          }
         }
+
+        // Priorité 2 : vérifier l'ancien cache disque (compatibilité)
+        if (window.electronAPI?.checkConvertedAudio) {
+          const existingConversion = await window.electronAPI.checkConvertedAudio(moviePath, false);
+          if (existingConversion.exists) {
+            console.log('Conversion cache trouvée - lecture directe');
+            this.playConvertedFile(existingConversion.path);
+            return;
+          }
+        }
+
+        // Aucune conversion disponible — le système de queue va s'en occuper, on laisse jouer
+        console.log('Lecture avec audio natif (conversion en arrière-plan)');
         return;
       }
 
@@ -922,12 +1095,12 @@ class VideoPlayer {
 
     if (fromCache) {
       notificationDiv.innerHTML = `
-        <i class="fas fa-check-circle"></i>
+        <img src="../assets/pictos/check-circle.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;">
         <span>Audio ${codecName.toUpperCase()} → AAC (conversion sauvegardée)</span>
       `;
     } else {
       notificationDiv.innerHTML = `
-        <i class="fas fa-sync-alt" style="animation: spin 1s linear infinite;"></i>
+        <img src="../assets/pictos/sync-alt.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;animation:spin-icon 1s linear infinite;">
         <span>Conversion audio ${codecName.toUpperCase()} → AAC en cours...</span>
       `;
     }
@@ -942,6 +1115,78 @@ class VideoPlayer {
         setTimeout(() => notificationDiv.remove(), 500);
       }
     }, 5000);
+  }
+
+  _showAudioWaitToast() {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(30, 20, 60, 0.92); color: #c4b5fd;
+      border: 1px solid rgba(167, 139, 250, 0.4);
+      padding: 12px 20px; border-radius: 10px;
+      z-index: 10001; font-size: 14px; display: flex; align-items: center; gap: 10px;
+    `;
+    const spinner = document.createElement('span');
+    spinner.style.cssText = 'width:16px;height:16px;border:2px solid rgba(167,139,250,0.3);border-top-color:#a78bfa;border-radius:50%;animation:rk-spin 0.75s linear infinite;flex-shrink:0';
+    toast.appendChild(spinner);
+    toast.appendChild(Object.assign(document.createElement('span'), { textContent: 'Conversion audio en cours, veuillez patienter...' }));
+    this.container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.4s';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 400);
+    }, 4000);
+
+    // Écouter la fin de conversion pour relancer
+    if (this.currentMovie?.id) {
+      const mediaId = this.currentMovie.id;
+      if (this._audioWaitCleanup) this._audioWaitCleanup();
+
+      let done = false;
+      const onDone = (convertedPath) => {
+        if (done) return;
+        done = true;
+        this._audioWaitCleanup = null;
+        if (this.currentMovie?.id === mediaId && convertedPath) {
+          this.playConvertedFile(convertedPath);
+        }
+      };
+
+      // Voie 1 : IPC via preload (rapide si ça fonctionne)
+      let ipcCleanup = null;
+      if (window.electronAPI?.onAudioStatusUpdate) {
+        ipcCleanup = window.electronAPI.onAudioStatusUpdate(({ mediaId: id, status, convertedPath }) => {
+          if (id !== mediaId) return;
+          if (status === 'ok') { ipcCleanup?.(); onDone(convertedPath); }
+          else if (status === 'error') { ipcCleanup?.(); done = true; }
+        });
+      }
+
+      // Voie 2 : polling (filet de sécurité si IPC ne répond pas)
+      const pollTimer = setInterval(async () => {
+        if (done || this.currentMovie?.id !== mediaId) { clearInterval(pollTimer); return; }
+        try {
+          const res = await window.electronAPI?.getAudioStatuses?.();
+          if (!res?.success) return;
+          const entry = res.statuses[mediaId];
+          if (entry?.status === 'ok' && entry.convertedPath) {
+            clearInterval(pollTimer);
+            ipcCleanup?.();
+            onDone(entry.convertedPath);
+          } else if (entry?.status === 'error') {
+            clearInterval(pollTimer);
+            ipcCleanup?.();
+            done = true;
+          }
+        } catch {}
+      }, 5000);
+
+      this._audioWaitCleanup = () => {
+        ipcCleanup?.();
+        clearInterval(pollTimer);
+        done = true;
+      };
+    }
   }
 
   /**
@@ -1046,7 +1291,7 @@ class VideoPlayer {
 
     dialogBox.innerHTML = `
       <div style="text-align: center; margin-bottom: 25px;">
-        <i class="fas fa-language" style="font-size: 48px; color: #3498db; margin-bottom: 15px;"></i>
+        <img src="../assets/pictos/sliders-h.svg" style="width:48px;height:48px;filter:brightness(0) invert(1);margin-bottom:15px;">
         <h2 style="color: white; margin: 0 0 10px 0; font-size: 20px;">Sélection des pistes audio</h2>
         <p style="color: #aaa; margin: 0; font-size: 14px;">
           Choisissez les langues à inclure dans la conversion
@@ -1070,7 +1315,7 @@ class VideoPlayer {
           font-weight: bold;
           transition: transform 0.2s, box-shadow 0.2s;
         ">
-          <i class="fas fa-check"></i> Continuer
+          <img src="../assets/pictos/check.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;"> Continuer
         </button>
         <button id="btn-cancel-languages" style="
           background: transparent;
@@ -1082,7 +1327,7 @@ class VideoPlayer {
           font-size: 15px;
           transition: all 0.2s;
         ">
-          <i class="fas fa-times"></i> Annuler
+          <img src="../assets/pictos/times.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;"> Annuler
         </button>
       </div>
     `;
@@ -1199,7 +1444,9 @@ class VideoPlayer {
     `;
 
     // Adapter le message selon le type de conversion
-    const iconClass = transcodeVideo ? 'fa-film' : 'fa-volume-up';
+    const iconSvg = transcodeVideo
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#f39c12" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:15px"><path d="M14.85,16.87h1.84"/><rect x="3.86" y="10.01" width="16.49" height="10.08"/><rect x="3.25" y="4.97" width="16.49" height="3.12" transform="translate(-1.23 2.93) rotate(-13.8)"/><line x1="7.76" y1="5.84" x2="6.84" y2="9.28"/><line x1="11.94" y1="4.81" x2="11.03" y2="8.25"/><line x1="16.26" y1="3.75" x2="15.35" y2="7.19"/></svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#f39c12" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:15px"><path stroke-miterlimit="3.83" d="M1.46,13.78V10.22A1.92,1.92,0,0,1,3.38,8.3H6.15a1,1,0,0,0,.53-.15l5.75-3.8a1,1,0,0,1,1.49.8v13.7a1,1,0,0,1-1.49.8l-5.75-3.8a1,1,0,0,0-.53-.15H3.38A1.92,1.92,0,0,1,1.46,13.78Z"/><path d="M17.27,7.69a5.81,5.81,0,0,1,0,7.66"/><path d="M20.15,4.81a10,10,0,0,1,2.39,6.71,10,10,0,0,1-2.39,6.71"/></svg>`;
     const title = transcodeVideo ? 'Conversion vidéo requise' : 'Conversion audio requise';
 
     // Extraire le nom du codec vidéo et audio pour un message plus clair
@@ -1218,7 +1465,7 @@ class VideoPlayer {
 
     dialogBox.innerHTML = `
       <div style="text-align: center; margin-bottom: 25px;">
-        <i class="fas ${iconClass}" style="font-size: 48px; color: #f39c12; margin-bottom: 15px;"></i>
+        ${iconSvg}
         <h2 style="color: white; margin: 0 0 10px 0; font-size: 20px;">${title}</h2>
         <p style="color: #aaa; margin: 0; font-size: 14px;">
           ${description}
@@ -1240,7 +1487,7 @@ class VideoPlayer {
           gap: 12px;
           transition: transform 0.2s, box-shadow 0.2s;
         ">
-          <i class="fas fa-hourglass-half" style="font-size: 20px;"></i>
+          <img src="../assets/pictos/hourglass-half.svg" style="width:20px;height:20px;filter:brightness(0) invert(1);">
           <div style="text-align: left;">
             <div style="font-weight: bold;">Attendre la conversion</div>
             <div style="font-size: 12px; opacity: 0.8;">Convertir entièrement avant de regarder (recommandé)</div>
@@ -1260,7 +1507,7 @@ class VideoPlayer {
           gap: 12px;
           transition: transform 0.2s, box-shadow 0.2s;
         ">
-          <i class="fas fa-play-circle" style="font-size: 20px;"></i>
+          <img src="../assets/pictos/play.svg" style="width:20px;height:20px;filter:brightness(0) invert(1);">
           <div style="text-align: left;">
             <div style="font-weight: bold;">Regarder pendant la conversion</div>
             <div style="font-size: 12px; opacity: 0.8;">${transcodeVideo ? 'Peut causer des saccades (conversion lente)' : 'Commencer la lecture immédiatement'}</div>
@@ -1282,13 +1529,13 @@ class VideoPlayer {
           transition: all 0.2s;
           margin-top: 5px;
         ">
-          <i class="fas fa-times"></i>
+          <img src="../assets/pictos/times.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;">
           Annuler
         </button>
       </div>
 
       <p style="color: #888; font-size: 11px; text-align: center; margin-top: 20px;">
-        <i class="fas fa-save"></i> La conversion sera sauvegardée pour les prochaines lectures.
+        <img src="../assets/pictos/save.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;"> La conversion sera sauvegardée pour les prochaines lectures.
       </p>
     `;
 
@@ -1378,11 +1625,11 @@ class VideoPlayer {
     const conversionType = transcodeVideo ? 'HEVC → H.264 + AAC' : `${codecName.toUpperCase()} → AAC`;
     const trackInfo = trackCount > 1 ? `(${trackCount} pistes audio)` : '';
     const conversionWarning = transcodeVideo
-      ? '<p style="color: #e67e22; font-size: 12px; margin-top: 10px;"><i class="fas fa-clock"></i> La conversion vidéo peut prendre plusieurs minutes</p>'
+      ? '<p style="color: #e67e22; font-size: 12px; margin-top: 10px;"><img src="../assets/pictos/clock.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;"> La conversion vidéo peut prendre plusieurs minutes</p>'
       : '';
 
     progressOverlay.innerHTML = `
-      <i class="fas fa-cog fa-spin" style="font-size: 60px; color: #3498db; margin-bottom: 20px;"></i>
+      <img src="../assets/pictos/cog.svg" style="width:60px;height:60px;filter:brightness(0) invert(1);margin-bottom:20px;animation:spin-icon 2s linear infinite;">
       <h2 style="color: white; margin: 0 0 10px 0;">Conversion en cours...</h2>
       <p style="color: #aaa; margin: 0 0 25px 0;">
         ${conversionType} ${trackInfo}
@@ -1393,7 +1640,7 @@ class VideoPlayer {
       </div>
       <p id="conversion-progress-text" style="color: #888; margin-top: 15px; font-size: 14px;">0%</p>
       <p style="color: #666; font-size: 12px; margin-top: 20px;">
-        <i class="fas fa-save"></i> La conversion sera sauvegardée pour les prochaines lectures
+        <img src="../assets/pictos/save.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;"> La conversion sera sauvegardée pour les prochaines lectures
       </p>
     `;
 
@@ -1528,7 +1775,7 @@ class VideoPlayer {
 
     const conversionType = transcodeVideo ? `${codecName} → H.264/AAC` : `${codecName.toUpperCase()} → AAC`;
     streamNotification.innerHTML = `
-      <i class="fas fa-sync-alt" style="animation: spin 1s linear infinite;"></i>
+      <img src="../assets/pictos/sync-alt.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;animation:spin-icon 1s linear infinite;">
       <span>Conversion ${conversionType} en cours... La lecture démarrera sous peu.</span>
     `;
     document.body.appendChild(streamNotification);
@@ -1561,7 +1808,7 @@ class VideoPlayer {
       // Mettre à jour la notification
       streamNotification.style.background = 'rgba(46, 204, 113, 0.95)';
       streamNotification.innerHTML = `
-        <i class="fas fa-check-circle"></i>
+        <img src="../assets/pictos/check-circle.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;">
         <span>Lecture en cours - Conversion en arrière-plan</span>
       `;
       // Supprimer après 5 secondes
@@ -1592,7 +1839,7 @@ class VideoPlayer {
       if (streamNotification.parentNode) {
         streamNotification.style.background = 'rgba(231, 76, 60, 0.95)';
         streamNotification.innerHTML = `
-          <i class="fas fa-exclamation-triangle"></i>
+          <img src="../assets/pictos/exclamation-triangle.svg" style="width:1em;height:1em;filter:brightness(0) invert(1);vertical-align:middle;">
           <span>Erreur de streaming - Essayez "Attendre la conversion"</span>
         `;
       }
@@ -1624,8 +1871,8 @@ class VideoPlayer {
     // Charger les détails du film en arrière-plan
     try {
       const movieDetails = await window.electronAPI.getMediaDetails(movieId);
-      if (movieDetails.success && movieDetails.movie) {
-        const movie = movieDetails.movie;
+      if (movieDetails.success && (movieDetails.media || movieDetails.movie)) {
+        const movie = movieDetails.media || movieDetails.movie;
         const details = [];
         if (movie.year) details.push(movie.year);
         if (movie.duration) details.push(window.formatTime(movie.duration));
@@ -1707,31 +1954,30 @@ class VideoPlayer {
         // Stocker la piste audio sélectionnée
         this.selectedAudioTrack = trackIndex;
 
-        // Obtenir la source actuelle
-        const currentSrc = this.video.src;
-
-        // Créer une nouvelle URL avec le paramètre de piste audio
-        const url = new URL(currentSrc);
-        url.searchParams.set('audioTrack', trackIndex);
+        // Toujours utiliser le fichier source original pour le remux (toutes les pistes disponibles)
+        const sourcePath = this.originalMoviePath || this.currentMovie.path;
+        const newUrl = new URL('http://localhost:3002/local-video');
+        newUrl.searchParams.set('path', sourcePath);
+        newUrl.searchParams.set('audioTrack', trackIndex);
 
         // Recharger la vidéo avec la nouvelle piste
-        this.video.src = url.toString();
+        this.video.src = newUrl.toString();
 
-        // Attendre que les métadonnées soient chargées
+        // Attendre que les métadonnées soient chargées (10s max pour éviter le blocage)
         await new Promise((resolve) => {
-          this.video.addEventListener('loadedmetadata', () => {
-            // Restaurer le temps, volume et vitesse
+          const timeout = setTimeout(resolve, 10000);
+          const onLoaded = () => {
+            clearTimeout(timeout);
             this.video.currentTime = currentTime;
             this.video.volume = currentVolume;
             this.video.playbackRate = currentRate;
-
-            // Reprendre la lecture si la vidéo était en cours
             if (wasPlaying) {
               this.video.play().catch(err => console.error('Erreur reprise lecture:', err));
             }
-
             resolve();
-          }, { once: true });
+          };
+          this.video.addEventListener('loadedmetadata', onLoaded, { once: true });
+          this.video.addEventListener('error', () => { clearTimeout(timeout); resolve(); }, { once: true });
         });
 
         console.log('✅ Piste audio changée et lecture reprise à', currentTime.toFixed(2), 's');
@@ -1780,16 +2026,27 @@ class VideoPlayer {
     let tracksFound = false;
     
     try {
-      // Priorité 1: Demander les informations via FFprobe (plus fiable)
-      if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
+      // Priorité 1: réutiliser le cache si déjà détecté (Bug 5 — évite FFprobe à chaque ouverture)
+      const cachedTracks = this.detectedSubtitles && this.detectedSubtitles.length > 0
+        ? this.detectedSubtitles : null;
+
+      if (cachedTracks) {
+        console.log('📝 Sous-titres depuis cache:', cachedTracks.length);
+        cachedTracks.forEach((track, index) => {
+          let label = track.title || (track.language && track.language !== 'und'
+            ? `${this.getLanguageName(track.language)} (${track.codec_name || 'Sub'})`
+            : `Sous-titre ${index + 1} (${track.codec_name || 'Sub'})`);
+          const isImageBased = ['hdmv_pgs_subtitle','pgssub','dvd_subtitle','dvdsub'].includes(track.codec_name);
+          this.createSubtitleTrackButton(index, label, false, isImageBased);
+          tracksFound = true;
+        });
+      } else if (window.electronAPI && window.electronAPI.getVideoInfo && this.currentMovie) {
+        // Priorité 2 : FFprobe (une seule fois)
         console.log('📝 Détection sous-titres via FFprobe...');
-        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.path);
+        const videoInfo = await window.electronAPI.getVideoInfo(this.currentMovie.originalPath || this.currentMovie.path);
         if (videoInfo.success && videoInfo.subtitleTracks && videoInfo.subtitleTracks.length > 0) {
           console.log('📝 Sous-titres détectés via FFprobe:', videoInfo.subtitleTracks.length);
-          
-          // Stocker les informations pour utilisation ultérieure
           this.detectedSubtitles = videoInfo.subtitleTracks;
-          
           videoInfo.subtitleTracks.forEach((track, index) => {
             let label = '';
             if (track.title) {
@@ -1868,20 +2125,23 @@ class VideoPlayer {
   
   async setSubtitleTrack(trackIndex) {
     console.log('📝 Activation sous-titre piste:', trackIndex);
-    
+
+    // Marquer la piste active et annuler tout timer en cours (Bug 4)
+    this._activeSubtitleIndex = trackIndex;
+    this._cancelSubtitleTimers();
+
+    // Si on désactive, nettoyer les tracks existants
+    if (trackIndex < 0) {
+      this._removeSubtitleTracks();
+    }
+
     // Désactiver tous les sous-titres natifs
     if (this.video.textTracks) {
       for (let i = 0; i < this.video.textTracks.length; i++) {
         this.video.textTracks[i].mode = 'hidden';
       }
-      
-      // Activer la piste sélectionnée si c'est une piste native
-      if (trackIndex >= 0 && trackIndex < this.video.textTracks.length) {
-        this.video.textTracks[trackIndex].mode = 'showing';
-        console.log('📝 Piste native activée:', trackIndex);
-      }
     }
-    
+
     // Si c'est une piste détectée via FFmpeg, essayer de l'extraire
     if (trackIndex >= 0 && this.detectedSubtitles && this.detectedSubtitles[trackIndex]) {
       try {
@@ -1909,7 +2169,11 @@ class VideoPlayer {
       console.log('📝 Extraction de sous-titres non disponible');
       return;
     }
-    
+
+    // Supprimer les anciens tracks et annuler les timers (Bug 1 + Bug 4)
+    this._cancelSubtitleTimers();
+    this._removeSubtitleTracks();
+
     try {
       console.log('📝 Extraction sous-titre piste:', trackIndex);
       console.log('📝 Chemin vidéo:', this.currentMovie.path);
@@ -1917,7 +2181,7 @@ class VideoPlayer {
       // Afficher un indicateur de chargement
       const loadingIndicator = this.showExtractionLoading();
       
-      const result = await window.electronAPI.extractSubtitle(this.currentMovie.path, trackIndex);
+      const result = await window.electronAPI.extractSubtitle(this.currentMovie.originalPath || this.currentMovie.path, trackIndex);
       
       // Supprimer l'indicateur de chargement
       if (loadingIndicator.parentNode) {
@@ -1986,77 +2250,55 @@ class VideoPlayer {
         track.src = blobUrl;
         
         console.log('📝 Ajout du track avec Blob URL');
-        
-        // Stocker l'URL pour nettoyage ultérieur
+
+        // Stocker l'URL et le DOM element pour nettoyage (Bug 1)
         if (!this.subtitleUrls) this.subtitleUrls = [];
         this.subtitleUrls.push(blobUrl);
-        
-        // Ajouter les événements
+        if (!this._subtitleTrackElements) this._subtitleTrackElements = [];
+        this._subtitleTrackElements.push(track);
+
         track.addEventListener('load', () => {
-          console.log('📝 Track WebVTT chargé avec succès');
+          if (this._activeSubtitleIndex !== trackIndex) return; // désactivé entre-temps (Bug 4)
           const textTrack = Array.from(this.video.textTracks).find(t => t.label === track.label);
           if (textTrack) {
             textTrack.mode = 'showing';
             console.log('📝 Sous-titre WebVTT activé, cues:', textTrack.cues ? textTrack.cues.length : 0);
-            
-            if (textTrack.cues && textTrack.cues.length > 0) {
-              this.showSubtitleConfirmation();
-            }
+            if (textTrack.cues && textTrack.cues.length > 0) this.showSubtitleConfirmation();
           }
         });
-        
+
         track.addEventListener('error', (e) => {
           console.error('❌ Erreur chargement track WebVTT:', e);
-          console.error('❌ URL du blob:', blobUrl);
         });
-        
+
         // Ajouter le track à la vidéo
         this.video.appendChild(track);
-        
-        // Activation manuelle après un délai plus long pour WebVTT
-        setTimeout(() => {
+
+        // Activation manuelle après délai (guard contre désactivation rapide — Bug 4)
+        if (!this._subtitleTimers) this._subtitleTimers = [];
+        const t1 = setTimeout(() => {
+          if (this._activeSubtitleIndex !== trackIndex) return;
           const textTrack = Array.from(this.video.textTracks).find(t => t.label === track.label);
-          if (textTrack) {
-            textTrack.mode = 'showing';
-            console.log('📝 Activation manuelle WebVTT, mode:', textTrack.mode);
-            
-            // Vérifier les cues après un délai plus long
-            setTimeout(() => {
-              const cueCount = textTrack.cues ? textTrack.cues.length : 0;
-              console.log('📝 Nombre final de cues WebVTT:', cueCount);
-              if (cueCount > 0) {
-                console.log('✅ Sous-titres WebVTT chargés avec succès');
-                
-                // Vérifier les détails des sous-titres
-                console.log('📝 Première cue:', textTrack.cues[0]);
-                console.log('📝 Temps vidéo actuel:', this.video.currentTime);
-                console.log('📝 Mode du track:', textTrack.mode);
-                console.log('📝 Activecues:', textTrack.activeCues ? textTrack.activeCues.length : 'N/A');
-                
-                // Forcer l'affichage en cherchant une cue active
-                this.checkAndDisplaySubtitles(textTrack);
-                
-                // Ajouter un listener pour surveiller les cues actives
-                this.addCueChangeListener(textTrack);
-                
-                this.showSubtitleConfirmation();
-              } else {
-                console.log('⚠️ Aucune cue WebVTT chargée');
-                console.log('📝 Aperçu du contenu WebVTT:', vttContent.substring(0, 300));
-                console.log('📝 Statut du textTrack:', textTrack.readyState);
-                
-                // Essayer de forcer le chargement
-                if (textTrack.readyState === 0) { // NONE
-                  console.log('🔄 Tentative de rechargement du track...');
-                  textTrack.mode = 'hidden';
-                  setTimeout(() => {
-                    textTrack.mode = 'showing';
-                  }, 100);
-                }
-              }
-            }, 2000);
-          }
+          if (!textTrack) return;
+          textTrack.mode = 'showing';
+
+          const t2 = setTimeout(() => {
+            if (this._activeSubtitleIndex !== trackIndex) return;
+            const cueCount = textTrack.cues ? textTrack.cues.length : 0;
+            if (cueCount > 0) {
+              this.checkAndDisplaySubtitles(textTrack);
+              this.addCueChangeListener(textTrack);
+              this.showSubtitleConfirmation();
+            } else if (textTrack.readyState === 0) {
+              textTrack.mode = 'hidden';
+              setTimeout(() => {
+                if (this._activeSubtitleIndex === trackIndex) textTrack.mode = 'showing';
+              }, 100);
+            }
+          }, 2000);
+          this._subtitleTimers.push(t2);
         }, 1000);
+        this._subtitleTimers.push(t1);
         
       } else {
         console.error('📝 Échec de l\'extraction:', result.message);
@@ -2093,35 +2335,91 @@ class VideoPlayer {
   enterFullscreen() {
     this.container.classList.add('fullscreen');
     this.isFullscreen = true;
-    this.elements.fullscreenIcon.className = 'fas fa-compress';
+    this.elements.fullscreenIcon.src = '../assets/pictos/compress.svg';
     this.elements.fullscreenBtn.title = 'Sortir du plein écran (F)';
     
-    // Demander le plein écran du navigateur
     if (this.modal.requestFullscreen) {
-      this.modal.requestFullscreen();
+      this.modal.requestFullscreen().catch(() => {});
     } else if (this.modal.webkitRequestFullscreen) {
-      this.modal.webkitRequestFullscreen();
-    } else if (this.modal.msRequestFullscreen) {
-      this.modal.msRequestFullscreen();
+      try { this.modal.webkitRequestFullscreen(); } catch (e) {}
     }
   }
   
   exitFullscreen() {
     this.container.classList.remove('fullscreen');
     this.isFullscreen = false;
-    this.elements.fullscreenIcon.className = 'fas fa-expand';
+    this.elements.fullscreenIcon.src = '../assets/pictos/expand.svg';
     this.elements.fullscreenBtn.title = 'Plein écran (F)';
-    
-    // Sortir du plein écran du navigateur
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-      document.msExitFullscreen();
+
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+      try { document.webkitExitFullscreen(); } catch (e) {}
     }
   }
   
+  // Mini lecteur
+  toggleMiniPlayer() {
+    if (this.isMiniPlayer) {
+      this.exitMiniPlayer();
+    } else {
+      this.enterMiniPlayer();
+    }
+  }
+
+  enterMiniPlayer() {
+    this.isMiniPlayer = true;
+    this.modal.classList.add('mini-player');
+    this.modal.style.right = '20px';
+    this.modal.style.bottom = '20px';
+    this.modal.style.left = 'auto';
+    this.modal.style.top = 'auto';
+    if (this.elements.miniTitle) {
+      this.elements.miniTitle.textContent = this.currentMovie?.title || '';
+    }
+  }
+
+  exitMiniPlayer() {
+    this.isMiniPlayer = false;
+    this._miniDragActive = false;
+    this.modal.classList.remove('mini-player');
+    this.modal.style.left = '';
+    this.modal.style.top = '';
+    this.modal.style.right = '';
+    this.modal.style.bottom = '';
+  }
+
+  setupMiniPlayerDrag() {
+    let dragOffsetX = 0, dragOffsetY = 0;
+
+    this.modal.addEventListener('mousedown', (e) => {
+      if (!this.isMiniPlayer) return;
+      if (e.target.closest('button')) return;
+      this._miniDragActive = true;
+      const rect = this.modal.getBoundingClientRect();
+      this.modal.style.left = rect.left + 'px';
+      this.modal.style.top = rect.top + 'px';
+      this.modal.style.right = 'auto';
+      this.modal.style.bottom = 'auto';
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!this._miniDragActive) return;
+      const W = 320, H = 180;
+      const newLeft = Math.max(0, Math.min(window.innerWidth - W, e.clientX - dragOffsetX));
+      const newTop = Math.max(0, Math.min(window.innerHeight - H, e.clientY - dragOffsetY));
+      this.modal.style.left = newLeft + 'px';
+      this.modal.style.top = newTop + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      this._miniDragActive = false;
+    });
+  }
+
   // Gestion des contrôles
   showControlsTemporary() {
     this.showControls();
@@ -2177,6 +2475,12 @@ class VideoPlayer {
     this.updateProgress();
     this.updateVolumeDisplay();
 
+    // Reprendre à la position sauvegardée
+    if (this._resumeTime > 0 && this._resumeTime < this.duration - 5) {
+      this.video.currentTime = this._resumeTime;
+      this._resumeTime = 0;
+    }
+
     // Démarrer automatiquement la lecture
     this.play();
   }
@@ -2185,6 +2489,16 @@ class VideoPlayer {
     this.isPlaying = false;
     this.updatePlayPauseButton();
     this.showControls();
+
+    // Marquer comme vu à 100% (efface le progress, met last_watched)
+    if (this.currentMovie?.id && this.duration > 0) {
+      const seriesInfo = this.seriesContext ? {
+        seriesId: this.seriesContext.episodes[this.seriesContext.currentIndex]?.seriesId,
+        episodeNumber: this.seriesContext.episodes[this.seriesContext.currentIndex]?.episode_number,
+        seasonNumber: this.seriesContext.episodes[this.seriesContext.currentIndex]?.season_number
+      } : null;
+      window.electronAPI?.saveProgress?.(this.currentMovie.id, 1.0, Math.floor(this.duration), seriesInfo);
+    }
 
     // Passer automatiquement à l'épisode suivant si on est en mode série
     if (this.seriesContext) {
@@ -2214,8 +2528,10 @@ class VideoPlayer {
 
     const nextEpisode = episodes[currentIndex + 1];
     const nextContext = { episodes, currentIndex: currentIndex + 1 };
+    const nextPath = (nextEpisode.audioStatus === 'ok' && nextEpisode.audioConvertedPath)
+      ? nextEpisode.audioConvertedPath : nextEpisode.path;
     console.log('⏭️ Épisode suivant:', nextEpisode.title);
-    this.open(nextEpisode.id, nextEpisode.title, nextEpisode.path, nextContext);
+    this.open(nextEpisode.id, nextEpisode.title, nextPath, nextContext, nextEpisode.audioStatus === 'ok', nextEpisode.path);
   }
 
   playPreviousEpisode() {
@@ -2225,8 +2541,10 @@ class VideoPlayer {
 
     const prevEpisode = episodes[currentIndex - 1];
     const prevContext = { episodes, currentIndex: currentIndex - 1 };
+    const prevPath = (prevEpisode.audioStatus === 'ok' && prevEpisode.audioConvertedPath)
+      ? prevEpisode.audioConvertedPath : prevEpisode.path;
     console.log('⏮️ Épisode précédent:', prevEpisode.title);
-    this.open(prevEpisode.id, prevEpisode.title, prevEpisode.path, prevContext);
+    this.open(prevEpisode.id, prevEpisode.title, prevPath, prevContext, prevEpisode.audioStatus === 'ok', prevEpisode.path);
   }
   
   onVideoError(e) {
@@ -2258,6 +2576,13 @@ class VideoPlayer {
       return;
     }
 
+    // Ne pas traiter si une conversion est en attente (évite les faux positifs
+    // quand on remet src='' pour stopper la lecture du fichier original)
+    if (this._conversionPending) {
+      console.log('Erreur vidéo ignorée (conversion en attente)');
+      return;
+    }
+
     let errorMessage = 'Erreur lors de la lecture de la vidéo';
 
     if (this.video.error) {
@@ -2280,7 +2605,39 @@ class VideoPlayer {
         case 3:
         case 4:
           // Erreur de décodage ou format non supporté
-          // Au lieu de transcoder automatiquement, afficher le menu de conversion
+
+          // Si le fichier converti échoue aussi (ex: HEVC vidéo non transcodé) → forcer reconversion vidéo+audio
+          if (this.currentMovie?.audioReady) {
+            console.log('⚠️ Erreur sur fichier converti — reconversion complète (vidéo + audio) proposée');
+            this.currentMovie.audioReady = false;
+            this.hasTriedTranscode = false;
+            this.needsVideoTranscode = true; // forcer transcodage vidéo même si HEVC pas encore détecté
+            this._showConversionDialog();
+            return;
+          }
+
+          // Vérifier le statut de conversion en DB avant de proposer le dialog
+          if (this.currentMovie?.id && window.electronAPI?.getAudioStatuses) {
+            window.electronAPI.getAudioStatuses().then(statusRes => {
+              if (statusRes?.success) {
+                const entry = statusRes.statuses[this.currentMovie.id];
+                if (entry?.status === 'ok' && entry.convertedPath) {
+                  console.log('✅ Conversion DB trouvée — lecture directe depuis onVideoError');
+                  this.playConvertedFile(entry.convertedPath);
+                  return;
+                }
+                if (entry?.status === 'converting' || entry?.status === 'pending') {
+                  console.log('⏳ Conversion en cours — affichage toast depuis onVideoError');
+                  this._conversionPending = true;
+                  this._showAudioWaitToast();
+                  return;
+                }
+              }
+              // Statut inconnu ou absent → afficher le dialog de conversion
+              this._showConversionDialog();
+            }).catch(() => this._showConversionDialog());
+            return;
+          }
 
           // Éviter les boucles si on a déjà essayé
           if (this.hasTriedTranscode) {
@@ -2292,39 +2649,7 @@ class VideoPlayer {
             return;
           }
 
-          // Identifier le codec problématique
-          const videoCodec = this.detectedVideoTracks?.[0]?.codec_name || '';
-          const audioCodec = this.detectedAudioTracks?.[0]?.codec_name || '';
-          const isHEVC = videoCodec.toLowerCase().includes('hevc') || videoCodec.toLowerCase().includes('h265');
-
-          console.log(`⚠️ Erreur lecture - Vidéo: ${videoCodec}, Audio: ${audioCodec}, HEVC: ${isHEVC}`);
-
-          // Si on a le chemin original, proposer la conversion
-          if (this.originalMoviePath) {
-            // Déterminer le type de conversion nécessaire
-            if (isHEVC) {
-              // HEVC a échoué → proposer conversion vidéo
-              console.log('📋 HEVC non supporté sur ce système - affichage menu conversion');
-              this.needsVideoTranscode = true;
-              this.showLanguageSelectionDialog(this.originalMoviePath, videoCodec.toUpperCase(), true);
-            } else if (audioCodec) {
-              // Problème audio probable
-              console.log('📋 Codec audio problématique - affichage menu conversion');
-              this.showLanguageSelectionDialog(this.originalMoviePath, audioCodec.toUpperCase(), false);
-            } else {
-              // Codec inconnu
-              this.showErrorModal(
-                'Format non supporté.\n\nLe fichier utilise un codec incompatible.',
-                false
-              );
-            }
-            return;
-          }
-
-          this.showErrorModal(
-            'Format vidéo non supporté.\n\nLe fichier utilise peut-être un codec incompatible.',
-            false
-          );
+          this._showConversionDialog();
           return;
 
         default:
@@ -2333,6 +2658,36 @@ class VideoPlayer {
     }
 
     this.showErrorModal(errorMessage, false);
+  }
+
+  _showConversionDialog() {
+    const videoCodec = this.detectedVideoTracks?.[0]?.codec_name || '';
+    const audioCodec = this.detectedAudioTracks?.[0]?.codec_name || '';
+    // needsVideoTranscode peut être pré-positionné (ex: fichier converti illisible = forcer transco vidéo)
+    const isHEVC = this.needsVideoTranscode ||
+      videoCodec.toLowerCase().includes('hevc') || videoCodec.toLowerCase().includes('h265');
+
+    console.log(`⚠️ Erreur lecture - Vidéo: ${videoCodec}, Audio: ${audioCodec}, HEVC: ${isHEVC}`);
+
+    if (this.originalMoviePath) {
+      if (isHEVC) {
+        console.log('📋 HEVC non supporté sur ce système - affichage menu conversion');
+        this.needsVideoTranscode = true;
+        this.showLanguageSelectionDialog(this.originalMoviePath, videoCodec.toUpperCase(), true);
+      } else {
+        // Si FFprobe n'a pas encore fini, audioCodec peut être vide — on affiche quand même
+        // le dialog de conversion avec le nom connu ou un label générique
+        const codecLabel = audioCodec ? audioCodec.toUpperCase() : 'CODEC NON SUPPORTÉ';
+        console.log(`📋 Codec audio problématique (${codecLabel}) - affichage menu conversion`);
+        this.showLanguageSelectionDialog(this.originalMoviePath, codecLabel, false);
+      }
+      return;
+    }
+
+    this.showErrorModal(
+      'Format vidéo non supporté.\n\nLe fichier utilise peut-être un codec incompatible.',
+      false
+    );
   }
 
   /**
@@ -2589,8 +2944,8 @@ class VideoPlayer {
       min-width: 300px;
     `;
     div.innerHTML = `
-      <div style="font-size: 40px; margin-bottom: 15px;">
-        <i class="fas fa-cog fa-spin"></i>
+      <div style="width:40px;height:40px;margin:0 auto 15px;">
+        <img src="../assets/pictos/cog.svg" style="width:40px;height:40px;filter:brightness(0) invert(1);animation:spin-icon 2s linear infinite;">
       </div>
       <div style="font-size: 16px; margin-bottom: 10px;">Transcodage audio en cours...</div>
       <div style="font-size: 12px; color: #aaa;">
@@ -2673,6 +3028,24 @@ class VideoPlayer {
     };
     
     return languages[langCode] || langCode.toUpperCase();
+  }
+
+  _cancelSubtitleTimers() {
+    if (this._subtitleTimers) this._subtitleTimers.forEach(id => clearTimeout(id));
+    this._subtitleTimers = [];
+  }
+
+  _removeSubtitleTracks() {
+    if (this._subtitleTrackElements) {
+      this._subtitleTrackElements.forEach(track => {
+        if (track.parentNode) track.parentNode.removeChild(track);
+      });
+    }
+    this._subtitleTrackElements = [];
+    if (this.subtitleUrls) {
+      this.subtitleUrls.forEach(url => URL.revokeObjectURL(url));
+      this.subtitleUrls = [];
+    }
   }
 
   showSubtitleConfirmation() {
@@ -2777,7 +3150,7 @@ class VideoPlayer {
           
           const startTime = this.convertAssTimeToSrt(parts[1]);
           const endTime = this.convertAssTimeToSrt(parts[2]);
-          const text = parts.slice(9).join(',').replace(/\{[^}]*\}/g, '').replace(/\\N/g, '\n');
+          const text = parts.slice(9).join(',').replace(/\{[^}]*\}/g, '').replace(/\\N/g, '\n').replace(/\\n/g, '\n').replace(/\\h/g, ' ');
           
           if (startTime && endTime && text.trim()) {
             srtContent += `${index}\n${startTime} --> ${endTime}\n${text.trim()}\n\n`;
@@ -2824,11 +3197,14 @@ class VideoPlayer {
 
   convertSrtToVtt(srtContent) {
     console.log('🔄 Conversion SRT vers WebVTT en cours...');
-    
+
     try {
+      // Normaliser les fins de ligne (CRLF Windows → LF) et supprimer le BOM UTF-8
+      srtContent = srtContent.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
       // Ajouter l'en-tête WebVTT
       let vttContent = 'WEBVTT\n\n';
-      
+
       // Diviser en blocs de sous-titres
       const blocks = srtContent.trim().split(/\n\s*\n/);
       
@@ -2846,12 +3222,16 @@ class VideoPlayer {
           
           // Nettoyer et convertir le texte
           let text = textLines.join('\n')
+            .replace(/\{[^}]*\}/g, '')   // supprimer les tags ASS/SSA : {\an8}, {\pos(...)}, {\c&H...&}, etc.
+            .replace(/<font[^>]*>/gi, '') // supprimer les balises <font ...>
+            .replace(/<\/font>/gi, '')
             .replace(/<i>/g, '<i>')
             .replace(/<\/i>/g, '</i>')
             .replace(/<b>/g, '<b>')
             .replace(/<\/b>/g, '</b>')
             .replace(/<u>/g, '<u>')
-            .replace(/<\/u>/g, '</u>');
+            .replace(/<\/u>/g, '</u>')
+            .trim();
           
           // Ajouter le bloc WebVTT
           vttContent += `${vttTimeLine}\n${text}\n\n`;
@@ -2891,26 +3271,6 @@ class VideoPlayer {
     
     if (!activeCueFound) {
       console.log('📝 Aucune cue active au temps', currentTime);
-      console.log('📝 Première cue commence à:', textTrack.cues[0]?.startTime || 'N/A');
-      
-      // Aller au début de la première cue pour tester (que ce soit avant ou après)
-      if (textTrack.cues && textTrack.cues.length > 0) {
-        const firstCueTime = textTrack.cues[0].startTime;
-        if (Math.abs(currentTime - firstCueTime) > 2) { // Si on est loin du premier sous-titre
-          console.log('🔄 Navigation vers le premier sous-titre pour test...');
-          console.log(`📝 Passage de ${currentTime.toFixed(1)}s à ${firstCueTime.toFixed(1)}s`);
-          this.video.currentTime = firstCueTime + 0.1;
-          
-          // Attendre un peu puis vérifier si les sous-titres s'affichent
-          setTimeout(() => {
-            const newActiveCues = textTrack.activeCues;
-            console.log('📝 Après navigation - Cues actives:', newActiveCues ? newActiveCues.length : 0);
-            if (newActiveCues && newActiveCues.length > 0) {
-              console.log('✅ Sous-titre maintenant visible:', newActiveCues[0].text);
-            }
-          }, 500);
-        }
-      }
     }
     
     // Vérifier que l'élément vidéo a les bons attributs
@@ -3041,9 +3401,9 @@ class VideoPlayer {
 window.videoPlayer = new VideoPlayer();
 
 // Fonction globale pour ouvrir le lecteur vidéo
-window.openVideoPlayer = async function(movieId, title, path, seriesContext = null) {
+window.openVideoPlayer = async function(movieId, title, path, seriesContext = null, audioReady = false, originalPath = null) {
   try {
-    await window.videoPlayer.open(movieId, title, path, seriesContext);
+    await window.videoPlayer.open(movieId, title, path, seriesContext, audioReady, originalPath);
   } catch (error) {
     console.error('Erreur lors de l\'ouverture du lecteur vidéo:', error);
     alert('Erreur lors du chargement de la vidéo');

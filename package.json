@@ -99,6 +99,7 @@
     ]
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
     "@ngrok/ngrok": "^1.7.0",
     "@ngrok/ngrok-win32-x64-msvc": "^1.7.0",
     "better-sqlite3": "^12.11.1",

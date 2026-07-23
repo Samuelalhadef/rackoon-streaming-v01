@@ -1,62 +1,20 @@
-/* import-classification.css - Styles pour le système de classification */
+/* import-classification.css - Phase 2 : classification des fichiers importés.
+   Requiert import-base.css chargé avant pour le chrome partagé. */
 
-.import-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--bg-overlay);
-  z-index: 2000;
-  display: none;
-  justify-content: center;
-  align-items: center;
-}
-
-.import-modal-content {
-  background-color: var(--bg-modal-dark);
-  border-radius: 15px;
-  width: 95%;
-  max-width: 1400px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.import-modal-header {
-  padding: 25px 30px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.import-modal-header h2 {
-  color: var(--text-primary);
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.import-modal-count {
-  color: var(--text-tertiary);
-  font-size: 14px;
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 6px 12px;
-  border-radius: 12px;
-}
+/* ── Corps de la modale ─────────────────────────────────────────── */
 
 .import-modal-body {
   flex: 1;
-  overflow-y: auto; /* Changé de hidden à auto pour le scroll vertical */
-  overflow-x: hidden; /* Empêcher le scroll horizontal sur le body */
-  padding: 20px 30px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   width: 100% !important;
-  align-items: stretch !important; /* Forcer les enfants à s'étendre en largeur */
+  align-items: stretch !important;
+  flex: 1;
+  overflow: hidden;
+  padding: 20px 30px;
+  gap: 20px;
 }
 
 /* S'assurer que le gallery-container prend toute la largeur */
@@ -64,11 +22,11 @@
 #gallery-container {
   width: 100% !important;
   max-width: none !important;
-  min-width: 800px !important; /* Minimum pour contenir 3 cartes */
-  flex: 1 !important; /* S'étendre dans le conteneur flex parent */
+  min-width: 800px !important;
+  flex: 1 !important;
   align-self: stretch !important;
   box-sizing: border-box !important;
-  overflow-x: auto !important; /* Permettre le scroll horizontal si nécessaire */
+  overflow-x: auto !important;
 }
 
 .classification-instructions {
@@ -86,41 +44,7 @@
   line-height: 1.5;
 }
 
-.import-table-container {
-  flex: 1;
-  overflow-y: auto;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.import-table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.import-table th {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  font-weight: 600;
-  padding: 15px 12px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.import-table td {
-  padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-  vertical-align: middle;
-}
-
-.import-row:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
+/* ── États des lignes ───────────────────────────────────────────── */
 
 .classification-row {
   transition: all 0.3s ease;
@@ -136,44 +60,7 @@
   border-left: 3px solid var(--color-warning);
 }
 
-/* Cellules spécifiques */
-.file-thumbnail {
-  width: 60px;
-  height: 40px;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: var(--bg-thumbnail);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.thumbnail-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.filename-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.filename-title {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.filename-path {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
-}
+/* ── Cellules de données ────────────────────────────────────────── */
 
 .duration-value, .size-value {
   font-family: 'Consolas', 'Monaco', monospace;
@@ -181,7 +68,8 @@
   color: var(--text-tertiary);
 }
 
-/* Sélecteur de catégorie */
+/* ── Sélecteur de catégorie ─────────────────────────────────────── */
+
 .category-selector {
   background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -228,7 +116,6 @@
   color: #ffffff !important;
 }
 
-/* États des sélecteurs */
 .category-selector[data-classified="true"] {
   border-color: var(--color-success);
   background-color: rgba(46, 204, 113, 0.1);
@@ -239,26 +126,7 @@
   background-color: rgba(241, 196, 15, 0.1);
 }
 
-/* Boutons */
-.btn-small {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: none;
-  transition: all 0.3s;
-  font-weight: 500;
-}
-
-.btn-outline {
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: var(--text-primary);
-}
-
-.btn-outline:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
+/* ── Skip rapide ────────────────────────────────────────────────── */
 
 .quick-skip-classification {
   color: var(--color-documentaires);
@@ -269,14 +137,7 @@
   background-color: rgba(243, 156, 18, 0.1);
 }
 
-/* Footer de la modale */
-.import-modal-footer {
-  padding: 25px 30px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+/* ── Actions de la classification ───────────────────────────────── */
 
 .classification-actions {
   display: flex;
@@ -284,88 +145,16 @@
   align-items: center;
 }
 
-.btn-secondary {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-weight: 500;
-}
+/* ── Barre de progression ────────────────────────────────────────── */
 
-.btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.btn-primary {
-  background-color: var(--color-primary);
-  color: var(--text-primary);
-  border: none;
-  padding: 10px 25px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: var(--color-primary-dark);
-  transform: translateY(-1px);
-}
-
-.btn-primary:disabled {
-  background-color: rgba(52, 116, 219, 0.3);
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Barre de progression */
 .classification-progress {
   display: flex;
   align-items: center;
   gap: 15px;
 }
 
-.progress-bar {
-  width: 200px;
-  height: 6px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
-}
+/* ── Indicateurs visuels de ligne ───────────────────────────────── */
 
-.progress-fill {
-  height: 100%;
-  background-color: var(--color-primary);
-  width: 0%;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  color: var(--text-tertiary);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-/* Animations */
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.import-modal[style*="display: flex"] .import-modal-content {
-  animation: slideInUp 0.3s ease-out;
-}
-
-/* États visuels pour les lignes */
 .classification-row {
   position: relative;
 }
@@ -389,54 +178,20 @@
   background-color: var(--color-warning);
 }
 
-/* Responsive */
+/* ── Responsive Phase 2 (early) ─────────────────────────────────── */
+
 @media (max-width: 1024px) {
-  .import-modal-content {
-    width: 98%;
-    max-height: 95vh;
-  }
-  
-  .import-table {
-    font-size: 14px;
-  }
-  
-  .filename-path {
-    max-width: 150px;
-  }
-  
   .category-selector {
     min-width: 140px;
   }
 }
 
 @media (max-width: 768px) {
-  .import-modal-header {
-    flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
-  }
-  
-  .import-modal-footer {
-    flex-direction: column;
-    gap: 15px;
-    align-items: stretch;
-  }
-  
   .classification-actions {
     justify-content: center;
     flex-wrap: wrap;
   }
-  
-  .import-table th,
-  .import-table td {
-    padding: 8px 6px;
-    font-size: 12px;
-  }
-  
-  .filename-path {
-    max-width: 100px;
-  }
-  
+
   .category-selector {
     min-width: 120px;
     font-size: 12px;
@@ -444,24 +199,18 @@
 }
 
 @media (max-width: 480px) {
-  .import-modal-content {
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-  
   .classification-instructions {
     margin-bottom: 15px;
     padding: 12px 15px;
   }
-  
+
   .import-table-container {
     font-size: 11px;
   }
 }
 
-/* Styles pour améliorer l'accessibilité */
+/* ── Accessibilité ──────────────────────────────────────────────── */
+
 .category-selector:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -473,7 +222,8 @@
   outline-offset: 2px;
 }
 
-/* Indicateurs visuels pour le statut */
+/* ── Statut de classification ───────────────────────────────────── */
+
 .classification-status-indicator {
   display: inline-block;
   width: 8px;
@@ -494,7 +244,8 @@
   background-color: var(--color-warning);
 }
 
-/* Boutons de navigation */
+/* ── Boutons de navigation ──────────────────────────────────────── */
+
 .btn-back {
   position: absolute;
   left: 30px;
@@ -546,7 +297,8 @@
   transform: translateY(0);
 }
 
-/* Barre de gestion groupée des séries */
+/* ── Barre de gestion groupée des séries ────────────────────────── */
+
 .series-batch-control {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -642,7 +394,8 @@
   color: var(--color-documentaires);
 }
 
-/* Champ série en lecture seule */
+/* ── Champ série en lecture seule ───────────────────────────────── */
+
 .series-readonly,
 .series-name-readonly {
   background-color: rgba(255, 255, 255, 0.05) !important;
@@ -659,7 +412,6 @@
   font-style: italic;
 }
 
-/* Message d'information pour les séries non modifiables */
 .series-info-notice {
   display: flex;
   align-items: center;
@@ -701,7 +453,6 @@
   flex: 1;
 }
 
-/* Pastille de genre */
 .genre-tag {
   display: inline-flex;
   align-items: center;
@@ -735,7 +486,6 @@
   box-shadow: 0 2px 8px rgba(100, 181, 246, 0.3);
 }
 
-/* Bouton X pour retirer */
 .genre-tag-remove {
   background: none;
   border: none;
@@ -759,7 +509,6 @@
   transform: scale(1.1);
 }
 
-/* Dropdown pour ajouter un genre */
 .genre-add-dropdown {
   position: relative;
 }
@@ -787,9 +536,8 @@
   transform: translateY(0);
 }
 
-/* Menu dropdown */
 .genre-dropdown-menu {
-  position: fixed; /* Changé en fixed pour sortir du contexte de la carte */
+  position: fixed;
   min-width: 180px;
   max-height: 200px;
   overflow-y: auto;
@@ -797,22 +545,20 @@
   border: 1px solid rgba(100, 181, 246, 0.3);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  z-index: 20000; /* Au-dessus de tout, y compris la modale (z-index: 2000) */
+  z-index: 20000;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  /* Position sera définie dynamiquement via JavaScript */
 }
 
 .genre-dropdown-menu.active {
   opacity: 1;
   visibility: visible;
-  pointer-events: auto; /* Réactiver les événements quand visible */
+  pointer-events: auto;
 }
 
-/* Variante pour ouverture vers le haut si nécessaire */
 .genre-dropdown-menu.open-upward {
-  /* Position sera ajustée dynamiquement */
+  /* Position ajustée dynamiquement */
 }
 
 @keyframes dropdownAppear {
@@ -844,7 +590,6 @@
   pointer-events: none;
 }
 
-/* Scrollbar personnalisée pour le dropdown */
 .genre-dropdown-menu::-webkit-scrollbar {
   width: 6px;
 }
@@ -863,14 +608,74 @@
   background: rgba(100, 181, 246, 0.5);
 }
 
-/* Description textarea */
+/* ── Description / section avancée ─────────────────────────────── */
+
 .description-input {
   resize: vertical;
   min-height: 50px;
   font-family: inherit;
 }
 
-/* Section avancée (collapsible) */
+/* ─── Boutons TMDB / Reset ───────────────────────────────── */
+
+.card-tmdb-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.btn-tmdb-import,
+.btn-card-reset {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+
+.btn-tmdb-import {
+  background: rgba(1, 180, 228, 0.12);
+  border-color: rgba(1, 180, 228, 0.4);
+  color: #01b4e4;
+}
+
+.btn-tmdb-import:hover {
+  background: rgba(1, 180, 228, 0.25);
+  border-color: rgba(1, 180, 228, 0.7);
+}
+
+.btn-tmdb-import:active,
+.btn-card-reset:active {
+  transform: scale(0.97);
+}
+
+.btn-tmdb-import.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.btn-card-reset {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary);
+}
+
+.btn-card-reset:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── ─── */
+
 .advanced-section {
   margin-top: 15px;
   padding: 15px;
@@ -910,7 +715,8 @@
   gap: 15px;
 }
 
-/* Désactiver tous les effets hover sur les cartes de galerie Phase 2 */
+/* ── Overrides galerie Phase 2 (hover désactivé) ────────────────── */
+
 .gallery-card {
   transition: none !important;
 }
@@ -920,7 +726,7 @@
   box-shadow: none !important;
 }
 
-/* Masquer/afficher les champs selon le type */
+/* Masquer/afficher selon le type de média */
 .gallery-card[data-media-type="series"] .unique-fields {
   display: none;
 }
@@ -937,7 +743,7 @@
   display: block;
 }
 
-/* Désactiver les effets hover sur la modale durant la phase 2 */
+/* Désactiver les effets hover sur la modale en Phase 2 */
 .import-modal .modal-poster:hover img {
   transform: none !important;
 }
@@ -975,7 +781,7 @@
   transform: none !important;
 }
 
-/* Ajustements responsifs pour la grille de genres */
+/* Responsive genres grid */
 @media (max-width: 768px) {
   .genres-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -992,14 +798,13 @@
    STYLES POUR LES SECTIONS MÉDIAS
    ======================================== */
 
-/* Sections de médias */
 .media-section {
   margin-bottom: 40px;
   width: 100% !important;
   max-width: none !important;
   min-width: 100% !important;
   box-sizing: border-box !important;
-  flex-shrink: 0 !important; /* Ne pas rétrécir */
+  flex-shrink: 0 !important;
 }
 
 .section-header {
@@ -1030,7 +835,6 @@
   font-weight: 500;
 }
 
-/* Grille pour médias uniques */
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -1038,7 +842,8 @@
   padding: 0 10px;
 }
 
-/* Groupes de séries */
+/* ── Groupes de séries ──────────────────────────────────────────── */
+
 .series-group {
   margin-bottom: 16px;
   padding: 14px 16px;
@@ -1122,7 +927,6 @@
    DIFFÉRENCIATION VISUELLE CARTES SÉRIE VS UNIQUE
    ======================================== */
 
-/* Cartes de séries - compactes */
 .gallery-card[data-media-type="series"] {
   background: var(--bg-card);
   width: 220px;
@@ -1133,7 +937,7 @@
 }
 
 .gallery-card[data-media-type="series"] .file-preview {
-  height: 60px; /* Réduire la hauteur du preview */
+  height: 60px;
 }
 
 .gallery-card[data-media-type="series"] .file-info-overlay {
@@ -1183,7 +987,6 @@
   font-size: 11px;
 }
 
-/* Cartes de médias uniques - Standard */
 .gallery-card[data-media-type="unique"] {
   background: var(--bg-card);
 }
@@ -1192,7 +995,8 @@
   padding: 20px;
 }
 
-/* Badge catégorie différencié */
+/* ── Badges catégorie Phase 2 ───────────────────────────────────── */
+
 .category-badge.series {
   background: linear-gradient(135deg, rgba(100, 181, 246, 0.25), rgba(66, 165, 245, 0.15));
   border: 1px solid rgba(100, 181, 246, 0.4);
@@ -1225,7 +1029,6 @@
   overflow: hidden;
 }
 
-/* Vue d'ensemble des saisons */
 .seasons-overview {
   display: flex;
   flex-direction: column;
@@ -1338,7 +1141,8 @@
   color: var(--text-disabled);
 }
 
-/* Éditeur de saison */
+/* ── Éditeur de saison ──────────────────────────────────────────── */
+
 .season-editor {
   display: flex;
   flex-direction: column;
@@ -1363,21 +1167,17 @@
   color: var(--color-primary-light);
 }
 
-.btn-icon {
+/* .btn-icon scopé : 32px uniquement dans le season-editor / editor-header.
+   La valeur par défaut (26px) vient de import-base.css. */
+.season-editor .btn-icon,
+.editor-header .btn-icon {
   width: 32px;
   height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.btn-icon:hover {
+.season-editor .btn-icon:hover,
+.editor-header .btn-icon:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.2);
   color: var(--text-primary);
@@ -1401,7 +1201,8 @@
   color: var(--text-secondary);
 }
 
-/* Sélecteur de type de saison */
+/* ── Sélecteur de type de saison ────────────────────────────────── */
+
 .season-type-selector {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1468,7 +1269,8 @@
   text-align: center;
 }
 
-/* Définition des épisodes */
+/* ── Définition des épisodes ────────────────────────────────────── */
+
 .episodes-definition {
   margin-top: 30px;
   padding-top: 30px;
@@ -1535,7 +1337,8 @@
   color: var(--color-primary-light);
 }
 
-/* Responsive pour les sections */
+/* ── Responsive pour les sections médias ────────────────────────── */
+
 @media (max-width: 1400px) {
   .import-modal-content {
     width: 96%;
@@ -1573,10 +1376,6 @@
     padding: 20px 25px;
   }
 
-  .import-modal-body {
-    padding: 15px 25px;
-  }
-
   .cards-grid {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
@@ -1605,21 +1404,8 @@
 }
 
 @media (max-width: 768px) {
-  .import-modal-header {
-    flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 15px 20px;
-  }
-
-  .import-modal-body {
-    padding: 15px 20px;
-  }
-
+  .import-modal-header,
   .import-modal-footer {
-    flex-direction: column;
-    gap: 15px;
-    align-items: stretch;
     padding: 15px 20px;
   }
 
@@ -1632,16 +1418,6 @@
   .classification-actions button {
     flex: 1 1 auto;
     min-width: 140px;
-  }
-
-  .import-table th,
-  .import-table td {
-    padding: 8px 6px;
-    font-size: 12px;
-  }
-
-  .filename-path {
-    max-width: 100px;
   }
 
   .category-selector {
@@ -1722,13 +1498,6 @@
 }
 
 @media (max-width: 480px) {
-  .import-modal-content {
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-
   .import-modal-header h2 {
     font-size: 20px;
   }
@@ -1739,12 +1508,6 @@
   }
 
   .import-table-container {
-    font-size: 11px;
-  }
-
-  .import-table th,
-  .import-table td {
-    padding: 6px 4px;
     font-size: 11px;
   }
 
@@ -1790,10 +1553,6 @@
 
   .gallery-card[data-media-type="series"] {
     width: 100%;
-  }
-
-  .progress-bar {
-    width: 150px;
   }
 
   .classification-progress {
@@ -1926,6 +1685,7 @@
 }
 
 /* ── Slot ── */
+
 .episode-slot {
   position: relative;
   width: 160px;
@@ -1959,6 +1719,7 @@
 }
 
 /* ── Placeholder slot vide ── */
+
 .empty-slot-placeholder {
   display: flex;
   flex-direction: column;
@@ -1974,6 +1735,7 @@
 }
 
 /* ── Chip épisode ── */
+
 .episode-chip {
   display: flex;
   align-items: center;
@@ -2125,7 +1887,6 @@
   font-size: 13px;
 }
 
-/* Animations */
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -2141,7 +1902,6 @@
   animation: slideIn 0.3s ease;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .season-slots-grid {
     gap: 8px;
@@ -2242,12 +2002,21 @@
   grid-template-columns: 1fr 1fr 1fr;
 }
 
+.film-extra-fields {
+  display: block;
+}
+
+.film-extra-fields .form-row {
+  margin-bottom: 14px;
+}
+
 .field-required {
   color: var(--color-error);
   font-size: 13px;
 }
 
-/* Sélecteur de genres en chips cliquables */
+/* ── Sélecteur de genres en chips cliquables ────────────────────── */
+
 .genre-chip-picker {
   display: flex;
   flex-wrap: wrap;

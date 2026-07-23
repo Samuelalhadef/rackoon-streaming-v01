@@ -24,7 +24,8 @@ async function syncUserPreferencesFromDatabase() {
         ratings: { ...(dbPrefs.ratings || {}), ...(currentPrefs.ratings || {}) },
         watchCount: { ...(dbPrefs.watchCount || {}), ...(currentPrefs.watchCount || {}) },
         lastWatched: { ...(dbPrefs.lastWatched || {}), ...(currentPrefs.lastWatched || {}) },
-        playProgress: { ...(dbPrefs.playProgress || {}), ...(currentPrefs.playProgress || {}) }
+        playProgress: { ...(dbPrefs.playProgress || {}), ...(currentPrefs.playProgress || {}) },
+        watchedSeries: { ...(dbPrefs.watchedSeries || {}), ...(currentPrefs.watchedSeries || {}) }
       };
 
       // Sauvegarder dans localStorage
@@ -261,10 +262,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const title = media.title || 'Média sans titre';
+      const effectivePath = (media.audioStatus === 'ok' && media.audioConvertedPath)
+        ? media.audioConvertedPath : media.path;
 
-      // Ouvrir le lecteur vidéo (le lecteur s'occupe de formater l'URL)
-      // Les paramètres sont : (movieId, title, path)
-      window.openVideoPlayer(mediaId, title, media.path);
+      window.openVideoPlayer(mediaId, title, effectivePath, null, media.audioStatus === 'ok', media.path);
     } catch (error) {
       console.error('Erreur lors du lancement de la vidéo:', error);
       alert('Erreur lors du lancement de la vidéo: ' + error.message);
@@ -307,11 +308,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Séparer les films des séries (exclure les non triés)
       const films = allMovies.filter(movie =>
-        movie.category !== null && movie.category !== 'series'
+        movie.category !== null && movie.seriesId == null
       );
 
       const seriesEpisodes = allMovies.filter(movie =>
-        movie.category === 'series'
+        movie.seriesId != null
       );
 
       // Grouper les épisodes par série
@@ -461,6 +462,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const totalEpisodes = serie.episodeCount || 0;
     const totalSeasons = serie.seasons ? serie.seasons.length : 0;
 
+    // Durée moyenne par épisode
+    const episodes = serie.episodes || [];
+    const episodesWithDuration = episodes.filter(ep => ep.duration > 0);
+    const avgDuration = episodesWithDuration.length > 0
+      ? Math.round(episodesWithDuration.reduce((sum, ep) => sum + ep.duration, 0) / episodesWithDuration.length)
+      : 0;
+    const durationLabel = avgDuration > 0 && window.formatTime ? `~${window.formatTime(avgDuration)}/ép` : `${totalEpisodes} ép`;
+
     card.innerHTML = `
       <div class="media-thumbnail-container">
         <img src="${thumbnailSrc}" alt="${serie.name}" class="media-thumbnail" loading="lazy"
@@ -470,20 +479,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             <i class="fas fa-play"></i>
           </button>
         </div>
+        <div class="media-card-progress" style="display:none">
+          <div class="media-card-progress-fill"></div>
+        </div>
+        <div class="watch-top">
+          <button class="btn-watch-toggle">à voir</button>
+        </div>
       </div>
       <div class="media-info">
         <div class="media-title-container">
           <h3 class="media-title">${serie.name}</h3>
-          <div class="watch-top">
-            <button class="btn-watch-toggle">à voir</button>
-          </div>
         </div>
         <div class="media-extended-info">
+          <div class="media-current-episode" style="display:none"></div>
           <div class="series-season-info">
             Saison : <span class="season-value">${totalSeasons}</span>
           </div>
           <div class="media-duration series-episodes">
-            Épisodes : <span class="duration-value">${totalEpisodes}</span>
+            <span class="duration-value">${durationLabel}</span>
           </div>
           <div class="rating-container">
             <div class="stars-container">
@@ -498,12 +511,68 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
+    // Barre de progression série
+    const sp = window.progressData?.seriesProgress?.[serie.id];
+    if (sp && sp.pct > 0.02) {
+      const pw = card.querySelector('.media-card-progress');
+      if (pw) {
+        pw.style.display = '';
+        pw.querySelector('.media-card-progress-fill').style.width = `${Math.min(100, Math.round(sp.pct * 100))}%`;
+      }
+      const epLabel = card.querySelector('.media-current-episode');
+      if (epLabel) {
+        const s = sp.seasonNumber ? `S${String(sp.seasonNumber).padStart(2, '0')}` : '';
+        const e = sp.episodeNumber ? `E${String(sp.episodeNumber).padStart(2, '0')}` : '';
+        if (s || e) { epLabel.textContent = `${s}${e} — en cours`; epLabel.style.display = ''; }
+      }
+    }
+
+    // Étoiles de notation
+    if (window.updateStarsDisplay) window.updateStarsDisplay(card, serie.rating || 0);
+    if (window.setupStarsInteraction) {
+      window.setupStarsInteraction(card, (r) => window.electronAPI.updateSeriesRating(serie.id, r));
+    }
+
+    // Bouton vu/à voir — init depuis localStorage + listener
+    const watchBtn = card.querySelector('.btn-watch-toggle');
+    if (watchBtn) {
+      const savedPrefs = JSON.parse(localStorage.getItem('userPrefs_global') || '{}');
+      const initWatched = !!(savedPrefs.watchedSeries && savedPrefs.watchedSeries[serie.id]);
+      watchBtn.textContent = initWatched ? 'vu !' : 'à voir';
+      if (initWatched) watchBtn.classList.add('watched');
+
+      watchBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const p = JSON.parse(localStorage.getItem('userPrefs_global') || '{}');
+        if (!p.watchedSeries) p.watchedSeries = {};
+        const nowWatched = !watchBtn.classList.contains('watched');
+        if (nowWatched) {
+          p.watchedSeries[serie.id] = true;
+          watchBtn.textContent = 'vu !';
+          watchBtn.classList.add('watched');
+        } else {
+          delete p.watchedSeries[serie.id];
+          watchBtn.textContent = 'à voir';
+          watchBtn.classList.remove('watched');
+        }
+        localStorage.setItem('userPrefs_global', JSON.stringify(p));
+        // Persister en DB
+        window.electronAPI.updateWatchedSeries(serie.id, nowWatched);
+        // Sync overlay modale si elle affiche cette série
+        const modalBtn = document.getElementById('btn-watch-toggle-series');
+        if (modalBtn) {
+          modalBtn.textContent = nowWatched ? 'Vu !' : 'À voir';
+          modalBtn.classList.toggle('watched', nowWatched);
+        }
+      });
+    }
+
     // Ajouter l'événement de clic pour ouvrir la modale série
     card.addEventListener('click', (e) => {
-      // Ne pas déclencher si on clique sur le bouton play
-      if (!e.target.closest('.play-btn')) {
-        openSeries(serie.id);
-      }
+      if (e.target.closest('.play-btn') ||
+          e.target.closest('.star') ||
+          e.target.closest('.btn-watch-toggle')) return;
+      openSeries(serie.id);
     });
 
     // Ajouter l'événement pour le bouton play
@@ -648,27 +717,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Noter un film (1-5 étoiles)
   function rateMedia(movieId, rating) {
-    let userPrefs = localStorage.getItem('userPrefs_global');
-    
-    if (!userPrefs) {
-      userPrefs = {
-        watchedMovies: {},
-        ratings: {}
-      };
-    } else {
-      userPrefs = JSON.parse(userPrefs);
-      if (!userPrefs.watchedMovies) userPrefs.watchedMovies = {};
-      if (!userPrefs.ratings) userPrefs.ratings = {};
-    }
-    
-    userPrefs.ratings[movieId] = rating;
-    localStorage.setItem('userPrefs_global', JSON.stringify(userPrefs));
-    
-    // Mettre à jour l'affichage des étoiles
+    window.electronAPI.updateRating(movieId, rating);
+
     const card = document.querySelector(`.media-card[data-id="${movieId}"]`);
-    if (card) {
-      window.updateStarsDisplay(card, rating);
-    }
+    if (card) window.updateStarsDisplay(card, rating);
   }
   
   
@@ -796,7 +848,16 @@ function setupMediaCard(mediaCard, movie) {
 
   // Configurer les attributs de la carte
   mediaCard.dataset.id = movie.id;
+  mediaCard.dataset.mediaId = movie.id;
   mediaCard.dataset.title = movie.title.toLowerCase();
+
+  // Overlay et bouton play — uniquement si conversion activement en cours
+  const audioOverlay = mediaCard.querySelector('.audio-converting-overlay');
+  const playBtnInit = mediaCard.querySelector('.play-btn');
+  if (movie.audioStatus === 'converting') {
+    if (audioOverlay) audioOverlay.style.display = '';
+    if (playBtnInit) playBtnInit.disabled = true;
+  }
 
   // Configurer l'image de couverture
   let thumbnailSrc;
@@ -842,7 +903,7 @@ function setupMediaCard(mediaCard, movie) {
   });
 
   // Configurer les étoiles de notation
-  const rating = userPrefs.ratings[movie.id] || 0;
+  const rating = movie.rating || 0;
   window.updateStarsDisplay(mediaCard, rating);
   window.setupStarsInteraction(mediaCard, (rating) => rateMedia(movie.id, rating));
 
@@ -852,7 +913,8 @@ function setupMediaCard(mediaCard, movie) {
     playBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       try {
-        await window.openVideoPlayer(movie.id, movie.title, movie.path);
+        const ep = (movie.audioStatus === 'ok' && movie.audioConvertedPath) ? movie.audioConvertedPath : movie.path;
+        await window.openVideoPlayer(movie.id, movie.title, ep, null, movie.audioStatus === 'ok', movie.path);
       } catch (error) {
         console.error('Erreur lors du lancement du lecteur vidéo:', error);
         alert('Erreur lors du lancement de la vidéo: ' + error.message);
@@ -945,7 +1007,8 @@ function setupMediaCard(mediaCard, movie) {
       const movie = movieDetails.movie;
       
       // Ouvrir le lecteur vidéo moderne
-      await window.openVideoPlayer(movieId, movie.title, movie.path);
+      const ep2 = (movie.audioStatus === 'ok' && movie.audioConvertedPath) ? movie.audioConvertedPath : movie.path;
+      await window.openVideoPlayer(movieId, movie.title, ep2, null, movie.audioStatus === 'ok', movie.path);
       
       return { success: true, message: 'Lecteur vidéo ouvert' };
     } catch (error) {
@@ -1031,6 +1094,19 @@ function setupMediaCard(mediaCard, movie) {
   })();
 
   // Initialiser l'interface
+  // Mise à jour en temps réel des étoiles sur les cards après notation dans une modale
+  window.addEventListener('ratingUpdated', (e) => {
+    document.querySelectorAll(`.media-card[data-id="${e.detail.movieId}"]`).forEach(card => {
+      if (window.updateStarsDisplay) window.updateStarsDisplay(card, e.detail.rating);
+    });
+  });
+
+  window.addEventListener('seriesRatingUpdated', (e) => {
+    document.querySelectorAll(`.media-card[data-series-id="${e.detail.seriesId}"]`).forEach(card => {
+      if (window.updateStarsDisplay) window.updateStarsDisplay(card, e.detail.rating);
+    });
+  });
+
   setupContextMenu();
   window.loadMovies();
 });

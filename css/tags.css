@@ -1,0 +1,317 @@
+/* tags.css - Styles pour la page Tags */
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.tags-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 30px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.tags-header h2 {
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.tags-header h2 i {
+  color: var(--color-primary-light);
+}
+
+.tags-search-wrapper {
+  position: relative;
+  max-width: 280px;
+  flex: 1;
+}
+
+.tags-search-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  pointer-events: none;
+}
+
+.tags-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.tags-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 139, 92, 246), 0.15);
+}
+
+/* ── Grille des catégories ───────────────────────────────────────────── */
+
+.tags-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  padding: 0 30px 40px;
+}
+
+@media (max-width: 860px) {
+  .tags-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Carte de catégorie ──────────────────────────────────────────────── */
+
+.tags-category-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tags-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 10px;
+}
+
+.tags-category-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tags-category-title i {
+  color: var(--color-primary-light);
+  width: 16px;
+  text-align: center;
+}
+
+.tags-category-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+
+.tags-category-desc {
+  padding: 0 20px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* ── Bouton + dans le header ─────────────────────────────────────────── */
+
+.tags-category-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(var(--color-primary-rgb, 139, 92, 246), 0.12);
+  color: var(--color-primary-light);
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.tags-category-add-btn:hover {
+  background: rgba(var(--color-primary-rgb, 139, 92, 246), 0.25);
+  transform: scale(1.1);
+}
+
+/* ── Ligne d'ajout inline ────────────────────────────────────────────── */
+
+.tags-add-row-inline {
+  background: rgba(var(--color-primary-rgb, 139, 92, 246), 0.05);
+  border: 1px solid rgba(var(--color-primary-rgb, 139, 92, 246), 0.2);
+}
+
+/* ── Liste de tags ───────────────────────────────────────────────────── */
+
+.tags-list {
+  flex: 1;
+  padding: 4px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.tags-list::-webkit-scrollbar {
+  width: 4px;
+}
+.tags-list::-webkit-scrollbar-track { background: transparent; }
+.tags-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+.tags-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ── Ligne de tag ────────────────────────────────────────────────────── */
+
+.tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.tags-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tags-row-name {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tags-row-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary-light);
+  background: rgba(var(--color-primary-rgb, 139, 92, 246), 0.12);
+  border-radius: 12px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tags-row-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.tags-row:hover .tags-row-actions {
+  opacity: 1;
+}
+
+.tags-row-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tags-edit-btn {
+  color: var(--text-muted);
+}
+.tags-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.tags-delete-btn {
+  color: var(--text-muted);
+}
+.tags-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ── Renommage inline ────────────────────────────────────────────────── */
+
+.tags-rename-input {
+  flex: 1;
+  padding: 3px 8px;
+  background: var(--bg-elevated, var(--bg-card));
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+  min-width: 0;
+}
+
+/* ── Confirmation de suppression ─────────────────────────────────────── */
+
+.tags-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.tags-delete-confirm span {
+  flex: 1;
+  min-width: 0;
+}
+
+.tags-confirm-yes,
+.tags-confirm-no {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.tags-confirm-yes {
+  background: #ef4444;
+  color: #fff;
+}
+.tags-confirm-yes:hover { background: #dc2626; }
+
+.tags-confirm-no {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+.tags-confirm-no:hover { background: rgba(255, 255, 255, 0.14); }
+

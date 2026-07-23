@@ -50,6 +50,9 @@ class SQLiteDatabase {
         duration_category TEXT,
         decade TEXT,
         franchise TEXT DEFAULT '',
+        franchises TEXT DEFAULT '[]',
+        country TEXT DEFAULT '',
+        studios TEXT DEFAULT '[]',
         year INTEGER,
         release_date TEXT,
         poster_url TEXT DEFAULT '',
@@ -70,6 +73,8 @@ class SQLiteDatabase {
         name TEXT NOT NULL,
         description TEXT DEFAULT '',
         franchise TEXT DEFAULT '',
+        franchises TEXT DEFAULT '[]',
+        studios TEXT DEFAULT '[]',
         networks TEXT DEFAULT '[]',
         country TEXT DEFAULT '',
         status TEXT DEFAULT 'unknown',
@@ -145,11 +150,84 @@ class SQLiteDatabase {
   }
 
   _ensureDefaults() {
-    // Migration: ajouter poster_url à la table series si absent
+    // Migrations table series
     const seriesCols = this.db.prepare("PRAGMA table_info(series)").all().map(c => c.name);
     if (!seriesCols.includes('poster_url')) {
       this.db.exec("ALTER TABLE series ADD COLUMN poster_url TEXT DEFAULT ''");
       console.log('✅ Migration: colonne poster_url ajoutée à la table series');
+    }
+    if (!seriesCols.includes('rating')) {
+      this.db.exec('ALTER TABLE series ADD COLUMN rating REAL DEFAULT 0');
+      console.log('✅ Migration: colonne rating ajoutée à la table series');
+    }
+
+    // Migration: colonnes suivi de conversion audio
+    const mediaCols = this.db.prepare("PRAGMA table_info(medias)").all().map(c => c.name);
+    if (!mediaCols.includes('audio_status')) {
+      this.db.exec("ALTER TABLE medias ADD COLUMN audio_status TEXT DEFAULT 'pending'");
+      console.log('✅ Migration: colonne audio_status ajoutée à la table medias');
+    }
+    if (!mediaCols.includes('audio_converted_path')) {
+      this.db.exec("ALTER TABLE medias ADD COLUMN audio_converted_path TEXT DEFAULT NULL");
+      console.log('✅ Migration: colonne audio_converted_path ajoutée à la table medias');
+    }
+    if (!mediaCols.includes('franchises')) {
+      this.db.exec("ALTER TABLE medias ADD COLUMN franchises TEXT DEFAULT '[]'");
+      this.db.exec("UPDATE medias SET franchises = json_array(franchise) WHERE franchise IS NOT NULL AND franchise != ''");
+      console.log('✅ Migration: colonne franchises ajoutée à la table medias');
+    }
+    if (!mediaCols.includes('country')) {
+      this.db.exec("ALTER TABLE medias ADD COLUMN country TEXT DEFAULT ''");
+      console.log('✅ Migration: colonne country ajoutée à la table medias');
+    }
+    if (!mediaCols.includes('studios')) {
+      this.db.exec("ALTER TABLE medias ADD COLUMN studios TEXT DEFAULT '[]'");
+      console.log('✅ Migration: colonne studios ajoutée à la table medias');
+    }
+    if (!seriesCols.includes('franchises')) {
+      this.db.exec("ALTER TABLE series ADD COLUMN franchises TEXT DEFAULT '[]'");
+      this.db.exec("UPDATE series SET franchises = json_array(franchise) WHERE franchise IS NOT NULL AND franchise != ''");
+      console.log('✅ Migration: colonne franchises ajoutée à la table series');
+    }
+    if (!seriesCols.includes('studios')) {
+      this.db.exec("ALTER TABLE series ADD COLUMN studios TEXT DEFAULT '[]'");
+      console.log('✅ Migration: colonne studios ajoutée à la table series');
+    }
+
+    // Migration: ajout contrainte UNIQUE sur person_roles + déduplication des doublons existants
+    const personRolesSql = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='person_roles'").get();
+    if (personRolesSql && !personRolesSql.sql.includes('UNIQUE(person_id')) {
+      console.log('Migration: ajout contrainte UNIQUE sur person_roles + déduplication...');
+      this.db.exec(`
+        CREATE TABLE person_roles_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          person_id TEXT NOT NULL,
+          media_id TEXT NOT NULL,
+          media_type TEXT DEFAULT 'unique',
+          role TEXT NOT NULL,
+          character_name TEXT,
+          UNIQUE(person_id, media_id, role)
+        );
+        INSERT OR IGNORE INTO person_roles_new (person_id, media_id, media_type, role, character_name)
+          SELECT person_id, media_id, media_type, role, character_name
+          FROM person_roles
+          GROUP BY person_id, media_id, role;
+        DROP TABLE person_roles;
+        ALTER TABLE person_roles_new RENAME TO person_roles;
+      `);
+      console.log('Migration person_roles terminee: doublons supprimes, contrainte UNIQUE appliquee');
+    }
+
+    // Migration: recalcul des durées (étaient stockées en minutes au lieu de secondes)
+    const durationFixed = this.db.prepare("SELECT value FROM app_config WHERE key='duration_fix_applied'").get();
+    if (!durationFixed) {
+      const mediasToFix = this.db.prepare('SELECT id, duration FROM medias WHERE duration > 0').all();
+      const fixStmt = this.db.prepare('UPDATE medias SET duration_formatted = ?, duration_category = ? WHERE id = ?');
+      for (const m of mediasToFix) {
+        fixStmt.run(this._fmtDuration(m.duration), this._catDuration(m.duration), m.id);
+      }
+      this.db.prepare("INSERT OR IGNORE INTO app_config (key, value) VALUES ('duration_fix_applied', '1')").run();
+      console.log(`✅ Migration durées: ${mediasToFix.length} entrées corrigées`);
     }
 
     const hasVersion = this.db.prepare("SELECT value FROM app_config WHERE key='version'").get();
@@ -162,9 +240,29 @@ class SQLiteDatabase {
       ins.run('tagManager', JSON.stringify(cfg.tagManager));
     }
     const insP = this.db.prepare("INSERT OR IGNORE INTO user_prefs (key, value) VALUES (?, '{}')");
-    for (const k of ['ratings', 'watchedMovies', 'watchCount', 'lastWatched', 'playProgress']) {
+    for (const k of ['ratings', 'watchedMovies', 'watchCount', 'lastWatched', 'playProgress', 'watchedSeries', 'seriesProgress']) {
       insP.run(k);
     }
+
+    // Fusionner les tags prédéfinis par défaut (sans écraser les personnalisations)
+    this._mergePredefinedDefaults();
+  }
+
+  _mergePredefinedDefaults() {
+    const defaults = this._defaultConfig().tagManager.predefinedTags;
+    const tm = this._getTagManager();
+    if (!tm.predefinedTags) tm.predefinedTags = {};
+    let changed = false;
+    for (const [key, tags] of Object.entries(defaults)) {
+      if (!tm.predefinedTags[key]) { tm.predefinedTags[key] = []; }
+      for (const tag of tags) {
+        if (!tm.predefinedTags[key].includes(tag)) {
+          tm.predefinedTags[key].push(tag);
+          changed = true;
+        }
+      }
+    }
+    if (changed) this._setTagManager(tm);
   }
 
   _defaultConfig() {
@@ -179,14 +277,18 @@ class SQLiteDatabase {
       ],
       tagManager: {
         predefinedTags: {
-          genres: ['Action','Aventure','Comédie','Drame','Horreur','Thriller',
-            'Romance','Science-fiction','Fantasy','Documentaire','Animation',
-            'Guerre','Western','Musical','Crime','Mystère','Biographie'],
-          moods: ['Détente','Soirée entre amis','Famille','Date night','Nostalgie',
-            'Frissons','Réflexion','Motivation','Escapisme','Tension','Feel-good'],
-          technical: ['4K','HD','SD','HDR','Dolby','IMAX','Blu-ray','DVD'],
-          personal: ['Coup de cœur','À revoir','Overrated','Underrated','Comfort food',
-            'Guilty pleasure',"Chef-d'œuvre",'Déçu','Surprise'],
+          genres: ['Action','Aventure','Animation','Biographie','Comédie',
+            'Crime','Documentaire','Drame','Espionnage','Fantasy',
+            'Guerre','Historique','Horreur','Musical','Mystère',
+            'Romance','Science-fiction','Super-héros','Thriller','Western'],
+          moods: ['Adrénaline','Date night','Détente','Émotion','Escapisme',
+            'Famille','Feel-good','Frissons','Intense','Motivation',
+            'Nostalgie','Popcorn','Réflexion','Rire','Soirée entre amis','Tension'],
+          technical: ['4K','8K','AV1','Blu-ray','Dolby','Dolby Atmos',
+            'Dolby Vision','DTS-X','DVD','H.265','HD','HDR','HDR10+','IMAX','SD','VF','VOST'],
+          personal: ['À éviter','À revoir',"Chef-d'œuvre",'Classique',
+            'Comfort food','Coup de cœur','Déçu','Guilty pleasure',
+            'Incontournable','Overrated','Surprise','Underrated'],
           collections: ['Marvel','DC','Star Wars','Bond','Fast & Furious','Pixar',
             'Studio Ghibli','Disney','Christopher Nolan','Tarantino']
         },
@@ -227,6 +329,9 @@ class SQLiteDatabase {
       durationCategory: row.duration_category,
       decade: row.decade,
       franchise: row.franchise,
+      franchises: this._j(row.franchises),
+      country: row.country || '',
+      studios: this._j(row.studios),
       year: row.year,
       releaseDate: row.release_date,
       posterUrl: row.poster_url,
@@ -239,7 +344,9 @@ class SQLiteDatabase {
       actors: this._j(row.actors),
       mood: this._j(row.mood),
       technical: this._j(row.technical),
-      personalTags: this._j(row.personal_tags)
+      personalTags: this._j(row.personal_tags),
+      audioStatus: row.audio_status || 'pending',
+      audioConvertedPath: row.audio_converted_path || null
     };
   }
 
@@ -250,6 +357,8 @@ class SQLiteDatabase {
       name: row.name,
       description: row.description,
       franchise: row.franchise,
+      franchises: this._j(row.franchises),
+      studios: this._j(row.studios),
       networks: this._j(row.networks),
       country: row.country,
       status: row.status,
@@ -266,7 +375,8 @@ class SQLiteDatabase {
       creators: this._j(row.creators),
       mood: this._j(row.mood),
       personalTags: this._j(row.personal_tags),
-      posterUrl: row.poster_url || ''
+      posterUrl: row.poster_url || '',
+      rating: row.rating || 0
     };
   }
 
@@ -310,7 +420,7 @@ class SQLiteDatabase {
   }
 
   async addMedia(mediaData) {
-    if (mediaData.category === 'series' && mediaData.seriesId) {
+    if (mediaData.seriesId) {
       return this.addEpisodeToSeries(mediaData);
     }
     const existing = this.db.prepare('SELECT id FROM medias WHERE path = ?').get(mediaData.path);
@@ -329,14 +439,14 @@ class SQLiteDatabase {
       INSERT INTO medias (
         id, title, path, format, duration, size_bytes, thumbnail, category, media_type,
         description, date_added, last_watched, rating, width, height,
-        duration_formatted, duration_category, decade, franchise, year, release_date,
-        poster_url, series_id, series_name, season_number, episode_number,
+        duration_formatted, duration_category, decade, franchise, franchises, country, studios,
+        year, release_date, poster_url, series_id, series_name, season_number, episode_number,
         director, genres, actors, mood, technical, personal_tags
       ) VALUES (
         @id, @title, @path, @format, @duration, @size_bytes, @thumbnail, @category, @media_type,
         @description, @date_added, @last_watched, @rating, @width, @height,
-        @duration_formatted, @duration_category, @decade, @franchise, @year, @release_date,
-        @poster_url, @series_id, @series_name, @season_number, @episode_number,
+        @duration_formatted, @duration_category, @decade, @franchise, @franchises, @country, @studios,
+        @year, @release_date, @poster_url, @series_id, @series_name, @season_number, @episode_number,
         @director, @genres, @actors, @mood, @technical, @personal_tags
       )
     `).run({
@@ -359,6 +469,9 @@ class SQLiteDatabase {
       duration_category: e.durationCategory || null,
       decade: e.decade || null,
       franchise: e.franchise || '',
+      franchises: this._s(e.franchises),
+      country: e.country || '',
+      studios: this._s(e.studios),
       year: e.year || null,
       release_date: e.releaseDate || null,
       poster_url: e.posterUrl || '',
@@ -412,7 +525,8 @@ class SQLiteDatabase {
     this.db.prepare(`
       UPDATE medias SET
         title = @title, thumbnail = @thumbnail, category = @category, media_type = @media_type,
-        description = @description, franchise = @franchise, year = @year,
+        description = @description, franchise = @franchise, franchises = @franchises,
+        country = @country, studios = @studios, year = @year,
         release_date = @release_date, poster_url = @poster_url,
         series_id = @series_id, series_name = @series_name,
         season_number = @season_number, episode_number = @episode_number,
@@ -429,6 +543,9 @@ class SQLiteDatabase {
       media_type: e.mediaType || 'unique',
       description: e.description || '',
       franchise: e.franchise || '',
+      franchises: this._s(e.franchises),
+      country: e.country || '',
+      studios: this._s(e.studios),
       year: e.year || null,
       release_date: e.releaseDate || null,
       poster_url: e.posterUrl || '',
@@ -455,6 +572,7 @@ class SQLiteDatabase {
     if (row.thumbnail) {
       try { fs.unlinkSync(path.join(this.thumbnailsPath, row.thumbnail)); } catch {}
     }
+    this.db.prepare('DELETE FROM person_roles WHERE media_id = ?').run(id);
     this.db.prepare('UPDATE season_slots SET media_id = NULL WHERE media_id = ?').run(id);
     this.db.prepare('DELETE FROM medias WHERE id = ?').run(id);
     this._updateLastScan();
@@ -481,19 +599,21 @@ class SQLiteDatabase {
     const id = this.generateId();
     this.db.prepare(`
       INSERT INTO series (
-        id, name, description, franchise, networks, country, status,
+        id, name, description, franchise, franchises, studios, networks, country, status,
         date_added, episode_count, year, start_year, decade, creator, platform,
-        genres, main_actors, creators, mood, personal_tags, poster_url
+        genres, main_actors, creators, mood, personal_tags, poster_url, rating
       ) VALUES (
-        @id, @name, @description, @franchise, @networks, @country, @status,
+        @id, @name, @description, @franchise, @franchises, @studios, @networks, @country, @status,
         @date_added, 0, @year, @start_year, @decade, @creator, @platform,
-        @genres, @main_actors, @creators, @mood, @personal_tags, @poster_url
+        @genres, @main_actors, @creators, @mood, @personal_tags, @poster_url, @rating
       )
     `).run({
       id,
       name: e.name || '',
       description: e.description || '',
       franchise: e.franchise || '',
+      franchises: this._s(e.franchises),
+      studios: this._s(e.studios),
       networks: this._s(e.networks),
       country: e.country || '',
       status: e.status || 'unknown',
@@ -508,7 +628,8 @@ class SQLiteDatabase {
       creators: this._s(e.creators),
       mood: this._s(e.mood),
       personal_tags: this._s(e.personalTags),
-      poster_url: e.posterUrl || ''
+      poster_url: e.posterUrl || '',
+      rating: e.rating || 0
     });
 
     const series = this._seriesFromRow(this.db.prepare('SELECT * FROM series WHERE id = ?').get(id));
@@ -553,7 +674,7 @@ class SQLiteDatabase {
     const e = {
       ...episodeData,
       mediaType: 'series',
-      category: 'series',
+      category: episodeData.category || 'series',
       seriesName: seriesRow.name,
       dateAdded: new Date().toISOString(),
       lastWatched: null,
@@ -580,17 +701,21 @@ class SQLiteDatabase {
     this.db.prepare(`
       UPDATE series SET
         name = @name, description = @description, franchise = @franchise,
+        franchises = @franchises, studios = @studios,
         networks = @networks, country = @country, status = @status,
         year = @year, start_year = @start_year, decade = @decade,
         creator = @creator, platform = @platform,
         genres = @genres, main_actors = @main_actors, creators = @creators,
-        mood = @mood, personal_tags = @personal_tags, poster_url = @poster_url
+        mood = @mood, personal_tags = @personal_tags, poster_url = @poster_url,
+        rating = @rating
       WHERE id = @id
     `).run({
       id: seriesId,
       name: e.name,
       description: e.description || '',
       franchise: e.franchise || '',
+      franchises: this._s(e.franchises),
+      studios: this._s(e.studios),
       networks: this._s(e.networks),
       country: e.country || '',
       status: e.status || 'unknown',
@@ -604,10 +729,23 @@ class SQLiteDatabase {
       creators: this._s(e.creators),
       mood: this._s(e.mood),
       personal_tags: this._s(e.personalTags),
-      poster_url: e.posterUrl || ''
+      poster_url: e.posterUrl || '',
+      rating: e.rating || 0
     });
 
+    // Propager le nouveau nom aux épisodes de la série dans medias
+    if (updates.name) {
+      this.db.prepare('UPDATE medias SET series_name = ? WHERE series_id = ?').run(e.name, seriesId);
+    }
+
     return { success: true, series: this._seriesFromRow(this.db.prepare('SELECT * FROM series WHERE id = ?').get(seriesId)) };
+  }
+
+  async updateSeriesRating(seriesId, rating) {
+    const existing = this.db.prepare('SELECT id FROM series WHERE id = ?').get(seriesId);
+    if (!existing) return { success: false, message: 'Série non trouvée' };
+    this.db.prepare('UPDATE series SET rating = ? WHERE id = ?').run(rating, seriesId);
+    return { success: true };
   }
 
   async deleteSeries(seriesId) {
@@ -744,10 +882,9 @@ class SQLiteDatabase {
   }
 
   async updateRating(mediaId, rating) {
-    const row = this.db.prepare("SELECT value FROM user_prefs WHERE key = 'ratings'").get();
-    const ratings = this._j(row?.value, {});
-    ratings[mediaId] = rating;
-    this.db.prepare("INSERT OR REPLACE INTO user_prefs (key, value) VALUES ('ratings', ?)").run(JSON.stringify(ratings));
+    const existing = this.db.prepare('SELECT id FROM medias WHERE id = ?').get(mediaId);
+    if (!existing) return { success: false, message: 'Média non trouvé' };
+    this.db.prepare('UPDATE medias SET rating = ? WHERE id = ?').run(rating, mediaId);
     return { success: true };
   }
 
@@ -757,6 +894,15 @@ class SQLiteDatabase {
     if (isWatched) watched[mediaId] = true;
     else delete watched[mediaId];
     this.db.prepare("INSERT OR REPLACE INTO user_prefs (key, value) VALUES ('watchedMovies', ?)").run(JSON.stringify(watched));
+    return { success: true };
+  }
+
+  async updateWatchedSeries(seriesId, isWatched) {
+    const row = this.db.prepare("SELECT value FROM user_prefs WHERE key = 'watchedSeries'").get();
+    const watched = this._j(row?.value, {});
+    if (isWatched) watched[seriesId] = true;
+    else delete watched[seriesId];
+    this.db.prepare("INSERT OR REPLACE INTO user_prefs (key, value) VALUES ('watchedSeries', ?)").run(JSON.stringify(watched));
     return { success: true };
   }
 
@@ -781,7 +927,14 @@ class SQLiteDatabase {
   async addPerson(personData) {
     if (personData.tmdbId) {
       const existing = this.db.prepare('SELECT * FROM persons WHERE tmdb_id = ?').get(personData.tmdbId);
-      if (existing) return { success: true, person: this._personFromRow(existing), alreadyExists: true };
+      if (existing) {
+        if (!existing.photo && personData.photo) {
+          this.db.prepare('UPDATE persons SET photo = ? WHERE id = ?').run(personData.photo, existing.id);
+          const updated = this.db.prepare('SELECT * FROM persons WHERE id = ?').get(existing.id);
+          return { success: true, person: this._personFromRow(updated), alreadyExists: true };
+        }
+        return { success: true, person: this._personFromRow(existing), alreadyExists: true };
+      }
     }
     const id = crypto.randomBytes(8).toString('hex');
     this.db.prepare(`
@@ -883,6 +1036,195 @@ class SQLiteDatabase {
     return { success: true, persons: rows.map(r => this._personFromRow(r)) };
   }
 
+  // ── Tags ──────────────────────────────────────────────────────────────────
+
+  _tagFieldMap() {
+    return {
+      genres:    [['medias', 'genres'],    ['series', 'genres']],
+      mood:      [['medias', 'mood'],      ['series', 'mood']],
+      technical: [['medias', 'technical']],
+      personal:  [['medias', 'personal_tags'], ['series', 'personal_tags']]
+    };
+  }
+
+  // Catégories dont la liste prédéfinie est éditable depuis la page Tags
+  _predefinedKey(category) {
+    if (category === 'mood')      return 'moods';
+    if (category === 'personal')  return 'personal';
+    if (category === 'technical') return 'technical';
+    return null;
+  }
+
+  _getTagManager() {
+    const row = this.db.prepare("SELECT value FROM app_config WHERE key = 'tagManager'").get();
+    return this._j(row?.value, { predefinedTags: { moods: [], personal: [] } });
+  }
+
+  _setTagManager(tm) {
+    this.db.prepare("INSERT OR REPLACE INTO app_config (key, value) VALUES ('tagManager', ?)").run(JSON.stringify(tm));
+  }
+
+  async getAllTags() {
+    const result = {};
+    for (const [category, sources] of Object.entries(this._tagFieldMap())) {
+      const counts = {};
+
+      // Tags prédéfinis (Ambiance et Personnel uniquement) — count 0 de base
+      const predKey = this._predefinedKey(category);
+      if (predKey) {
+        const tm = this._getTagManager();
+        for (const tag of (tm.predefinedTags[predKey] || [])) {
+          counts[tag] = counts[tag] || 0;
+        }
+      }
+
+      // Tags effectivement utilisés dans les médias
+      for (const [table, field] of sources) {
+        const rows = this.db.prepare(`SELECT ${field} FROM ${table} WHERE ${field} IS NOT NULL AND ${field} != '[]'`).all();
+        for (const row of rows) {
+          for (const tag of this._j(row[field])) {
+            counts[tag] = (counts[tag] || 0) + 1;
+          }
+        }
+      }
+
+      result[category] = Object.entries(counts)
+        .map(([tag, count]) => ({ tag, count }))
+        .sort((a, b) => a.tag.localeCompare(b.tag, 'fr'));
+    }
+    return { success: true, tags: result };
+  }
+
+  async addPredefinedTag(category, tag) {
+    const predKey = this._predefinedKey(category);
+    if (!predKey) return { success: false, message: 'Catégorie non éditable' };
+    const tm = this._getTagManager();
+    if (!tm.predefinedTags[predKey]) tm.predefinedTags[predKey] = [];
+    if (!tm.predefinedTags[predKey].includes(tag)) {
+      tm.predefinedTags[predKey].push(tag);
+      this._setTagManager(tm);
+    }
+    return { success: true };
+  }
+
+  async renameTag(category, oldTag, newTag) {
+    const sources = this._tagFieldMap()[category];
+    if (!sources) return { success: false, message: 'Catégorie invalide' };
+    let updated = 0;
+    for (const [table, field] of sources) {
+      const rows = this.db.prepare(`SELECT id, ${field} FROM ${table}`).all();
+      for (const row of rows) {
+        const tags = this._j(row[field]);
+        const idx = tags.indexOf(oldTag);
+        if (idx === -1) continue;
+        tags[idx] = newTag;
+        this.db.prepare(`UPDATE ${table} SET ${field} = ? WHERE id = ?`).run(this._s(tags), row.id);
+        updated++;
+      }
+    }
+    // Mettre à jour aussi dans les prédéfinis
+    const predKey = this._predefinedKey(category);
+    if (predKey) {
+      const tm = this._getTagManager();
+      const list = tm.predefinedTags[predKey] || [];
+      const idx = list.indexOf(oldTag);
+      if (idx !== -1) { list[idx] = newTag; this._setTagManager(tm); }
+    }
+    return { success: true, updated };
+  }
+
+  async deleteTag(category, tag) {
+    const sources = this._tagFieldMap()[category];
+    if (!sources) return { success: false, message: 'Catégorie invalide' };
+    let updated = 0;
+    for (const [table, field] of sources) {
+      const rows = this.db.prepare(`SELECT id, ${field} FROM ${table}`).all();
+      for (const row of rows) {
+        const tags = this._j(row[field]);
+        if (!tags.includes(tag)) continue;
+        this.db.prepare(`UPDATE ${table} SET ${field} = ? WHERE id = ?`).run(this._s(tags.filter(t => t !== tag)), row.id);
+        updated++;
+      }
+    }
+    // Supprimer aussi des prédéfinis
+    const predKey = this._predefinedKey(category);
+    if (predKey) {
+      const tm = this._getTagManager();
+      if (tm.predefinedTags[predKey]) {
+        tm.predefinedTags[predKey] = tm.predefinedTags[predKey].filter(t => t !== tag);
+        this._setTagManager(tm);
+      }
+    }
+    return { success: true, updated };
+  }
+
+  // ── Play Progress ─────────────────────────────────────────────────────────
+
+  savePlayProgress(mediaId, progressPct, currentTimeSec, seriesInfo = null) {
+    const ppRow = this.db.prepare("SELECT value FROM user_prefs WHERE key = 'playProgress'").get();
+    const playProgress = ppRow ? this._j(ppRow.value, {}) : {};
+
+    if (progressPct >= 0.95) {
+      delete playProgress[mediaId];
+      this.db.prepare('UPDATE medias SET last_watched = ? WHERE id = ?').run(new Date().toISOString(), mediaId);
+    } else if (progressPct > 0.02) {
+      playProgress[mediaId] = { pct: progressPct, time: Math.floor(currentTimeSec), updatedAt: new Date().toISOString() };
+    }
+    this.db.prepare("INSERT OR REPLACE INTO user_prefs (key, value) VALUES ('playProgress', ?)").run(JSON.stringify(playProgress));
+
+    if (seriesInfo && seriesInfo.seriesId) {
+      const spRow = this.db.prepare("SELECT value FROM user_prefs WHERE key = 'seriesProgress'").get();
+      const seriesProgress = spRow ? this._j(spRow.value, {}) : {};
+
+      if (progressPct >= 0.95) {
+        delete seriesProgress[seriesInfo.seriesId];
+      } else if (progressPct > 0.02) {
+        seriesProgress[seriesInfo.seriesId] = {
+          episodeMediaId: mediaId,
+          episodeNumber: seriesInfo.episodeNumber || null,
+          seasonNumber: seriesInfo.seasonNumber || null,
+          pct: progressPct,
+          time: Math.floor(currentTimeSec),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      this.db.prepare("INSERT OR REPLACE INTO user_prefs (key, value) VALUES ('seriesProgress', ?)").run(JSON.stringify(seriesProgress));
+    }
+
+    return { success: true };
+  }
+
+  getAllProgress() {
+    const ppRow = this.db.prepare("SELECT value FROM user_prefs WHERE key = 'playProgress'").get();
+    const spRow = this.db.prepare("SELECT value FROM user_prefs WHERE key = 'seriesProgress'").get();
+    return {
+      playProgress: ppRow ? this._j(ppRow.value, {}) : {},
+      seriesProgress: spRow ? this._j(spRow.value, {}) : {}
+    };
+  }
+
+  // ── Audio Conversion ──────────────────────────────────────────────────────
+
+  updateAudioStatus(mediaId, status, convertedPath = null) {
+    this.db.prepare('UPDATE medias SET audio_status = ?, audio_converted_path = ? WHERE id = ?')
+      .run(status, convertedPath, mediaId);
+    return true;
+  }
+
+  getPendingAudioMedias() {
+    return this.db.prepare(
+      "SELECT id, path FROM medias WHERE (audio_status IS NULL OR audio_status IN ('pending','converting')) AND path IS NOT NULL"
+    ).all();
+  }
+
+  getAllAudioStatuses() {
+    return this.db.prepare('SELECT id, audio_status, audio_converted_path FROM medias').all()
+      .reduce((acc, row) => {
+        acc[row.id] = { status: row.audio_status || 'pending', convertedPath: row.audio_converted_path };
+        return acc;
+      }, {});
+  }
+
   // ── Thumbnails ────────────────────────────────────────────────────────────
 
   getThumbnailPath(thumbnailName) {
@@ -932,6 +1274,9 @@ class SQLiteDatabase {
     e.technical = e.technical || [];
     e.personalTags = e.personalTags || [];
     e.franchise = e.franchise || '';
+    e.franchises = e.franchises || [];
+    e.country = e.country || '';
+    e.studios = e.studios || [];
     return e;
   }
 
@@ -945,6 +1290,8 @@ class SQLiteDatabase {
     e.mood = e.mood || [];
     e.personalTags = e.personalTags || [];
     e.franchise = e.franchise || '';
+    e.franchises = e.franchises || [];
+    e.studios = e.studios || [];
     e.networks = e.networks || [];
     e.country = e.country || '';
     e.status = e.status || 'unknown';
@@ -953,14 +1300,16 @@ class SQLiteDatabase {
 
   _decade(year) { return year ? `${Math.floor(year / 10) * 10}s` : null; }
 
-  _fmtDuration(min) {
-    if (!min) return '0min';
-    const h = Math.floor(min / 60), m = min % 60;
+  _fmtDuration(sec) {
+    if (!sec) return '0min';
+    const totalMin = Math.round(sec / 60);
+    const h = Math.floor(totalMin / 60), m = totalMin % 60;
     return h > 0 ? (m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`) : `${m}min`;
   }
 
-  _catDuration(min) {
-    if (!min) return 'unknown';
+  _catDuration(sec) {
+    if (!sec) return 'unknown';
+    const min = sec / 60;
     if (min < 90) return 'court';
     if (min <= 150) return 'moyen';
     return 'long';

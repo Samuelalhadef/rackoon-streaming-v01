@@ -293,8 +293,7 @@ class DashboardCategories {
     }
 
     // Charger et afficher la note de l'utilisateur
-    const userPrefs = this.loadUserPreferences();
-    const userRating = userPrefs.ratings[movie.id] || 0;
+    const userRating = movie.rating || 0;
 
     if (userRating > 0) {
       const starsContainer = card.querySelector('.stars-container');
