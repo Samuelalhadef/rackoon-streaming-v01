@@ -607,6 +607,7 @@ class ImportTriageSystem {
       // Le backend ne peut pas gérer les requêtes parallèles, on doit sauvegarder 1 par 1
       const DELAY_BETWEEN_FILES = 50; // ms entre chaque fichier (optimisé pour vitesse)
       let savedCount = 0;
+      const failedFiles = [];
 
       for (let i = 0; i < filesToClassify.length; i++) {
         if (this.isCancelled) {
@@ -634,6 +635,17 @@ class ImportTriageSystem {
             episode_number: file.episodeNumber ?? null
           });
 
+          // L'annulation a pu arriver PENDANT l'appel ci-dessus (FFmpeg en cours). Le nettoyage
+          // déclenché par cancelImportCompletely() a déjà tourné et vidé newlyScannedIds : ce média
+          // ne serait donc plus jamais nettoyé. On le supprime nous-mêmes immédiatement au lieu de
+          // le tracker, pour ne pas laisser un fichier "fantôme" malgré l'annulation confirmée.
+          if (this.isCancelled) {
+            if (result.movieId) {
+              try { await window.electronAPI.deleteMedia(result.movieId); } catch (e) {}
+            }
+            break;
+          }
+
           if (result.success) {
             console.log(`✅ ${file.title || file.name} → ${file.triageType}`);
             savedCount++;
@@ -653,6 +665,7 @@ class ImportTriageSystem {
             if (result.existingId) file.id = result.existingId;
           } else {
             console.error(`❌ Erreur: ${result.message}`);
+            failedFiles.push(file.title || file.name);
           }
 
           // Petit délai avant le prochain fichier (sauf pour le dernier)
@@ -662,10 +675,23 @@ class ImportTriageSystem {
 
         } catch (error) {
           console.error(`❌ Erreur pour ${file.title || file.name}:`, error.message);
+          failedFiles.push(file.title || file.name);
         }
       }
 
       console.log(`✅ ${savedCount}/${filesToClassify.length} fichiers sauvegardés !`);
+
+      // Sans ça, un fichier en échec disparaissait silencieusement de l'import : l'utilisateur
+      // croyait tout avoir importé alors que certains fichiers avaient été ignorés (visible
+      // seulement dans la console DevTools, jamais dans l'UI)
+      if (failedFiles.length > 0 && window.showNotification) {
+        window.showNotification(
+          'Import partiel',
+          `${savedCount}/${filesToClassify.length} fichier(s) importé(s). Échec pour : ${failedFiles.join(', ')}`,
+          'warning',
+          8000
+        );
+      }
 
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde des catégories Phase 1:', error);

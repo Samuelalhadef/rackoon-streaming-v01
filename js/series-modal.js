@@ -1177,7 +1177,8 @@ class SeriesModal {
       card.dataset.episodeId = episode.id;
       card.addEventListener('click', () => {
         const s = card.dataset.episodeAudioStatus;
-        if (s === 'pending' || s === 'converting') return;
+        // 'pending' = codec pas encore vérifié, pas une conversion en cours (voir filters.js)
+        if (s === 'converting') return;
         this.playEpisode(episode);
       });
     }
@@ -1225,7 +1226,10 @@ class SeriesModal {
 
     if (playBtn) {
       const audioStatus = episode.audioStatus || 'pending';
-      if (audioStatus === 'pending' || audioStatus === 'converting') {
+      // 'pending' = codec pas encore vérifié (quelques centaines de ms après l'import), pas une
+      // conversion en cours - sans ça, TOUT épisode fraîchement importé affichait "Conversion audio
+      // en cours..." même s'il n'en a jamais eu besoin.
+      if (audioStatus === 'converting') {
         playBtn.disabled = true;
         playBtn.classList.add('audio-converting');
         playBtn.title = 'Conversion audio en cours...';

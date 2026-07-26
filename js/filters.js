@@ -97,7 +97,10 @@
       if (!card) return;
 
       const cardId = seriesCardId || mediaId;
-      const isActive = status === 'pending' || status === 'converting';
+      // 'pending' = codec pas encore vérifié (quelques centaines de ms après l'import), pas une
+      // conversion en cours. Sans cette distinction, TOUT fichier fraîchement importé affichait le
+      // rond "conversion en cours", même un mp4/AAC qui n'a jamais besoin d'être converti.
+      const isActive = status === 'converting';
 
       // Suivre les conversions actives par carte pour éviter de cacher le ring prématurément
       if (!window.__activeConversions[cardId]) window.__activeConversions[cardId] = new Set();
@@ -164,7 +167,7 @@
         if (!card) return;
         const overlay = card.querySelector('.audio-converting-overlay');
         if (!overlay) return;
-        const active = info.status === 'pending' || info.status === 'converting';
+        const active = info.status === 'converting';
         overlay.style.display = active ? '' : 'none';
       });
     }).catch(() => {});

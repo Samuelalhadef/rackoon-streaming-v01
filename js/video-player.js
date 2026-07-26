@@ -1963,9 +1963,15 @@ class VideoPlayer {
         // Recharger la vidéo avec la nouvelle piste
         this.video.src = newUrl.toString();
 
-        // Attendre que les métadonnées soient chargées (10s max pour éviter le blocage)
+        // Attendre que les métadonnées soient chargées (20s max pour éviter de bloquer l'UI :
+        // le serveur streame maintenant progressivement dès qu'il a assez de données, donc ça
+        // devrait arriver bien avant. Si ça timeout quand même, le listener 'loadedmetadata' reste
+        // actif et restaurera l'état dès que le remux sera prêt, même après ce délai)
         await new Promise((resolve) => {
-          const timeout = setTimeout(resolve, 10000);
+          const timeout = setTimeout(() => {
+            console.warn('⏱️ Changement de piste audio : le remux prend plus de temps que prévu, poursuite en arrière-plan');
+            resolve();
+          }, 20000);
           const onLoaded = () => {
             clearTimeout(timeout);
             this.video.currentTime = currentTime;
@@ -2274,7 +2280,12 @@ class VideoPlayer {
         // Ajouter le track à la vidéo
         this.video.appendChild(track);
 
-        // Activation manuelle après délai (guard contre désactivation rapide — Bug 4)
+        // Activation manuelle après délai (guard contre désactivation rapide — Bug 4).
+        // Filet de sécurité pour le cas où l'event 'load' du <track> fire avant que les cues
+        // soient réellement parsées (quirk WebVTT/Chromium) - le cas normal est déjà géré
+        // immédiatement par le listener 'load' ci-dessus. Délais réduits (1000/2000 → 300/500ms) :
+        // avec le cache d'extraction, l'affichage n'a plus besoin d'attendre systématiquement
+        // jusqu'à 3s en plus du temps d'extraction FFmpeg.
         if (!this._subtitleTimers) this._subtitleTimers = [];
         const t1 = setTimeout(() => {
           if (this._activeSubtitleIndex !== trackIndex) return;
@@ -2295,9 +2306,9 @@ class VideoPlayer {
                 if (this._activeSubtitleIndex === trackIndex) textTrack.mode = 'showing';
               }, 100);
             }
-          }, 2000);
+          }, 500);
           this._subtitleTimers.push(t2);
-        }, 1000);
+        }, 300);
         this._subtitleTimers.push(t1);
         
       } else {

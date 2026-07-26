@@ -177,15 +177,20 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow.close());
 
-// Vérifier si ffmpeg est disponible
+// Vérifier si ffmpeg est disponible (résultat mis en cache : FFmpeg ne change pas en cours de session,
+// inutile de refaire un execSync bloquant - qui gèle tout le process principal - à chaque appel)
+let ffmpegInstalledCache = null;
 function checkFfmpegInstalled() {
+  if (ffmpegInstalledCache !== null) return ffmpegInstalledCache;
+
   try {
     execSync(`"${FFMPEG_PATH}" -version`, { encoding: 'utf8' });
-    return true;
+    ffmpegInstalledCache = true;
   } catch (error) {
     console.log('⚠️ FFmpeg non accessible - Les miniatures ne seront pas générées');
-    return false;
+    ffmpegInstalledCache = false;
   }
+  return ffmpegInstalledCache;
 }
 
 // Extraire les métadonnées d'une vidéo (durée, résolution, etc.)
@@ -248,15 +253,19 @@ function extractThumbnail(videoPath, outputPath) {
       // Commande ffmpeg pour extraire une frame à 15 secondes
       // -update 1 : nécessaire pour écrire un seul fichier image (sinon FFmpeg attend un pattern de séquence)
       const command = `"${FFMPEG_PATH}" -ss 00:00:15 -i "${videoPath}" -vframes 1 -update 1 -q:v 2 "${outputPath}" -y`;
+      // Timeout : sans ça, un fichier corrompu/lent (réseau) bloque la Promise pour toujours
+      // et gèle tout l'import derrière (les sauvegardes se font en séquence)
+      const THUMBNAIL_TIMEOUT = 20000;
 
-      exec(command, (error, stdout, stderr) => {
+      exec(command, { timeout: THUMBNAIL_TIMEOUT }, (error, stdout, stderr) => {
         if (error) {
           // Si échec à 15s, essayer à 5s
           const fallbackCommand = `"${FFMPEG_PATH}" -ss 00:00:05 -i "${videoPath}" -vframes 1 -update 1 -q:v 2 "${outputPath}" -y`;
 
-          exec(fallbackCommand, (err, stdout, stderr) => {
+          exec(fallbackCommand, { timeout: THUMBNAIL_TIMEOUT }, (err, stdout, stderr) => {
             if (err) {
-              console.error('Erreur extraction miniature:', err.message);
+              const reason = err.killed ? `timeout ${THUMBNAIL_TIMEOUT / 1000}s` : err.message;
+              console.error('Erreur extraction miniature:', reason);
               console.error('Stderr FFmpeg:', stderr);
               reject(err);
               return;
@@ -334,6 +343,12 @@ function downloadTMDBImage(imageUrl, outputPath) {
       reject(error);
     }
   });
+}
+
+// Générer un nom de miniature unique (Date.now() seul peut entrer en collision
+// quand plusieurs fichiers sont traités en parallèle dans la même milliseconde)
+function generateThumbnailName() {
+  return `thumb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
 }
 
 // Générer un nom de fichier déterministe pour un poster (écrasement garanti)
@@ -945,7 +960,15 @@ function setupIPCHandlers() {
       console.log(`🔍 Scan léger dans: ${folderToScan}`);
 
       // Rechercher tous les fichiers vidéo (scan rapide uniquement)
-      for (const ext of SUPPORTED_FORMATS) {
+      // Le canal scan:status est écouté côté UI (barre de progression) mais n'était jamais émis :
+      // la barre restait figée pendant tout le scan d'un gros dossier. On notifie ici à chaque
+      // extension parcourue (pas de granularité par fichier disponible avec glob).
+      for (let i = 0; i < SUPPORTED_FORMATS.length; i++) {
+        const ext = SUPPORTED_FORMATS[i];
+        mainWindow?.webContents.send('scan:status', {
+          message: `Recherche des fichiers vidéo (${ext})...`,
+          progress: Math.round((i / SUPPORTED_FORMATS.length) * 100)
+        });
         try {
           const pattern = `${folderToScan}/**/*${ext}`;
           const files = await glob(pattern, { nocase: true });
@@ -954,6 +977,10 @@ function setupIPCHandlers() {
           console.error(`Erreur avec l'extension ${ext}: ${error.message}`);
         }
       }
+      mainWindow?.webContents.send('scan:status', {
+        message: `${videoFiles.length} fichier(s) trouvé(s)`,
+        progress: 100
+      });
 
       console.log(`📊 Scan léger terminé: ${videoFiles.length} fichiers trouvés`);
 
@@ -998,7 +1025,12 @@ function setupIPCHandlers() {
 
       let videoFiles = [];
 
-      for (const p of droppedPaths) {
+      for (let i = 0; i < droppedPaths.length; i++) {
+        const p = droppedPaths[i];
+        mainWindow?.webContents.send('scan:status', {
+          message: `Analyse de ${path.basename(p)}...`,
+          progress: Math.round((i / droppedPaths.length) * 100)
+        });
         try {
           const stat = fs.statSync(p);
           if (stat.isDirectory()) {
@@ -1014,6 +1046,7 @@ function setupIPCHandlers() {
           console.warn(`⚠️  Chemin ignoré: ${p}`, e.message);
         }
       }
+      mainWindow?.webContents.send('scan:status', { message: 'Analyse terminée', progress: 100 });
 
       videoFiles = [...new Set(videoFiles)];
 
@@ -1223,7 +1256,7 @@ function setupIPCHandlers() {
         throw new Error('FFmpeg n\'est pas installé');
       }
 
-      const thumbnailName = media.thumbnail || `thumb_${Date.now()}.jpg`;
+      const thumbnailName = media.thumbnail || generateThumbnailName();
       const thumbnailPath = path.join(DATA_DIR, 'thumbnails', thumbnailName);
 
       await extractThumbnail(media.path, thumbnailPath);
@@ -1411,7 +1444,7 @@ function setupIPCHandlers() {
         let thumbnailName = null;
         if (checkFfmpegInstalled()) {
           try {
-            const thumbnailPath = path.join(DATA_DIR, 'thumbnails', `thumb_${Date.now()}.jpg`);
+            const thumbnailPath = path.join(DATA_DIR, 'thumbnails', generateThumbnailName());
             await extractThumbnail(fileData.filePath, thumbnailPath);
             thumbnailName = path.basename(thumbnailPath);
             console.log(`🖼️ Miniature créée: ${thumbnailName}`);
@@ -1611,7 +1644,7 @@ function setupIPCHandlers() {
       let thumbnailName = null;
       if (ffmpegInstalled) {
         try {
-          const thumbnailPath = path.join(DATA_DIR, 'thumbnails', `thumb_${Date.now()}.jpg`);
+          const thumbnailPath = path.join(DATA_DIR, 'thumbnails', generateThumbnailName());
           await extractThumbnail(filePath, thumbnailPath);
           thumbnailName = path.basename(thumbnailPath);
           console.log(`🖼️ Miniature créée: ${thumbnailName}`);
@@ -1737,10 +1770,11 @@ function setupIPCHandlers() {
       const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -show_format "${filePath}"`;
       
       return new Promise((resolve) => {
-        exec(command, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+        exec(command, { encoding: 'utf8', maxBuffer: 1024 * 1024 * 10, timeout: 30000 }, (error, stdout, stderr) => {
           if (error) {
-            console.error('❌ Erreur FFprobe:', error.message);
-            resolve({ success: false, message: 'Erreur d\'analyse: ' + error.message });
+            const reason = error.killed ? 'timeout 30s' : error.message;
+            console.error('❌ Erreur FFprobe:', reason);
+            resolve({ success: false, message: 'Erreur d\'analyse: ' + reason });
             return;
           }
 
@@ -1829,12 +1863,15 @@ function setupIPCHandlers() {
 
       // D'abord, obtenir les informations de la piste de sous-titres
       const videoInfoCommand = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -select_streams s:${trackIndex} "${videoPath}"`;
-      
+
       return new Promise((resolve) => {
-        exec(videoInfoCommand, { encoding: 'utf8' }, async (error, stdout, stderr) => {
+        exec(videoInfoCommand, { encoding: 'utf8', timeout: 30000 }, async (error, stdout, stderr) => {
           if (error) {
-            console.error('❌ Erreur info sous-titres:', error.message);
-            resolve({ success: false, message: 'Erreur d\'analyse: ' + error.message });
+            // Sans timeout, un fichier problématique laissait le spinner "Extraction..." tourner
+            // indéfiniment côté UI (la promesse IPC ne se résolvait jamais)
+            const reason = error.killed ? 'timeout 30s' : error.message;
+            console.error('❌ Erreur info sous-titres:', reason);
+            resolve({ success: false, message: 'Erreur d\'analyse: ' + reason });
             return;
           }
 
@@ -1909,6 +1946,15 @@ function setupIPCHandlers() {
             console.log('📝 Extraction sous-titre piste', trackIndex, 'vers:', subtitlePath);
             console.log('🎬 Commande:', command);
             console.log('📊 Type codec:', codecName);
+
+            // Cache : si cette piste a déjà été extraite pour ce fichier, ne pas relancer FFmpeg
+            // (jusqu'à 2 minutes de timeout). Avant ce fix, rebasculer entre deux pistes (A→B→A)
+            // relançait une extraction FFmpeg complète à chaque clic, même sur une piste déjà vue.
+            if (fs.existsSync(subtitlePath) && fs.statSync(subtitlePath).size > 0) {
+              console.log('✅ Sous-titre déjà extrait (cache):', subtitlePath);
+              resolve({ success: true, subtitlePath, codecType: codecName, format: path.extname(subtitlePath).slice(1) });
+              return;
+            }
 
             exec(command, { timeout: 120000 }, (extractError, extractStdout, extractStderr) => {
               if (extractError) {
@@ -2221,8 +2267,13 @@ function setupIPCHandlers() {
       let basename = path.basename(videoPath, path.extname(videoPath));
       // Remplacer les caractères problématiques
       basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
-      // Suffixe différent si on transcode aussi la vidéo ou si plusieurs pistes audio
-      const trackSuffix = audioTracks.length > 1 ? `_${audioTracks.length}audio` : '';
+      // Suffixe basé sur les indices de pistes réellement sélectionnées (pas seulement leur nombre) :
+      // sinon une conversion avec la piste 1 seule et une autre avec la piste 2 seule portent le même
+      // nom de fichier (`_aac.mp4`) et se remplacent/collisionnent silencieusement - "je change de
+      // langue mais ça ne change jamais". La piste par défaut [0] garde l'ancien nommage sans suffixe
+      // pour rester compatible avec video:checkConvertedAudio (utilisé pour la lecture automatique).
+      const isDefaultTrackOnly = audioTracks.length === 1 && audioTracks[0] === 0;
+      const trackSuffix = isDefaultTrackOnly ? '' : `_t${audioTracks.join('-')}`;
       const suffix = transcodeVideo ? `_h264aac${trackSuffix}` : `_aac${trackSuffix}`;
       const convertedPath = path.join(convertedDir, `${basename}${suffix}.mp4`);
       console.log('📁 Fichier de sortie:', convertedPath);
@@ -2807,9 +2858,10 @@ function getVideoContentType(filePath) {
 }
 
 // Fonction pour vérifier si un fichier vidéo a un codec audio non supporté
-async function checkAudioCodec(videoPath) {
+// trackIndex : index de la piste audio à inspecter (0 par défaut)
+async function checkAudioCodec(videoPath, trackIndex = 0) {
   return new Promise((resolve) => {
-    const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -select_streams a:0 "${videoPath}"`;
+    const command = `"${FFPROBE_PATH}" -v quiet -print_format json -show_streams -select_streams a:${trackIndex} "${videoPath}"`;
     exec(command, { encoding: 'utf8' }, (error, stdout, stderr) => {
       if (error) {
         resolve({ needsTranscode: false, codec: 'unknown' });
@@ -2839,7 +2891,7 @@ function startLocalVideoServer() {
     return;
   }
 
-  localVideoServer = http.createServer((req, res) => {
+  localVideoServer = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
     if (url.pathname === '/local-video') {
@@ -3051,7 +3103,10 @@ function startLocalVideoServer() {
                 });
 
                 // Stream le fichier au fur et à mesure qu'il est écrit
-                let lastPosition = 0;
+                // lastPosition est stocké sur `ffmpeg` (pas une variable locale) pour rester accessible
+                // depuis le handler 'close' plus bas et pouvoir y flusher les derniers octets écrits
+                // entre le dernier tick de l'interval et la fin réelle du process (sinon fin tronquée)
+                ffmpeg.lastPosition = 0;
                 const streamInterval = setInterval(() => {
                   if (!fs.existsSync(streamTempPath)) {
                     clearInterval(streamInterval);
@@ -3060,13 +3115,13 @@ function startLocalVideoServer() {
 
                   try {
                     const currentStat = fs.statSync(streamTempPath);
-                    if (currentStat.size > lastPosition) {
-                      const chunk = Buffer.alloc(currentStat.size - lastPosition);
+                    if (currentStat.size > ffmpeg.lastPosition) {
+                      const chunk = Buffer.alloc(currentStat.size - ffmpeg.lastPosition);
                       const fd = fs.openSync(streamTempPath, 'r');
-                      fs.readSync(fd, chunk, 0, chunk.length, lastPosition);
+                      fs.readSync(fd, chunk, 0, chunk.length, ffmpeg.lastPosition);
                       fs.closeSync(fd);
                       res.write(chunk);
-                      lastPosition = currentStat.size;
+                      ffmpeg.lastPosition = currentStat.size;
                     }
                   } catch (e) {
                     // Fichier peut être en cours d'écriture
@@ -3092,9 +3147,17 @@ function startLocalVideoServer() {
             // Envoyer les dernières données et terminer
             if (headerSent) {
               try {
+                // Flusher le delta écrit entre le dernier tick de l'interval (jusqu'à 500ms de flux)
+                // et la fermeture du process - sinon la toute fin du flux n'est jamais transmise
                 const finalStat = fs.statSync(streamTempPath);
-                const lastChunk = fs.readFileSync(streamTempPath);
-                // Les données ont déjà été envoyées progressivement
+                if (finalStat.size > ffmpeg.lastPosition) {
+                  const chunk = Buffer.alloc(finalStat.size - ffmpeg.lastPosition);
+                  const fd = fs.openSync(streamTempPath, 'r');
+                  fs.readSync(fd, chunk, 0, chunk.length, ffmpeg.lastPosition);
+                  fs.closeSync(fd);
+                  res.write(chunk);
+                  ffmpeg.lastPosition = finalStat.size;
+                }
                 res.end();
               } catch (e) {
                 res.end();
@@ -3179,7 +3242,7 @@ function startLocalVideoServer() {
               'Content-Range': `bytes ${start}-${end}/${tempSize}`,
               'Accept-Ranges': 'bytes',
               'Content-Length': chunksize,
-              'Content-Type': 'video/x-matroska',
+              'Content-Type': 'video/mp4',
               'Access-Control-Allow-Origin': '*'
             });
 
@@ -3187,7 +3250,7 @@ function startLocalVideoServer() {
           } else {
             res.writeHead(200, {
               'Content-Length': tempSize,
-              'Content-Type': 'video/x-matroska',
+              'Content-Type': 'video/mp4',
               'Accept-Ranges': 'bytes',
               'Access-Control-Allow-Origin': '*'
             });
@@ -3199,73 +3262,166 @@ function startLocalVideoServer() {
           const tempDir = path.join(app.getPath('temp'), 'rackoon-remux');
           fs.ensureDirSync(tempDir);
           const tempPath = path.join(tempDir, `${path.basename(videoPath, path.extname(videoPath))}_track${audioTrack}.mp4`);
+          // Fichier intermédiaire fragmenté : permet de streamer au fur et à mesure de l'écriture.
+          // Avant ce fix, on utilisait +faststart directement et on attendait la fin du remux COMPLET
+          // du fichier avant d'envoyer le moindre octet - écran figé/noir le temps du remux d'un film
+          // de 1h30-2h, avec un timeout client (10s) qui expirait bien avant la fin. Bug critique.
+          const streamTempPath = tempPath + '.streaming.mp4';
 
-          console.log(`🎵 Création du fichier remuxé pour piste audio ${audioTrack}: ${path.basename(videoPath)}`);
+          console.log(`🎵 Remux (streaming progressif) pour piste audio ${audioTrack}: ${path.basename(videoPath)}`);
 
-          // Utiliser FFmpeg pour créer le fichier remuxé (transcodage audio en AAC pour compatibilité)
+          // Si la piste demandée est déjà en AAC, un simple `-c:a copy` suffit (quasi instantané) -
+          // pas besoin de ré-encoder, ce qui rendait le remux inutilement lent (checkAudioCodec()
+          // existait déjà pour ça mais n'était appelée nulle part)
+          const targetAudioInfo = await checkAudioCodec(videoPath, audioTrack);
+          const audioCodecArgs = targetAudioInfo.codec.includes('aac')
+            ? ['-c:a', 'copy']
+            : ['-c:a', 'aac', '-b:a', '192k'];
+
           const ffmpegArgs = [
+            '-y',
             '-i', videoPath,
             '-map', '0:v:0',
             '-map', `0:a:${audioTrack}`,
             '-c:v', 'copy',
-            '-c:a', 'aac', '-b:a', '192k',
-            '-movflags', '+faststart',
-            '-y',
-            tempPath
+            ...audioCodecArgs,
+            '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+            streamTempPath
           ];
 
           const ffmpeg = spawn(FFMPEG_PATH, ffmpegArgs);
+          let ffmpegError = '';
+          let streamingStarted = false;
+          let headerSent = false;
+          ffmpeg.lastPosition = 0;
+
+          // Filet de sécurité : un fichier corrompu/codec exotique peut faire tourner FFmpeg
+          // indéfiniment. Sans ça la requête (et le lecteur) restait bloqué pour toujours.
+          const watchdog = setTimeout(() => {
+            console.error(`❌ Remux piste audio ${audioTrack}: timeout, arrêt forcé de FFmpeg`);
+            ffmpeg.kill('SIGKILL');
+          }, 180000);
+
+          // Tuer FFmpeg si le client se déconnecte (changement de piste suivant, fermeture du lecteur...)
+          // - sinon des process FFmpeg orphelins s'accumulent en arrière-plan
+          req.on('close', () => {
+            clearTimeout(watchdog);
+            ffmpeg.kill('SIGKILL');
+            if (ffmpeg.streamInterval) clearInterval(ffmpeg.streamInterval);
+            try { if (fs.existsSync(streamTempPath)) fs.unlinkSync(streamTempPath); } catch {}
+          });
 
           ffmpeg.stderr.on('data', (data) => {
-            // Log FFmpeg progress
+            ffmpegError += data.toString();
+
+            // Dès qu'il y a assez de données, on peut commencer à streamer sans attendre la fin
+            if (!streamingStarted && fs.existsSync(streamTempPath)) {
+              const currentSize = fs.statSync(streamTempPath).size;
+              if (currentSize > 1024 * 1024) {
+                streamingStarted = true;
+                headerSent = true;
+                console.log(`🎬 Début du streaming progressif piste ${audioTrack} (${Math.round(currentSize / 1024 / 1024)}MB disponibles)`);
+
+                res.writeHead(200, {
+                  'Content-Type': 'video/mp4',
+                  'Accept-Ranges': 'none', // pas de seeking pendant le streaming progressif
+                  'Access-Control-Allow-Origin': '*',
+                  'Transfer-Encoding': 'chunked'
+                });
+
+                const streamInterval = setInterval(() => {
+                  if (!fs.existsSync(streamTempPath)) {
+                    clearInterval(streamInterval);
+                    return;
+                  }
+                  try {
+                    const currentStat = fs.statSync(streamTempPath);
+                    if (currentStat.size > ffmpeg.lastPosition) {
+                      const chunk = Buffer.alloc(currentStat.size - ffmpeg.lastPosition);
+                      const fd = fs.openSync(streamTempPath, 'r');
+                      fs.readSync(fd, chunk, 0, chunk.length, ffmpeg.lastPosition);
+                      fs.closeSync(fd);
+                      res.write(chunk);
+                      ffmpeg.lastPosition = currentStat.size;
+                    }
+                  } catch (e) {
+                    // Fichier peut être en cours d'écriture
+                  }
+                }, 500);
+
+                ffmpeg.streamInterval = streamInterval;
+              }
+            }
           });
 
           ffmpeg.on('close', (code) => {
-            if (code === 0 && fs.existsSync(tempPath)) {
-              console.log(`✅ Fichier remuxé créé: ${tempPath}`);
-              remuxCache.set(cacheKey, tempPath);
+            clearTimeout(watchdog);
+            if (ffmpeg.streamInterval) clearInterval(ffmpeg.streamInterval);
 
-              // Servir le fichier créé
-              const tempStat = fs.statSync(tempPath);
-              const tempSize = tempStat.size;
+            if (code === 0 && fs.existsSync(streamTempPath)) {
+              console.log(`✅ Remux piste audio ${audioTrack} terminé`);
 
-              if (range) {
-                const parts = range.replace(/bytes=/, "").split("-");
-                const start = parseInt(parts[0], 10);
-                const end = parts[1] ? parseInt(parts[1], 10) : tempSize - 1;
-                const chunksize = (end - start) + 1;
-                const file = fs.createReadStream(tempPath, { start, end });
+              if (headerSent) {
+                try {
+                  // Flusher le delta écrit entre le dernier tick de l'interval et la fin du process
+                  const finalStat = fs.statSync(streamTempPath);
+                  if (finalStat.size > ffmpeg.lastPosition) {
+                    const chunk = Buffer.alloc(finalStat.size - ffmpeg.lastPosition);
+                    const fd = fs.openSync(streamTempPath, 'r');
+                    fs.readSync(fd, chunk, 0, chunk.length, ffmpeg.lastPosition);
+                    fs.closeSync(fd);
+                    res.write(chunk);
+                    ffmpeg.lastPosition = finalStat.size;
+                  }
+                  res.end();
+                } catch (e) {
+                  res.end();
+                }
 
-                res.writeHead(206, {
-                  'Content-Range': `bytes ${start}-${end}/${tempSize}`,
-                  'Accept-Ranges': 'bytes',
-                  'Content-Length': chunksize,
-                  'Content-Type': 'video/mp4',
-                  'Access-Control-Allow-Origin': '*'
+                // Optimiser le fichier (moov en tête) en arrière-plan pour un seek rapide aux prochaines lectures
+                const finalArgs = ['-y', '-i', streamTempPath, '-c', 'copy', '-movflags', '+faststart', tempPath];
+                const finalFFmpeg = spawn(FFMPEG_PATH, finalArgs);
+                finalFFmpeg.on('close', (finalCode) => {
+                  if (finalCode === 0 && fs.existsSync(tempPath)) {
+                    console.log(`✅ Fichier remuxé optimisé créé: ${tempPath}`);
+                    remuxCache.set(cacheKey, tempPath);
+                    try { fs.unlinkSync(streamTempPath); } catch (e) {}
+                  }
                 });
-
-                file.pipe(res);
               } else {
+                // Fichier assez petit/rapide pour n'avoir jamais déclenché le streaming progressif
+                const tempStat = fs.statSync(streamTempPath);
                 res.writeHead(200, {
-                  'Content-Length': tempSize,
+                  'Content-Length': tempStat.size,
                   'Content-Type': 'video/mp4',
                   'Accept-Ranges': 'bytes',
                   'Access-Control-Allow-Origin': '*'
                 });
-
-                fs.createReadStream(tempPath).pipe(res);
+                fs.createReadStream(streamTempPath).pipe(res);
+                remuxCache.set(cacheKey, streamTempPath);
               }
             } else {
-              console.error(`❌ Erreur lors de la création du fichier remuxé (code: ${code})`);
-              res.writeHead(500);
-              res.end('Erreur lors du remuxage');
+              console.error(`❌ Erreur lors du remux piste audio ${audioTrack} (code: ${code})`);
+              console.error('FFmpeg stderr:', ffmpegError.slice(-500));
+              if (!headerSent) {
+                res.writeHead(500);
+                res.end('Erreur lors du remuxage');
+              } else {
+                res.end();
+              }
+              try { if (fs.existsSync(streamTempPath)) fs.unlinkSync(streamTempPath); } catch {}
             }
           });
 
           ffmpeg.on('error', (err) => {
+            clearTimeout(watchdog);
             console.error('❌ Erreur FFmpeg:', err);
-            res.writeHead(500);
-            res.end('Erreur FFmpeg');
+            if (!headerSent) {
+              res.writeHead(500);
+              res.end('Erreur FFmpeg');
+            } else {
+              res.end();
+            }
           });
         }
       } else {

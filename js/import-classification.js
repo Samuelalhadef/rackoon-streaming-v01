@@ -35,6 +35,7 @@ class ImportClassificationSystem {
     this.useGalleryMode = true; // Par défaut, utiliser le mode galerie
     this.newlyScannedIds = []; // IDs des fichiers nouvellement scannés (pour nettoyage si annulé)
     this.newlyCreatedSeriesIds = []; // IDs des séries créées durant l'import (pour nettoyage si annulé)
+    this.isCancelled = false; // Flag pour interrompre une boucle de sauvegarde en cours si annulation
 
     this.init();
   }
@@ -261,6 +262,7 @@ class ImportClassificationSystem {
 
     // Marquer comme en cours d'import pour éviter les mises à jour du dashboard
     this.isImporting = true;
+    this.isCancelled = false;
 
     // Fusionner les IDs existants (déjà sauvegardés en Phase 1) avec ceux des fichiers
     const fileIds = files.map(file => file.id).filter(id => id);
@@ -1406,6 +1408,16 @@ class ImportClassificationSystem {
       return;
     }
 
+    // Désactiver le bouton pendant l'appel : sans ça, le bouton restait cliquable pendant les
+    // quelques secondes où FFmpeg extrait la miniature/métadonnées, ce qui permettait un double-clic
+    // (double sauvegarde) et ne donnait aucun signe visuel qu'un traitement était en cours.
+    const saveBtn = card.querySelector('.save-btn');
+    const saveBtnOriginalText = saveBtn?.textContent;
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Sauvegarde...';
+    }
+
     try {
       console.log('💾 Sauvegarde du fichier depuis la galerie:', file.name);
 
@@ -1462,10 +1474,12 @@ class ImportClassificationSystem {
       } else {
         console.error('❌ Erreur lors de la sauvegarde:', result.message);
         window.showNotification('Erreur de sauvegarde', result.message || 'Erreur inconnue', 'error');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveBtnOriginalText; }
       }
     } catch (error) {
       console.error('❌ Erreur lors de la sauvegarde:', error);
       window.showNotification('Erreur de sauvegarde', error.message, 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = saveBtnOriginalText; }
     }
   }
 
@@ -1632,48 +1646,117 @@ class ImportClassificationSystem {
 
     // Traiter tous les fichiers non encore sauvegardés
     const pendingFiles = this.currentFiles.filter(f => !f.classified && !f.skipped);
+    const total = pendingFiles.length;
 
-    console.log(`⚡ Sauvegarde PARALLÈLE de ${pendingFiles.length} fichiers...`);
+    if (total === 0) {
+      this.finishGalleryClassification();
+      return;
+    }
 
-    // Créer toutes les promesses de sauvegarde
-    const savePromises = pendingFiles.map(file =>
-      window.electronAPI.saveClassifiedFile({
-        filePath: file.path,
-        title: file.title || file.name,
-        category: 'unsorted',
-        mediaType: 'unique',
-        description: '',
-        releaseDate: null,
-        year: null,
-        seriesId: null,
-        seriesName: null,
-        season_number: null,
-        episode_number: null
-      })
-      .then(result => {
-        if (result.success) {
+    // Désactiver le bouton pour éviter un double-clic qui lancerait un second lot en parallèle
+    const saveAllBtn = document.getElementById('save-all-unsorted-btn');
+    const saveAllBtnOriginalText = saveAllBtn?.textContent;
+    if (saveAllBtn) {
+      saveAllBtn.disabled = true;
+      saveAllBtn.textContent = 'Sauvegarde en cours...';
+    }
+
+    const progressOverlay = this.showSavingOverlay(total);
+    this.isImporting = true;
+
+    let savedCount = 0;
+
+    // Sauvegarde SÉQUENTIELLE (pas Promise.all) : le backend ne supporte pas les sauvegardes
+    // FFmpeg en parallèle (même contrainte documentée dans import-triage.js) - lancer tous les
+    // fichiers d'un coup saturait FFmpeg et ne donnait aucun retour visuel avant ce fix.
+    for (const file of pendingFiles) {
+      if (this.isCancelled) break;
+
+      const fileName = file.name || file.title || file.path || 'Fichier inconnu';
+      this.updateSavingOverlay(progressOverlay, savedCount, total, fileName);
+
+      try {
+        const result = await window.electronAPI.saveClassifiedFile({
+          filePath: file.path,
+          title: file.title || file.name,
+          category: 'unsorted',
+          mediaType: 'unique',
+          description: '',
+          releaseDate: null,
+          year: null,
+          seriesId: null,
+          seriesName: null,
+          season_number: null,
+          episode_number: null
+        });
+
+        // L'annulation a pu arriver PENDANT l'appel ci-dessus (FFmpeg en cours). Le nettoyage
+        // déclenché par cancelImportCompletely() a déjà tourné et vidé newlyScannedIds : ce média
+        // ne serait donc plus jamais nettoyé. On le supprime nous-mêmes immédiatement au lieu de
+        // le tracker, pour ne pas laisser un fichier "fantôme" malgré l'annulation confirmée.
+        if (this.isCancelled) {
+          if (result.movieId) {
+            try { await window.electronAPI.deleteMedia(result.movieId); } catch (e) {}
+          }
+          break;
+        }
+
+        if (result.success || result.duplicate) {
           file.classified = true;
           this.classifiedFiles.push(file);
+          savedCount++;
 
           // Tracker l'ID du film nouvellement créé pour pouvoir l'annuler plus tard
           if (result.movieId && !this.newlyScannedIds.includes(result.movieId)) {
             this.newlyScannedIds.push(result.movieId);
             console.log('📋 ID ajouté à la liste des films trackés (tout passer):', result.movieId);
           }
+        } else {
+          console.error(`❌ Erreur sauvegarde ${fileName}:`, result.message);
+          window.showNotification('Erreur de sauvegarde', `${fileName}: ${result.message || 'Erreur inconnue'}`, 'error');
         }
-        return result;
-      })
-      .catch(error => {
-        console.error('❌ Erreur pour', file.name, ':', error);
-        return { success: false, error };
-      })
+      } catch (error) {
+        console.error('❌ Erreur pour', fileName, ':', error);
+        window.showNotification('Erreur de sauvegarde', `${fileName}: ${error.message}`, 'error');
+      }
+    }
+
+    console.log(`✅ ${savedCount}/${total} fichiers sauvegardés`);
+
+    if (saveAllBtn) {
+      saveAllBtn.disabled = false;
+      saveAllBtn.textContent = saveAllBtnOriginalText;
+    }
+
+    // Si annulé en cours de route, cancelImportCompletely() a déjà fermé les modales, nettoyé
+    // la DB et notifié l'utilisateur - ne pas ré-afficher la modale/notification "terminé" par-dessus.
+    if (this.isCancelled) {
+      if (progressOverlay) progressOverlay.remove();
+      return;
+    }
+
+    // Transition vers la phase d'intégration (garde l'overlay visible)
+    this.transitionOverlayToIntegrating(progressOverlay);
+
+    this.isImporting = false;
+    this.galleryModal.style.display = 'none';
+
+    await this.forceReloadMovies();
+
+    if (progressOverlay) {
+      progressOverlay.classList.remove('visible');
+      setTimeout(() => progressOverlay.remove(), 400);
+    }
+
+    const classifiedCount = this.classifiedFiles.length;
+    const skippedCount = this.currentFiles.filter(f => f.skipped).length;
+
+    window.showNotification(
+      'Classification terminée',
+      `${classifiedCount} fichier(s) classifié(s)${skippedCount > 0 ? `, ${skippedCount} passé(s)` : ''}`,
+      'success',
+      6000
     );
-
-    // Attendre que TOUTES les sauvegardes soient terminées
-    await Promise.all(savePromises);
-    console.log(`✅ ${pendingFiles.length} fichiers sauvegardés en parallèle !`);
-
-    this.finishGalleryClassification();
   }
 
   async finishGalleryClassification() {
@@ -1695,6 +1778,8 @@ class ImportClassificationSystem {
     let savedCount = 0;
 
     for (const file of pendingFiles) {
+      if (this.isCancelled) break;
+
       const card = document.querySelector(`[data-file-index="${this.currentFiles.indexOf(file)}"]`);
       if (!card) continue;
 
@@ -1727,6 +1812,15 @@ class ImportClassificationSystem {
           episode_number: formData.episodeNumber || null
         });
 
+        // Voir le commentaire équivalent dans saveAllAsUnsorted() : l'annulation a pu arriver
+        // pendant l'appel ci-dessus, après que le nettoyage principal a déjà tourné.
+        if (this.isCancelled) {
+          if (result.movieId) {
+            try { await window.electronAPI.deleteMedia(result.movieId); } catch (e) {}
+          }
+          break;
+        }
+
         if (result.success || result.duplicate) {
           file.classified = true;
           this.classifiedFiles.push(file);
@@ -1747,6 +1841,13 @@ class ImportClassificationSystem {
     }
 
     if (finishBtn) finishBtn.disabled = false;
+
+    // Si annulé en cours de route, cancelImportCompletely() a déjà fermé les modales, nettoyé
+    // la DB et notifié l'utilisateur - ne pas ré-afficher la modale/notification "terminé" par-dessus.
+    if (this.isCancelled) {
+      if (progressOverlay) progressOverlay.remove();
+      return;
+    }
 
     // Transition vers la phase d'intégration (garde l'overlay visible)
     this.transitionOverlayToIntegrating(progressOverlay);
@@ -2028,6 +2129,9 @@ class ImportClassificationSystem {
 
   async cancelImportCompletely() {
     console.log('❌ Annulation complète de l\'importation par l\'utilisateur');
+
+    // Interrompre toute boucle de sauvegarde en cours (finishGalleryClassification / saveAllAsUnsorted)
+    this.isCancelled = true;
 
     // Marquer la fin de l'import
     this.isImporting = false;
