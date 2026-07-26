@@ -109,7 +109,7 @@ rackoon-streaming/
 │   └── ...
 ├── js/                    # Scripts JavaScript
 │   ├── video-player.js    # Lecteur vidéo avancé
-│   ├── db-manager.js      # Gestionnaire base de données JSON
+│   ├── db-sqlite.js       # Gestionnaire base de données SQLite
 │   ├── dashboard.js       # Interface utilisateur
 │   └── ...
 ├── css/                   # Styles CSS

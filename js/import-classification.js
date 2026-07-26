@@ -2400,10 +2400,6 @@ class ImportClassificationSystem {
       console.log('🔄 Rechargement forcé de la liste des films après classification');
 
       // Appeler la fonction de rechargement des films
-      if (window.loadMoviesFromDatabase) {
-        await window.loadMoviesFromDatabase();
-      }
-
       if (window.loadMovies) {
         await window.loadMovies();
       }

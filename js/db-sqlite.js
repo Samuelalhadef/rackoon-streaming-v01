@@ -1231,18 +1231,6 @@ class SQLiteDatabase {
     return path.join(this.thumbnailsPath, thumbnailName);
   }
 
-  generateThumbnailName() {
-    return `thumb_${Date.now()}.jpg`;
-  }
-
-  async saveThumbnail(sourceImagePath) {
-    try {
-      const name = this.generateThumbnailName();
-      await fs.copy(sourceImagePath, path.join(this.thumbnailsPath, name));
-      return name;
-    } catch { return null; }
-  }
-
   async deleteAllThumbnails() {
     let count = 0;
     try {

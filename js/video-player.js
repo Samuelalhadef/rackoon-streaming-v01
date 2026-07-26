@@ -605,16 +605,6 @@ class VideoPlayer {
     this.updateVolumeDisplay();
   }
   
-  setVolume(e) {
-    const rect = this.elements.volumeSlider.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    const volume = Math.max(0, Math.min(1, percent));
-    this.video.volume = volume;
-    this.video.muted = false;
-    this.volume = volume;
-    this.updateVolumeDisplay();
-  }
-
   setupTimelineDrag() {
     const container = this.elements.timelineContainer;
     let isDragging = false;
@@ -696,12 +686,6 @@ class VideoPlayer {
   }
   
   // Navigation temporelle
-  seekToPosition(e) {
-    const rect = this.elements.timelineContainer.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    this.seekToPercent(percent);
-  }
-  
   seekToPercent(percent) {
     const time = percent * this.duration;
     this.video.currentTime = Math.max(0, Math.min(this.duration, time));
@@ -2822,152 +2806,8 @@ class VideoPlayer {
     await this.startPreConversion(this.originalMoviePath, codecInfo, needsVideoTranscode);
 
     this.isRetryingWithTranscode = false;
-    return;
-
-    // --- Code de streaming commenté (gardé pour référence) ---
-    /*
-    this.showLoading();
-    const notification = this.showTranscodeProgress();
-
-    const transcodeUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(this.originalMoviePath)}&audioTrack=0&transcode=true`;
-    this.video.src = transcodeUrl;
-
-    const onSuccess = () => {
-      this.isRetryingWithTranscode = false;
-      this.hideLoading();
-      if (notification) notification.remove();
-      console.log('✅ Lecture après transcodage réussie');
-      this.play();
-    };
-    */
   }
 
-  /**
-   * Ancienne méthode de retry avec streaming (gardée pour compatibilité)
-   */
-  async retryWithTranscodeStreaming() {
-    if (!this.originalMoviePath) {
-      console.error('Pas de chemin original pour le transcodage');
-      return;
-    }
-
-    this.hasTriedTranscode = true;
-    this.isRetryingWithTranscode = true;
-
-    console.log('🔄 Nouvelle tentative avec transcodage audio (streaming)...');
-
-    this.showLoading();
-    const notification = this.showTranscodeProgress();
-
-    const transcodeUrl = `http://localhost:3002/local-video?path=${encodeURIComponent(this.originalMoviePath)}&audioTrack=0&transcode=true`;
-    this.video.src = transcodeUrl;
-
-    const onSuccess = () => {
-      this.isRetryingWithTranscode = false;
-      this.hideLoading();
-      if (notification) notification.remove();
-      console.log('✅ Lecture après transcodage réussie');
-      this.play();
-    };
-
-    const onError = async (e) => {
-      this.isRetryingWithTranscode = false;
-      this.hideLoading();
-      if (notification) notification.remove();
-
-      // Ignorer si fermeture ou dialogue en cours
-      if (this.isClosing || this.isShowingConversionDialog) {
-        console.log('Erreur après transcodage ignorée (fermeture ou dialogue en cours)');
-        return;
-      }
-      console.error('❌ Erreur après transcodage:', e);
-
-      // Essayer de récupérer plus d'infos sur l'erreur
-      let errorDetail = 'Erreur inconnue';
-
-      if (this.video.error) {
-        errorDetail = `Code ${this.video.error.code}: ${this.video.error.message || 'Pas de détail'}`;
-      }
-
-      // Vérifier si c'est un problème de codec vidéo
-      let videoCodecInfo = '';
-      if (window.electronAPI && window.electronAPI.getVideoInfo) {
-        try {
-          const info = await window.electronAPI.getVideoInfo(this.originalMoviePath);
-          if (info.success && info.videoTracks && info.videoTracks[0]) {
-            const vCodec = info.videoTracks[0].codec_name;
-            videoCodecInfo = `\nCodec vidéo: ${vCodec}`;
-
-            if (vCodec && (vCodec.includes('hevc') || vCodec.includes('h265') || vCodec.includes('265'))) {
-              errorDetail = 'Le codec vidéo HEVC (H.265) n\'est pas supporté par ce navigateur.';
-            }
-          }
-        } catch (err) {
-          console.warn('Impossible de récupérer info vidéo:', err);
-        }
-      }
-
-      this.showErrorModal(
-        `Échec de la lecture.\n\n${errorDetail}${videoCodecInfo}\n\n` +
-        'Solutions :\n' +
-        '• Utilisez VLC ou un autre lecteur externe\n' +
-        '• Convertissez le fichier en H.264/AAC',
-        false
-      );
-    };
-
-    this.video.addEventListener('loadedmetadata', onSuccess, { once: true });
-    this.video.addEventListener('canplay', onSuccess, { once: true });
-    this.video.addEventListener('error', onError, { once: true });
-
-    // Timeout de sécurité (5 minutes max pour le transcodage audio)
-    setTimeout(() => {
-      if (notification && notification.parentNode) {
-        notification.remove();
-        this.hideLoading();
-        this.showErrorModal(
-          'Le transcodage prend trop de temps.\n\n' +
-          'Le fichier est peut-etre trop volumineux ou corrompu.\n\n' +
-          'Utilisez VLC pour lire ce fichier.',
-          false
-        );
-      }
-    }, 300000);
-  }
-
-  /**
-   * Affiche un indicateur de progression du transcodage
-   */
-  showTranscodeProgress() {
-    const div = document.createElement('div');
-    div.className = 'transcode-progress';
-    div.style.cssText = `
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 30px;
-      border-radius: 12px;
-      z-index: 10003;
-      text-align: center;
-      min-width: 300px;
-    `;
-    div.innerHTML = `
-      <div style="width:40px;height:40px;margin:0 auto 15px;">
-        <img src="../assets/pictos/cog.svg" style="width:40px;height:40px;filter:brightness(0) invert(1);animation:spin-icon 2s linear infinite;">
-      </div>
-      <div style="font-size: 16px; margin-bottom: 10px;">Transcodage audio en cours...</div>
-      <div style="font-size: 12px; color: #aaa;">
-        Conversion AC3/DTS vers AAC<br>
-        Cela peut prendre quelques minutes
-      </div>
-    `;
-    this.container.appendChild(div);
-    return div;
-  }
-  
   // Utilitaires
   formatTime(seconds) {
     if (isNaN(seconds)) return '00:00';

@@ -945,12 +945,8 @@ class ImportTriageSystem {
   async forceReloadMovies() {
     try {
       console.log('🔄 Rechargement forcé de la liste des films');
-      
+
       // Appeler la fonction de rechargement des films
-      if (window.loadMoviesFromDatabase) {
-        await window.loadMoviesFromDatabase();
-      }
-      
       if (window.loadMovies) {
         await window.loadMovies();
       }
