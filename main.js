@@ -1,4 +1,4 @@
-// Version avec système de stockage JSON
+// Processus principal Electron - stockage SQLite (js/db-sqlite.js)
 require('dotenv').config();
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
@@ -122,6 +122,14 @@ const remuxCache = new Map(); // Cache des fichiers remuxés (path+track -> temp
 
 // Codecs audio non supportés par les navigateurs
 const UNSUPPORTED_AUDIO = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
+
+// Types MIME pour servir les images (posters TMDB, photos de personnes)
+const IMAGE_MIME_TYPES = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp'
+};
 
 
 // Créer la fenêtre principale
@@ -351,6 +359,11 @@ function generateThumbnailName() {
   return `thumb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
 }
 
+// Nettoyer un nom de fichier des caractères interdits/problématiques sur le système de fichiers
+function sanitizeFilename(name) {
+  return name.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+}
+
 // Générer un nom de fichier déterministe pour un poster (écrasement garanti)
 function generatePosterName(entityId, sourceUrl) {
   const extension = path.extname(sourceUrl || '').split('?')[0] || '.jpg';
@@ -520,13 +533,7 @@ function startHTTPServer() {
 
         // Déterminer le type MIME
         const ext = path.extname(imagePath).toLowerCase();
-        const mimeTypes = {
-          '.jpg': 'image/jpeg',
-          '.jpeg': 'image/jpeg',
-          '.png': 'image/png',
-          '.webp': 'image/webp'
-        };
-        const contentType = mimeTypes[ext] || 'image/jpeg';
+        const contentType = IMAGE_MIME_TYPES[ext] || 'image/jpeg';
 
         res.writeHead(200, {
           'Content-Type': contentType,
@@ -550,13 +557,7 @@ function startHTTPServer() {
         const stat = fs.statSync(photoPath);
         const img = fs.readFileSync(photoPath);
         const ext = path.extname(photoPath).toLowerCase();
-        const mimeTypes = {
-          '.jpg': 'image/jpeg',
-          '.jpeg': 'image/jpeg',
-          '.png': 'image/png',
-          '.webp': 'image/webp'
-        };
-        const contentType = mimeTypes[ext] || 'image/jpeg';
+        const contentType = IMAGE_MIME_TYPES[ext] || 'image/jpeg';
 
         res.writeHead(200, {
           'Content-Type': contentType,
@@ -714,7 +715,6 @@ class AudioConversionQueue {
     this.MAX_CONCURRENT_CHECKS = 4; // max FFprobe simultanés
     this.conversionQueue = [];       // file sérialisée pour la conversion FFmpeg
     this.isConverting = false;
-    this.UNSUPPORTED = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
   }
 
   enqueue(mediaId, filePath) {
@@ -745,7 +745,7 @@ class AudioConversionQueue {
         return;
       }
       const codec = await this._detectCodec(filePath);
-      const needsConversion = codec && this.UNSUPPORTED.some(c => codec.includes(c));
+      const needsConversion = codec && UNSUPPORTED_AUDIO.some(c => codec.includes(c));
       if (!needsConversion) {
         db.updateAudioStatus(mediaId, 'ok', null);
         this._notify(mediaId, 'ok', null);
@@ -794,8 +794,7 @@ class AudioConversionQueue {
     const convertedDir = path.join(DATA_DIR, 'converted-audio');
     fs.ensureDirSync(convertedDir);
 
-    const baseName = path.basename(filePath, path.extname(filePath))
-      .replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+    const baseName = sanitizeFilename(path.basename(filePath, path.extname(filePath)));
 
     // Détecter le codec vidéo AVANT le cache check pour choisir le bon nom de fichier
     // (HEVC → fichier _h264aac.mp4 séparé pour ne pas cacher d'anciens fichiers mal convertis)
@@ -931,7 +930,7 @@ class AudioConversionQueue {
   }
 }
 
-// Configuration des gestionnaires de messages IPC avec stockage JSON
+// Configuration des gestionnaires de messages IPC
 function setupIPCHandlers() {
 
   // Scan léger : juste trouver les fichiers sans les traiter
@@ -1075,7 +1074,7 @@ function setupIPCHandlers() {
     catch (e) { return { success: false, statuses: {} }; }
   });
 
-  // Obtenir tous les films depuis la base JSON
+  // Obtenir tous les films depuis la base SQLite
   ipcMain.handle('medias:getAll', async () => {
     try {
       const medias = await db.getAllMedias();
@@ -1668,7 +1667,7 @@ function setupIPCHandlers() {
         height: height
       };
       
-      // Ajouter à la base JSON
+      // Ajouter à la base SQLite
       const addResult = await db.addMedia(mediaData);
       if (addResult.success) {
         console.log(`✅ Fichier ajouté: ${fileName}`);
@@ -2104,7 +2103,7 @@ function setupIPCHandlers() {
           // Codecs audio compatibles avec les navigateurs
           const validAudioCodecs = ['aac', 'mp3', 'opus', 'vorbis', 'flac'];
           // Codecs audio qui nécessitent un transcodage
-          const unsupportedAudioCodecs = ['ac3', 'eac3', 'dts', 'dca', 'truehd', 'mlp'];
+          const unsupportedAudioCodecs = UNSUPPORTED_AUDIO;
 
           // Vérifier le codec vidéo
           let isVideoValid = true; // Par défaut, on accepte si pas de vidéo détectée
@@ -2164,8 +2163,7 @@ function setupIPCHandlers() {
   ipcMain.handle('video:checkConvertedAudio', async (event, videoPath, transcodeVideo = false) => {
     try {
       const convertedDir = path.join(DATA_DIR, 'converted-audio');
-      let basename = path.basename(videoPath, path.extname(videoPath));
-      basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+      let basename = sanitizeFilename(path.basename(videoPath, path.extname(videoPath)));
 
       console.log('🔍 Recherche conversion pour:', basename);
 
@@ -2264,9 +2262,7 @@ function setupIPCHandlers() {
       fs.ensureDirSync(convertedDir);
 
       // Nettoyer le basename pour éviter les caractères spéciaux
-      let basename = path.basename(videoPath, path.extname(videoPath));
-      // Remplacer les caractères problématiques
-      basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+      let basename = sanitizeFilename(path.basename(videoPath, path.extname(videoPath)));
       // Suffixe basé sur les indices de pistes réellement sélectionnées (pas seulement leur nombre) :
       // sinon une conversion avec la piste 1 seule et une autre avec la piste 2 seule portent le même
       // nom de fichier (`_aac.mp4`) et se remplacent/collisionnent silencieusement - "je change de
@@ -2926,8 +2922,7 @@ function startLocalVideoServer() {
       // Si transcodage audio demandé (codec non supporté comme AC3, DTS)
       if (transcode && FFMPEG_PATH) {
         const cacheKey = `${videoPath}|transcode`;
-        let basename = path.basename(videoPath, path.extname(videoPath));
-        basename = basename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
+        let basename = sanitizeFilename(path.basename(videoPath, path.extname(videoPath)));
 
         // D'abord vérifier si une conversion permanente existe
         const convertedDir = path.join(DATA_DIR, 'converted-audio');
@@ -3530,14 +3525,16 @@ app.whenReady().then(async () => {
     console.error('❌ Erreur création dossiers data:', error);
   }
 
-  const dbPath    = path.join(DATA_DIR, 'medias.json');
+  // SQLiteDatabase n'utilise que le dossier parent (path.dirname) de la valeur passée ;
+  // le nom de fichier ici est un placeholder, aucun fichier "medias.json" n'est lu
+  const sqliteDirPlaceholder = path.join(DATA_DIR, 'medias.json');
   const sqlitePath = path.join(DATA_DIR, 'database', 'rackoon.db');
 
   if (!fs.existsSync(sqlitePath)) {
     console.log('🔄 Première utilisation — migration JSON → SQLite...');
     db = await migrateToSQLite(DATA_DIR, SQLiteDatabase);
   } else {
-    db = new SQLiteDatabase(dbPath);
+    db = new SQLiteDatabase(sqliteDirPlaceholder);
     await db.load();
   }
   console.log('✅ Base de données prête (SQLite)');

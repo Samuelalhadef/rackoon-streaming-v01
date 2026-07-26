@@ -1246,7 +1246,7 @@ class SQLiteDatabase {
     return count;
   }
 
-  // ── Enrichment (same logic as JSONDatabase) ───────────────────────────────
+  // ── Enrichment ──────────────────────────────────────────────────────────
 
   enrichMediaData(d) {
     const e = { ...d };

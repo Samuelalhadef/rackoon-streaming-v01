@@ -98,7 +98,11 @@
       "Bash(grep -n 'replace\\(/\\\\[<>' \"c:\\\\Users\\\\jamet\\\\OneDrive\\\\Documents\\\\GitHub\\\\rackoon-streaming-v01\\\\main.js\")",
       "Bash(sed -E \"s/ipcMain\\\\.\\(handle|on\\)\\\\\\('//\")",
       "Bash(node -c js/movie-modal.js)",
-      "Bash(node -c js/db-sqlite.js)"
+      "Bash(node -c js/db-sqlite.js)",
+      "Bash(node -c js/dashboard.js)",
+      "Bash(powershell -NoProfile -Command \"Get-Process electron,node -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path\")",
+      "Bash(sleep 8; cat \"/c/Users/jamet/AppData/Local/Temp/rackoon-cleanup-start.log\" 2>/dev/null || echo \"log not found yet\")",
+      "Bash(powershell -NoProfile -Command 'Get-Process electron -ErrorAction SilentlyContinue | Where-Object {$_.Path -like '\\\\''*rackoon-streaming-v01*'\\\\''} | Select-Object Id,StartTime')"
     ],
     "deny": [],
     "ask": []

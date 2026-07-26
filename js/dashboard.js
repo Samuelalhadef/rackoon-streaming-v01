@@ -66,8 +66,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           setTimeout(waitForModal, 100);
         } else {
           console.error('❌ La fonction openMovieModal n\'est pas disponible après ' + maxAttempts + ' tentatives');
-          console.log('🔍 Scripts chargés:', Object.keys(window).filter(key => key.includes('open') || key.includes('Modal')));
-          console.log('🔍 Toutes les propriétés window:', Object.keys(window).sort());
         }
       };
 
@@ -84,12 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mediaGrid = document.getElementById('media-grid');
   const statusMessage = document.getElementById('status-message');
   const progressBar = document.getElementById('progress-bar');
-
-  console.log('🔍 Éléments UI récupérés:');
-  console.log('  - addBtn:', addBtn);
-  console.log('  - scanMenu:', scanMenu);
-  console.log('  - scanFolderBtn:', scanFolderBtn);
-  console.log('  - scanFileBtn:', scanFileBtn);
 
   // Gestion du menu flottant
   addBtn.addEventListener('click', () => {
@@ -115,10 +107,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Recherche de dossier
   console.log('📁 Attachement du listener sur scanFolderBtn');
   scanFolderBtn.addEventListener('click', async () => {
-    console.log('═══════════════════════════════════════');
-    console.log('📁 BOUTON DOSSIER CLIQUÉ !');
-    console.log('═══════════════════════════════════════');
-
     try {
       scanMenu.classList.remove('active');
       statusMessage.textContent = 'Sélection du dossier...';
@@ -133,8 +121,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (scanResult.success && scanResult.medias && scanResult.medias.length > 0) {
         console.log(`📂 ${scanResult.medias.length} fichiers trouvés, ouverture de l'overlay`);
-        console.log('🔍 window.startTriage existe?', typeof window.startTriage);
-        console.log('🔍 window.importTriageSystem existe?', typeof window.importTriageSystem);
 
         // Maintenant afficher l'overlay avec les fichiers trouvés
         if (window.startTriage) {
@@ -167,18 +153,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Recherche de fichier individuel
   console.log('📄 Attachement du listener sur scanFileBtn');
   scanFileBtn.addEventListener('click', async () => {
-    console.log('═══════════════════════════════════════');
-    console.log('📄 BOUTON FICHIER CLIQUÉ !');
-    console.log('═══════════════════════════════════════');
-
     try {
       scanMenu.classList.remove('active');
       statusMessage.textContent = 'Sélection du fichier vidéo...';
       progressBar.style.width = '0%';
 
       console.log('📞 Appel de window.electronAPI.scanSingleMedia()...');
-      console.log('🔍 window.electronAPI existe?', typeof window.electronAPI);
-      console.log('🔍 window.electronAPI.scanSingleMedia existe?', typeof window.electronAPI?.scanSingleMedia);
 
       // Lancer la sélection de fichier unique
       const result = await window.electronAPI.scanSingleMedia();
@@ -194,7 +174,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           progressBar.style.width = '100%';
 
           console.log('🎯 Lancement de la modale de tri pour 1 fichier');
-          console.log('🔍 window.startTriage existe?', typeof window.startTriage);
 
           // Lancer la modale de tri même pour un seul fichier
           if (window.startTriage) {
@@ -220,10 +199,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         progressBar.style.width = '0%';
       }
     } catch (error) {
-      console.error('═══════════════════════════════════════');
       console.error('❌ ERREUR lors de la sélection de fichier:', error);
       console.error('❌ Stack:', error.stack);
-      console.error('═══════════════════════════════════════');
       statusMessage.textContent = 'Erreur lors de la sélection de fichier';
       progressBar.style.width = '0%';
     }
